@@ -517,6 +517,164 @@ pub async fn process_ocr_file(
     }
 }
 
+// Knowledge/RAG Processing Commands
+#[tauri::command]
+pub async fn search_knowledge(
+    query: String,
+    similarity_threshold: f64,
+    max_results: u32,
+    vector_db: String,
+    include_metadata: bool,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    
+    let payload = serde_json::json!({
+        "query": query,
+        "similarity_threshold": similarity_threshold,
+        "max_results": max_results,
+        "vector_db": vector_db,
+        "include_metadata": include_metadata
+    });
+    
+    match client
+        .post("http://localhost:3021/knowledge/search")
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                response.json().await.map_err(|e| e.to_string())
+            } else {
+                Err(format!("Knowledge service error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to knowledge service: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn ask_document(
+    session_id: String,
+    question: String,
+    document_id: Option<String>,
+    options: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    
+    let payload = serde_json::json!({
+        "session_id": session_id,
+        "question": question,
+        "document_id": document_id,
+        "options": options
+    });
+    
+    match client
+        .post("http://localhost:3021/knowledge/ask")
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                response.json().await.map_err(|e| e.to_string())
+            } else {
+                Err(format!("RAG service error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to RAG service: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_knowledge_stats() -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    
+    match client
+        .get("http://localhost:3021/knowledge/stats")
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                response.json().await.map_err(|e| e.to_string())
+            } else {
+                Err(format!("Knowledge service error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to knowledge service: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_knowledge_graph(
+    vector_db: String,
+    include_relationships: bool,
+    max_nodes: u32,
+    similarity_threshold: f64,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    
+    let payload = serde_json::json!({
+        "vector_db": vector_db,
+        "include_relationships": include_relationships,
+        "max_nodes": max_nodes,
+        "similarity_threshold": similarity_threshold
+    });
+    
+    match client
+        .post("http://localhost:3021/knowledge/graph")
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                response.json().await.map_err(|e| e.to_string())
+            } else {
+                Err(format!("Knowledge graph service error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to knowledge graph service: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn upload_to_knowledge_base(
+    filename: String,
+    file_data: String,
+    vector_db: String,
+    extract_entities: bool,
+    build_graph: bool,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    
+    let payload = serde_json::json!({
+        "filename": filename,
+        "file_data": file_data,
+        "vector_db": vector_db,
+        "extract_entities": extract_entities,
+        "build_graph": build_graph
+    });
+    
+    match client
+        .post("http://localhost:3021/knowledge/upload")
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                let result: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+                Ok(result["upload_id"].as_str().unwrap_or("unknown").to_string())
+            } else {
+                Err(format!("Knowledge upload service error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to knowledge upload service: {}", e)),
+    }
+}
+
 #[tauri::command]
 pub async fn get_ocr_status(job_id: String) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();

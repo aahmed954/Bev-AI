@@ -99,7 +99,13 @@ fn main() {
             osint_handlers::process_ocr_file,
             osint_handlers::get_ocr_status,
             osint_handlers::get_ocr_stats,
-            osint_handlers::get_ocr_results
+            osint_handlers::get_ocr_results,
+            // Knowledge/RAG Commands
+            osint_handlers::search_knowledge,
+            osint_handlers::ask_document,
+            osint_handlers::get_knowledge_stats,
+            osint_handlers::get_knowledge_graph,
+            osint_handlers::upload_to_knowledge_base
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
