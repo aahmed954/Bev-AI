@@ -1,0 +1,278 @@
+# Context Compression Engine Configuration
+# BEV OSINT Framework - Context Compression Service
+
+# Core Compression Settings
+compression:
+  # Default compression strategy: conservative, balanced, aggressive, semantic_only, entropy_only
+  default_strategy: balanced
+
+  # Target compression ratio (0.1 - 0.9)
+  target_compression_ratio: 0.4
+
+  # Maximum acceptable information loss (0.0 - 0.3)
+  max_information_loss: 0.05
+
+  # Enable semantic preservation
+  preserve_semantics: true
+
+  # Enable result caching
+  enable_caching: true
+
+  # Enable quality validation
+  quality_validation: true
+
+# Semantic Deduplication Settings
+semantic_deduplication:
+  # Similarity threshold for considering content as duplicates (0.0 - 1.0)
+  similarity_threshold: 0.85
+
+  # DBSCAN clustering epsilon parameter
+  clustering_eps: 0.3
+
+  # Minimum samples for DBSCAN clustering
+  min_samples: 2
+
+  # Threshold for preserving unique content
+  preserve_unique_threshold: 0.7
+
+  # Semantic model for embeddings
+  semantic_model: "all-MiniLM-L6-v2"
+
+  # TF-IDF settings
+  tfidf:
+    max_features: 1000
+    ngram_range: [1, 2]
+    stop_words: "english"
+
+# Entropy Compression Settings
+entropy_compression:
+  # Block size for entropy analysis
+  block_size: 1024
+
+  # Overlap size between blocks
+  overlap_size: 128
+
+  # Target compression ratio for entropy compression
+  target_ratio: 0.5
+
+  # Available compression methods
+  compression_methods:
+    - gzip
+    - lzma
+    - bz2
+    - zlib
+
+  # Apply semantic compression for high aggressiveness
+  semantic_compression: true
+
+# Quality Validation Settings
+quality_validation:
+  # Core quality thresholds
+  min_information_preservation: 0.95
+  min_semantic_similarity: 0.90
+  min_structural_coherence: 0.85
+  min_linguistic_quality: 0.80
+
+  # Detailed quality metrics thresholds
+  min_bleu_score: 0.8
+  min_rouge_score: 0.8
+  max_readability_degradation: 0.2
+  min_reconstruction_accuracy: 0.95
+
+  # Analysis settings
+  enable_deep_analysis: true
+  enable_linguistic_analysis: true
+  enable_semantic_analysis: true
+  enable_structural_analysis: true
+
+  # Performance settings
+  batch_size: 32
+  max_content_length: 10000
+
+# Database Connections
+databases:
+  # Redis for caching
+  redis:
+    host: redis-standalone
+    port: 6379
+    db: 0
+    password: null
+    connection_pool_size: 10
+
+  # MongoDB for metadata storage
+  mongodb:
+    url: "mongodb://postgres:5432/compression_metadata"
+    database: "bev_compression"
+    collection_prefix: "compression_"
+
+  # Qdrant vector database
+  qdrant:
+    host: qdrant-primary
+    port: 6333
+    collection_name: "compression_cache"
+    vector_size: 384
+    distance_metric: "cosine"
+
+  # Weaviate vector database
+  weaviate:
+    host: weaviate-primary
+    port: 8080
+    schema_name: "CompressionCache"
+
+# API Configuration
+api:
+  # Server settings
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+
+  # CORS settings
+  cors:
+    allow_origins: ["*"]
+    allow_methods: ["*"]
+    allow_headers: ["*"]
+    allow_credentials: true
+
+  # Request limits
+  request_limits:
+    max_content_size: 50000000  # 50MB
+    max_batch_size: 100
+    rate_limit: 100  # requests per minute
+
+  # Timeouts
+  timeouts:
+    compression_timeout: 300  # 5 minutes
+    analysis_timeout: 60     # 1 minute
+
+  # Response compression
+  gzip_compression:
+    enabled: true
+    minimum_size: 1000
+
+# Monitoring and Logging
+monitoring:
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    port: 9090
+    path: "/metrics"
+
+  # Health checks
+  health_check:
+    interval: 30
+    timeout: 10
+    retries: 3
+
+  # Performance metrics
+  metrics:
+    collect_detailed_metrics: true
+    histogram_buckets: [0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+
+# Logging Configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  # File logging
+  file:
+    enabled: true
+    path: "/app/logs/compression.log"
+    max_size: "100MB"
+    backup_count: 5
+
+  # JSON logging for structured logs
+  json_logging:
+    enabled: true
+    include_trace_id: true
+
+# Performance Optimization
+performance:
+  # Parallel processing
+  max_concurrent_operations: 10
+  worker_threads: 4
+
+  # Memory management
+  max_memory_usage: "3GB"
+  garbage_collection_threshold: 0.8
+
+  # Caching
+  cache:
+    ttl: 3600  # 1 hour
+    max_size: 10000  # Maximum cached items
+    eviction_policy: "lru"
+
+  # Model optimization
+  model_optimization:
+    use_onnx: false
+    quantization: false
+    batch_processing: true
+
+# Security Settings
+security:
+  # API security
+  api_key_required: false
+  rate_limiting: true
+
+  # Data protection
+  encrypt_cache: false
+  secure_headers: true
+
+  # Content validation
+  content_validation:
+    max_file_size: "50MB"
+    allowed_content_types:
+      - "text/plain"
+      - "application/json"
+      - "text/markdown"
+      - "text/html"
+
+# Development Settings
+development:
+  debug: false
+  auto_reload: false
+  profiling: false
+
+  # Testing
+  testing:
+    enable_test_endpoints: false
+    mock_external_services: false
+
+# Operational Settings
+operations:
+  # Backup and recovery
+  backup:
+    enabled: true
+    interval: "24h"
+    retention_days: 30
+
+  # Cleanup tasks
+  cleanup:
+    old_operations_retention: "1h"
+    cache_cleanup_interval: "30m"
+    log_cleanup_retention: "7d"
+
+  # Resource monitoring
+  resource_monitoring:
+    cpu_threshold: 80
+    memory_threshold: 85
+    disk_threshold: 90
+
+# Integration Settings
+integrations:
+  # Vector database integration
+  vector_db:
+    enabled: true
+    auto_sync: true
+    sync_interval: "5m"
+
+  # Extended reasoning pipeline
+  reasoning_pipeline:
+    enabled: true
+    endpoint: "http://reasoning-engine:8000"
+    timeout: 30
+
+  # Knowledge synthesis integration
+  knowledge_synthesis:
+    enabled: true
+    endpoint: "http://knowledge-synthesis:8000"
+    max_parallel_requests: 5

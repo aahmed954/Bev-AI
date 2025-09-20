@@ -1,0 +1,724 @@
+{
+  "name": "BEV_Advanced_Workflows",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Multimodal Analysis Pipeline",
+      "type": "n8n-nodes-base.workflow",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {
+        "workflowId": "multimodal_analysis"
+      },
+      "credentials": {},
+      "nodes": [
+        {
+          "id": "webhook_trigger",
+          "name": "Webhook Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "position": [250, 300],
+          "parameters": {
+            "path": "multimodal-analysis",
+            "method": "POST",
+            "responseMode": "onReceived"
+          }
+        },
+        {
+          "id": "extract_media",
+          "name": "Extract Media",
+          "type": "n8n-nodes-base.function",
+          "position": [450, 300],
+          "parameters": {
+            "functionCode": "const media = items[0].json;\nconst mediaType = media.type;\nconst mediaUrl = media.url;\nconst analysisType = media.analysis || 'full';\n\nreturn [{\n  json: {\n    mediaType,\n    mediaUrl,\n    analysisType,\n    timestamp: new Date().toISOString()\n  }\n}];"
+          }
+        },
+        {
+          "id": "route_by_type",
+          "name": "Route by Media Type",
+          "type": "n8n-nodes-base.switch",
+          "position": [650, 300],
+          "parameters": {
+            "dataPropertyName": "mediaType",
+            "values": {
+              "string": [
+                {
+                  "value": "image"
+                },
+                {
+                  "value": "audio"
+                },
+                {
+                  "value": "video"
+                },
+                {
+                  "value": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "process_image",
+          "name": "Process Image",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [850, 200],
+          "parameters": {
+            "url": "http://localhost:8092/api/process/image",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "url",
+                  "value": "={{$json[\"mediaUrl\"]}}"
+                },
+                {
+                  "name": "analysis",
+                  "value": "={{$json[\"analysisType\"]}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "process_audio",
+          "name": "Process Audio",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [850, 300],
+          "parameters": {
+            "url": "http://localhost:8092/api/process/audio",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "url",
+                  "value": "={{$json[\"mediaUrl\"]}}"
+                },
+                {
+                  "name": "transcribe",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "process_video",
+          "name": "Process Video",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [850, 400],
+          "parameters": {
+            "url": "http://localhost:8092/api/process/video",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "url",
+                  "value": "={{$json[\"mediaUrl\"]}}"
+                },
+                {
+                  "name": "extractFrames",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "correlate_modalities",
+          "name": "Correlate Modalities",
+          "type": "n8n-nodes-base.merge",
+          "position": [1050, 300],
+          "parameters": {
+            "mode": "multiplex",
+            "options": {}
+          }
+        },
+        {
+          "id": "store_results",
+          "name": "Store in Redis",
+          "type": "n8n-nodes-base.redis",
+          "position": [1250, 300],
+          "parameters": {
+            "operation": "set",
+            "key": "multimodal:{{$json[\"analysisId\"]}}",
+            "value": "={{JSON.stringify($json)}}",
+            "expire": true,
+            "ttl": 3600
+          }
+        },
+        {
+          "id": "notify_completion",
+          "name": "Send Notification",
+          "type": "n8n-nodes-base.webhook",
+          "position": [1450, 300],
+          "parameters": {
+            "url": "={{$json[\"callbackUrl\"]}}",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "status",
+                  "value": "completed"
+                },
+                {
+                  "name": "results",
+                  "value": "={{$json}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Autonomous Optimization Workflow",
+      "type": "n8n-nodes-base.workflow",
+      "typeVersion": 1,
+      "position": [250, 500],
+      "parameters": {
+        "workflowId": "autonomous_optimization"
+      },
+      "nodes": [
+        {
+          "id": "cron_trigger",
+          "name": "Scheduled Trigger",
+          "type": "n8n-nodes-base.cron",
+          "position": [250, 300],
+          "parameters": {
+            "triggerTimes": {
+              "item": [
+                {
+                  "hour": 2,
+                  "minute": 0
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "check_performance",
+          "name": "Check Performance Metrics",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [450, 300],
+          "parameters": {
+            "url": "http://localhost:8090/status",
+            "method": "GET"
+          }
+        },
+        {
+          "id": "evaluate_metrics",
+          "name": "Evaluate Metrics",
+          "type": "n8n-nodes-base.function",
+          "position": [650, 300],
+          "parameters": {
+            "functionCode": "const metrics = items[0].json.performance;\nconst threshold = 0.8;\n\nif (metrics && metrics.efficiency_score < threshold) {\n  return [{\n    json: {\n      needsOptimization: true,\n      currentScore: metrics.efficiency_score,\n      threshold: threshold,\n      metrics: metrics\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    needsOptimization: false,\n    currentScore: metrics ? metrics.efficiency_score : 1.0\n  }\n}];"
+          }
+        },
+        {
+          "id": "optimization_decision",
+          "name": "Optimization Decision",
+          "type": "n8n-nodes-base.if",
+          "position": [850, 300],
+          "parameters": {
+            "conditions": {
+              "boolean": [
+                {
+                  "value1": "={{$json[\"needsOptimization\"]}}",
+                  "value2": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "trigger_optimization",
+          "name": "Trigger Optimization",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [1050, 250],
+          "parameters": {
+            "url": "http://localhost:8090/optimize",
+            "method": "POST"
+          }
+        },
+        {
+          "id": "check_capabilities",
+          "name": "Check Capabilities",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [1050, 350],
+          "parameters": {
+            "url": "http://localhost:8090/capabilities",
+            "method": "GET"
+          }
+        },
+        {
+          "id": "discover_new_capabilities",
+          "name": "Discover Capabilities",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [1250, 350],
+          "parameters": {
+            "url": "http://localhost:8090/discover",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "source",
+                  "value": "automated_discovery"
+                },
+                {
+                  "name": "metadata",
+                  "value": "={{$json}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "scale_decision",
+          "name": "Auto-scaling Decision",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [1450, 250],
+          "parameters": {
+            "url": "http://localhost:8090/scale",
+            "method": "POST"
+          }
+        },
+        {
+          "id": "log_results",
+          "name": "Log Results",
+          "type": "n8n-nodes-base.function",
+          "position": [1650, 300],
+          "parameters": {
+            "functionCode": "const timestamp = new Date().toISOString();\nconst results = items.map(item => item.json);\n\nconsole.log(`[${timestamp}] Autonomous optimization completed:`, results);\n\nreturn [{\n  json: {\n    timestamp,\n    results,\n    status: 'completed'\n  }\n}];"
+          }
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Avatar Emotion Pipeline",
+      "type": "n8n-nodes-base.workflow",
+      "typeVersion": 1,
+      "position": [250, 700],
+      "parameters": {
+        "workflowId": "avatar_emotion_pipeline"
+      },
+      "nodes": [
+        {
+          "id": "text_input",
+          "name": "Text Input",
+          "type": "n8n-nodes-base.webhook",
+          "position": [250, 300],
+          "parameters": {
+            "path": "avatar-speak",
+            "method": "POST"
+          }
+        },
+        {
+          "id": "analyze_emotion",
+          "name": "Analyze Emotion",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [450, 300],
+          "parameters": {
+            "url": "http://localhost:8091/analyze",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "text",
+                  "value": "={{$json[\"text\"]}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "determine_emotion",
+          "name": "Determine Dominant Emotion",
+          "type": "n8n-nodes-base.function",
+          "position": [650, 300],
+          "parameters": {
+            "functionCode": "const emotions = items[0].json;\nlet dominantEmotion = 'neutral';\nlet maxScore = emotions.neutral || 0;\n\nfor (const [emotion, score] of Object.entries(emotions)) {\n  if (score > maxScore) {\n    dominantEmotion = emotion;\n    maxScore = score;\n  }\n}\n\nreturn [{\n  json: {\n    text: items[0].json.text,\n    dominantEmotion,\n    emotionScore: maxScore,\n    allEmotions: emotions\n  }\n}];"
+          }
+        },
+        {
+          "id": "set_avatar_emotion",
+          "name": "Set Avatar Emotion",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [850, 300],
+          "parameters": {
+            "url": "http://localhost:8091/emotion",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "emotion",
+                  "value": "={{$json[\"dominantEmotion\"]}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "make_avatar_speak",
+          "name": "Make Avatar Speak",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [1050, 300],
+          "parameters": {
+            "url": "http://localhost:8091/speak",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "text",
+                  "value": "={{$json[\"text\"]}}"
+                },
+                {
+                  "name": "emotion",
+                  "value": "={{$json[\"dominantEmotion\"]}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "broadcast_websocket",
+          "name": "Broadcast to WebSocket",
+          "type": "n8n-nodes-base.websocket",
+          "position": [1250, 300],
+          "parameters": {
+            "url": "ws://localhost:8091/ws",
+            "sendBinaryData": false,
+            "message": "={{JSON.stringify($json)}}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Threat Intelligence Pipeline",
+      "type": "n8n-nodes-base.workflow",
+      "typeVersion": 1,
+      "position": [250, 900],
+      "parameters": {
+        "workflowId": "threat_intelligence"
+      },
+      "nodes": [
+        {
+          "id": "schedule_research",
+          "name": "Schedule Research",
+          "type": "n8n-nodes-base.cron",
+          "position": [250, 300],
+          "parameters": {
+            "triggerTimes": {
+              "item": [
+                {
+                  "hour": 0,
+                  "minute": 0
+                },
+                {
+                  "hour": 12,
+                  "minute": 0
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "gather_sources",
+          "name": "Gather Intelligence Sources",
+          "type": "n8n-nodes-base.function",
+          "position": [450, 300],
+          "parameters": {
+            "functionCode": "// Define intelligence sources\nconst sources = [\n  { type: 'feed', url: 'https://example.com/threat-feed', format: 'json' },\n  { type: 'api', url: 'https://api.example.com/threats', format: 'json' },\n  { type: 'research', url: 'internal://darknet-research', format: 'custom' }\n];\n\nreturn sources.map(source => ({\n  json: source\n}));"
+          }
+        },
+        {
+          "id": "fetch_intelligence",
+          "name": "Fetch Intelligence Data",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [650, 300],
+          "parameters": {
+            "url": "={{$json[\"url\"]}}",
+            "method": "GET",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth"
+          }
+        },
+        {
+          "id": "parse_intelligence",
+          "name": "Parse Intelligence",
+          "type": "n8n-nodes-base.function",
+          "position": [850, 300],
+          "parameters": {
+            "functionCode": "const data = items[0].json;\nconst threats = [];\n\n// Parse based on format\nif (Array.isArray(data)) {\n  data.forEach(item => {\n    threats.push({\n      id: item.id || crypto.randomUUID(),\n      type: item.type || 'unknown',\n      severity: item.severity || 'medium',\n      description: item.description || '',\n      indicators: item.indicators || [],\n      timestamp: new Date().toISOString()\n    });\n  });\n}\n\nreturn threats.map(threat => ({ json: threat }));"
+          }
+        },
+        {
+          "id": "correlate_threats",
+          "name": "Correlate Threats",
+          "type": "n8n-nodes-base.merge",
+          "position": [1050, 300],
+          "parameters": {
+            "mode": "combine",
+            "combinationMode": "mergeByKey",
+            "propertyName1": "id",
+            "propertyName2": "id"
+          }
+        },
+        {
+          "id": "enrich_intelligence",
+          "name": "Enrich Intelligence",
+          "type": "n8n-nodes-base.function",
+          "position": [1250, 300],
+          "parameters": {
+            "functionCode": "const threats = items.map(item => item.json);\n\n// Enrich with additional context\nfor (const threat of threats) {\n  // Add risk score\n  const severityScores = { critical: 10, high: 8, medium: 5, low: 2 };\n  threat.riskScore = severityScores[threat.severity] || 5;\n  \n  // Add mitigation recommendations\n  threat.mitigation = generateMitigation(threat);\n  \n  // Add affected systems\n  threat.affectedSystems = identifyAffectedSystems(threat);\n}\n\nfunction generateMitigation(threat) {\n  // Simplified mitigation logic\n  return `Apply security patches and monitor for ${threat.type} activity`;\n}\n\nfunction identifyAffectedSystems(threat) {\n  // Simplified system identification\n  return ['web_servers', 'databases', 'apis'];\n}\n\nreturn threats.map(threat => ({ json: threat }));"
+          }
+        },
+        {
+          "id": "store_neo4j",
+          "name": "Store in Neo4j",
+          "type": "n8n-nodes-base.graphql",
+          "position": [1450, 250],
+          "parameters": {
+            "endpoint": "http://localhost:7474/graphql",
+            "requestFormat": "graphql",
+            "query": "mutation CreateThreat($threat: ThreatInput!) {\n  createThreat(input: $threat) {\n    id\n    type\n    severity\n  }\n}",
+            "variables": "={{JSON.stringify({ threat: $json })}}"
+          }
+        },
+        {
+          "id": "alert_critical",
+          "name": "Alert on Critical",
+          "type": "n8n-nodes-base.if",
+          "position": [1450, 350],
+          "parameters": {
+            "conditions": {
+              "string": [
+                {
+                  "value1": "={{$json[\"severity\"]}}",
+                  "value2": "critical"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "send_alert",
+          "name": "Send Alert",
+          "type": "n8n-nodes-base.emailSend",
+          "position": [1650, 350],
+          "parameters": {
+            "fromEmail": "bev@oracle1.ai",
+            "toEmail": "security@example.com",
+            "subject": "Critical Threat Alert: {{$json[\"type\"]}}",
+            "text": "Critical threat detected:\\n\\nID: {{$json[\"id\"]}}\\nType: {{$json[\"type\"]}}\\nDescription: {{$json[\"description\"]}}\\nRisk Score: {{$json[\"riskScore\"]}}\\nMitigation: {{$json[\"mitigation\"]}}",
+            "attachments": []
+          }
+        },
+        {
+          "id": "generate_report",
+          "name": "Generate Report",
+          "type": "n8n-nodes-base.function",
+          "position": [1650, 250],
+          "parameters": {
+            "functionCode": "const threats = items.map(item => item.json);\nconst timestamp = new Date().toISOString();\n\nconst report = {\n  generated: timestamp,\n  total_threats: threats.length,\n  critical: threats.filter(t => t.severity === 'critical').length,\n  high: threats.filter(t => t.severity === 'high').length,\n  medium: threats.filter(t => t.severity === 'medium').length,\n  low: threats.filter(t => t.severity === 'low').length,\n  threats: threats\n};\n\n// Save report\nreturn [{\n  json: {\n    reportId: `threat_report_${Date.now()}`,\n    report: report\n  }\n}];"
+          }
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Cross-System Integration",
+      "type": "n8n-nodes-base.workflow",
+      "typeVersion": 1,
+      "position": [250, 1100],
+      "parameters": {
+        "workflowId": "cross_system_integration"
+      },
+      "nodes": [
+        {
+          "id": "system_event",
+          "name": "System Event Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "position": [250, 300],
+          "parameters": {
+            "path": "system-event",
+            "method": "POST"
+          }
+        },
+        {
+          "id": "route_event",
+          "name": "Route Event",
+          "type": "n8n-nodes-base.switch",
+          "position": [450, 300],
+          "parameters": {
+            "dataPropertyName": "eventType",
+            "values": {
+              "string": [
+                {
+                  "value": "performance_alert"
+                },
+                {
+                  "value": "threat_detected"
+                },
+                {
+                  "value": "capability_discovered"
+                },
+                {
+                  "value": "avatar_update"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "handle_performance",
+          "name": "Handle Performance Alert",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [650, 200],
+          "parameters": {
+            "url": "http://localhost:8090/optimize",
+            "method": "POST"
+          }
+        },
+        {
+          "id": "handle_threat",
+          "name": "Handle Threat",
+          "type": "n8n-nodes-base.function",
+          "position": [650, 300],
+          "parameters": {
+            "functionCode": "// Process threat and update avatar emotion\nconst threat = items[0].json;\nconst emotion = threat.severity === 'critical' ? 'angry' : 'concerned';\n\nreturn [{\n  json: {\n    action: 'update_avatar',\n    emotion: emotion,\n    message: `Threat detected: ${threat.type}`,\n    threat: threat\n  }\n}];"
+          }
+        },
+        {
+          "id": "handle_capability",
+          "name": "Handle New Capability",
+          "type": "n8n-nodes-base.function",
+          "position": [650, 400],
+          "parameters": {
+            "functionCode": "// Process new capability discovery\nconst capability = items[0].json;\n\nreturn [{\n  json: {\n    action: 'celebrate',\n    emotion: 'excited',\n    message: `New capability discovered: ${capability.name}`,\n    capability: capability\n  }\n}];"
+          }
+        },
+        {
+          "id": "update_avatar",
+          "name": "Update Avatar",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [850, 300],
+          "parameters": {
+            "url": "http://localhost:8091/emotion",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "emotion",
+                  "value": "={{$json[\"emotion\"]}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "make_announcement",
+          "name": "Make Announcement",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [1050, 300],
+          "parameters": {
+            "url": "http://localhost:8091/speak",
+            "method": "POST",
+            "bodyParametersUi": {
+              "parameter": [
+                {
+                  "name": "text",
+                  "value": "={{$json[\"message\"]}}"
+                },
+                {
+                  "name": "emotion",
+                  "value": "={{$json[\"emotion\"]}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "log_event",
+          "name": "Log Event",
+          "type": "n8n-nodes-base.redis",
+          "position": [1250, 300],
+          "parameters": {
+            "operation": "push",
+            "key": "system:events",
+            "value": "={{JSON.stringify($json)}}",
+            "tail": false
+          }
+        },
+        {
+          "id": "update_dashboard",
+          "name": "Update Dashboard",
+          "type": "n8n-nodes-base.websocket",
+          "position": [1450, 300],
+          "parameters": {
+            "url": "ws://localhost:3001/dashboard",
+            "message": "={{JSON.stringify({ type: 'update', data: $json })}}"
+          }
+        }
+      ]
+    }
+  ],
+  "connections": {
+    "1": {
+      "webhook_trigger": {
+        "main": [
+          [
+            {
+              "node": "extract_media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "extract_media": {
+        "main": [
+          [
+            {
+              "node": "route_by_type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "1",
+      "name": "automation"
+    },
+    {
+      "id": "2",
+      "name": "oracle1"
+    },
+    {
+      "id": "3",
+      "name": "multimodal"
+    },
+    {
+      "id": "4",
+      "name": "intelligence"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "v1.0.0"
+}

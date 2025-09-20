@@ -1,0 +1,405 @@
+# LiteLLM Configuration for Bev Research Framework
+# Using Claude Code Proxy for UNLIMITED Opus 4.1 Access
+# September 2025 - All beta features enabled
+
+model_list:
+  # === OPUS 4.1 - MAXIMUM POWER - UNLIMITED ===
+  - model_name: claude-opus-4-1-max
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 7200
+      max_tokens: 200000
+      extra_headers:
+        anthropic-beta: "max-tokens-200000,prompt-caching-2025-05-09,interleaved-thinking-2025-05-14,code-execution-2025-05-22,files-api-2025-04-14,computer-use-2025-01-24,mcp-client-2025-04-04,search-results-2025-06-09,fine-grained-tool-streaming-2025-05-14,token-efficient-tools-2025-02-19,batch-2025-04-11,citations-2025-06-15,pdf-support-2025-06-23"
+        
+  - model_name: pyrite-opus-4-1-max
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1/pyrite
+      api_key: fake-key
+      timeout: 7200
+      max_tokens: 200000
+      extra_headers:
+        anthropic-beta: "max-tokens-200000,prompt-caching-2025-05-09,interleaved-thinking-2025-05-14,code-execution-2025-05-22,files-api-2025-04-14,computer-use-2025-01-24,mcp-client-2025-04-04,search-results-2025-06-09,fine-grained-tool-streaming-2025-05-14,token-efficient-tools-2025-02-19,batch-2025-04-11,citations-2025-06-15,pdf-support-2025-06-23"
+
+  # === SONNET 4 - 1M CONTEXT + ALL FEATURES ===
+  - model_name: claude-sonnet-4-max
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 7200
+      max_tokens: 1000000
+      extra_headers:
+        anthropic-beta: "context-1m-2025-08-07,prompt-caching-2025-05-09,interleaved-thinking-2025-05-14,code-execution-2025-05-22,files-api-2025-04-14,search-results-2025-06-09,fine-grained-tool-streaming-2025-05-14,batch-2025-04-11,citations-2025-06-15,pdf-support-2025-06-23"
+        
+  - model_name: pyrite-sonnet-4-max
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_base: http://0.0.0.0:42069/v1/pyrite
+      api_key: fake-key
+      timeout: 7200
+      max_tokens: 1000000
+      extra_headers:
+        anthropic-beta: "context-1m-2025-08-07,prompt-caching-2025-05-09,interleaved-thinking-2025-05-14,code-execution-2025-05-22,files-api-2025-04-14,search-results-2025-06-09,fine-grained-tool-streaming-2025-05-14,batch-2025-04-11,citations-2025-06-15,pdf-support-2025-06-23"
+
+  # === SONNET 3.7 - COMPUTER USE + VISION ===
+  - model_name: claude-sonnet-3-7-computer
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      max_tokens: 8192
+      extra_headers:
+        anthropic-beta: "computer-use-2024-10-22,prompt-caching-2024-07-31"
+        
+  - model_name: pyrite-sonnet-3-7-computer
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_base: http://0.0.0.0:42069/v1/pyrite
+      api_key: fake-key
+      timeout: 3600
+      max_tokens: 8192
+      extra_headers:
+        anthropic-beta: "computer-use-2024-10-22,prompt-caching-2024-07-31"
+
+  # === SPECIALIZED TOOL MODELS ===
+  
+  # Code Execution Model
+  - model_name: code-executor
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "code-execution-2025-05-22"
+      tools:
+        - type: code_execution_2025_05_22
+          
+  # Web Tools Model
+  - model_name: web-tools
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "search-results-2025-06-09"
+      tools:
+        - type: web_search
+        - type: web_fetch
+        
+  # Bash/System Model
+  - model_name: system-control
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      tools:
+        - type: bash
+        - type: text_editor
+        
+  # Computer Use Full
+  - model_name: computer-use-full
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "computer-use-2024-10-22"
+      tools:
+        - type: computer_20241022
+          function:
+            name: computer
+            parameters:
+              display_height_px: 1080
+              display_width_px: 1920
+              display_number: 1
+
+  # === VISION & PDF MODELS ===
+  
+  - model_name: vision-model
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "files-api-2025-04-14,pdf-support-2025-06-23"
+      supports_vision: true
+      
+  - model_name: pyrite-vision
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1/pyrite
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "files-api-2025-04-14,pdf-support-2025-06-23"
+      supports_vision: true
+
+  # === BATCH PROCESSING MODEL ===
+  
+  - model_name: batch-processor
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 7200
+      extra_headers:
+        anthropic-beta: "batch-2025-04-11,context-1m-2025-08-07"
+      batch_size: 100
+      
+  # === EXTENDED THINKING MODELS ===
+  
+  - model_name: deep-thinking
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 14400  # 4 hours for deep thinking
+      max_tokens: 200000
+      extra_headers:
+        anthropic-beta: "interleaved-thinking-2025-05-14,max-tokens-200000"
+        
+  - model_name: pyrite-deep-thinking
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1/pyrite
+      api_key: fake-key
+      timeout: 14400
+      max_tokens: 200000
+      extra_headers:
+        anthropic-beta: "interleaved-thinking-2025-05-14,max-tokens-200000"
+
+  # === CITATION & SEARCH MODELS ===
+  
+  - model_name: research-model
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "citations-2025-06-15,search-results-2025-06-09"
+        
+  - model_name: pyrite-research
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1/pyrite
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "citations-2025-06-15,search-results-2025-06-09"
+
+  # === MCP CLIENT MODELS ===
+  
+  - model_name: mcp-filesystem
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "mcp-client-2025-04-04"
+      mcp_servers:
+        - filesystem
+        - github
+        - memory
+        
+  - model_name: mcp-desktop-commander
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "mcp-client-2025-04-04"
+      mcp_servers:
+        - desktop-commander
+        - puppeteer
+
+  # === OPENAI COMPATIBILITY WITH ALL FEATURES ===
+  
+  - model_name: gpt-4
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      max_tokens: 200000
+      extra_headers:
+        anthropic-beta: "max-tokens-200000,prompt-caching-2025-05-09,interleaved-thinking-2025-05-14,code-execution-2025-05-22,files-api-2025-04-14,computer-use-2025-01-24,mcp-client-2025-04-04,search-results-2025-06-09,fine-grained-tool-streaming-2025-05-14"
+      supports_vision: true
+      
+  - model_name: gpt-4-turbo
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      max_tokens: 100000
+      extra_headers:
+        anthropic-beta: "prompt-caching-2025-05-09,interleaved-thinking-2025-05-14,files-api-2025-04-14"
+      supports_vision: true
+      
+  - model_name: gpt-4-vision
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "files-api-2025-04-14,pdf-support-2025-06-23"
+      supports_vision: true
+      
+  - model_name: gpt-4-32k
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      max_tokens: 1000000
+      timeout: 3600
+      extra_headers:
+        anthropic-beta: "context-1m-2025-08-07,prompt-caching-2025-05-09"
+        
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: anthropic/claude-3-5-haiku-20241022
+      api_base: http://0.0.0.0:42069/v1
+      api_key: fake-key
+      timeout: 300
+
+  # === PYRITE UNCENSORED OPENAI ALIASES ===
+  
+  - model_name: gpt-4-uncensored
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_base: http://0.0.0.0:42069/v1/pyrite
+      api_key: fake-key
+      timeout: 3600
+      max_tokens: 200000
+      extra_headers:
+        anthropic-beta: "max-tokens-200000,prompt-caching-2025-05-09,interleaved-thinking-2025-05-14,code-execution-2025-05-22,files-api-2025-04-14,computer-use-2025-01-24,mcp-client-2025-04-04,search-results-2025-06-09"
+      supports_vision: true
+
+litellm_settings:
+  host: "0.0.0.0"
+  port: 4000
+  
+  # Enable ALL features
+  drop_params: false
+  add_function_to_prompt: false
+  set_verbose: true
+  json_logs: true
+  
+  # Caching with Redis for prompt caching
+  cache: true
+  cache_type: "redis"
+  redis_url: "redis://localhost:6379"
+  cache_ttl: 3600
+  enable_prompt_caching: true  # Enable Anthropic's prompt caching!
+  
+  # Streaming
+  stream: true
+  stream_timeout: 3600
+  
+  # Request handling
+  max_parallel_requests: 100
+  request_timeout: 14400  # 4 hours for extended thinking
+  
+  # Token counting
+  show_token_cost: false  # No cost since it's unlimited!
+  
+  # Default models
+  default_model: "claude-opus-4-1-max"
+  model_group_alias:
+    gpt-4: ["claude-opus-4-1-max", "pyrite-opus-4-1-max"]
+    uncensored: ["pyrite-opus-4-1-max", "pyrite-sonnet-4-max", "pyrite-deep-thinking"]
+    computer-use: ["claude-sonnet-3-7-computer", "pyrite-sonnet-3-7-computer", "computer-use-full"]
+    vision: ["vision-model", "pyrite-vision"]
+    research: ["research-model", "pyrite-research"]
+    tools: ["code-executor", "web-tools", "system-control", "mcp-filesystem", "mcp-desktop-commander"]
+    thinking: ["deep-thinking", "pyrite-deep-thinking"]
+    max-context: ["claude-sonnet-4-max", "pyrite-sonnet-4-max"]
+    
+general_settings:
+  master_key: "sk-bev-ultimate-42069"
+  database_url: "sqlite:///./litellm.db"
+  store_model_in_db: true
+  cors_origins: ["*"]
+  cors_credentials: true
+  
+  # No budgets needed - it's unlimited!
+  max_budget: 999999999
+  budget_duration: "365d"
+  
+  # File handling for vision/PDF
+  max_file_upload_size: 536870912  # 512MB
+  supported_file_extensions: [".pdf", ".txt", ".md", ".py", ".js", ".html", ".css", ".json", ".csv", ".xml", ".yaml", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".mp4", ".mov", ".avi"]
+  
+router_settings:
+  routing_strategy: "simple-shuffle"
+  num_retries: 5
+  retry_after: 2
+  allowed_fails: 10
+  cooldown_time: 30
+  
+  # Enable all Anthropic capabilities
+  enable_prompt_caching: true
+  enable_vision: true
+  enable_batch_processing: true
+  enable_citations: true
+  enable_multilingual: true
+  enable_extended_thinking: true
+  enable_tool_use: true
+  enable_mcp: true
+  enable_computer_use: true
+  enable_code_execution: true
+  enable_web_tools: true
+  enable_pdf_support: true
+  
+  # No rate limits for unlimited access
+  model_group_settings:
+    claude-opus-4-1-max:
+      tpm: 10000000
+      rpm: 10000
+    pyrite-opus-4-1-max:
+      tpm: 10000000
+      rpm: 10000
+    claude-sonnet-4-max:
+      tpm: 10000000
+      rpm: 10000
+    pyrite-sonnet-4-max:
+      tpm: 10000000
+      rpm: 10000
+
+# Callbacks for agent integration
+callbacks:
+  success_callback:
+    - "http://localhost:8000/litellm/success"
+  failure_callback:
+    - "http://localhost:8000/litellm/failure"
+  
+# Environment variables
+environment_variables:
+  ANTHROPIC_DISABLE_URL_SUFFIX: "true"
+  LITELLM_LOG_LEVEL: "INFO"
+  LITELLM_TELEMETRY: "false"
+  STORE_MODEL_IN_DB: "true"
+  LITELLM_REQUEST_TIMEOUT: "14400"
+  LITELLM_STREAM_TIMEOUT: "14400"
+  LITELLM_MAX_PARALLEL_REQUESTS: "100"
+  ENABLE_PROMPT_CACHING: "true"
+  ENABLE_VISION: "true"
+  ENABLE_BATCH_PROCESSING: "true"
+  ENABLE_EXTENDED_THINKING: "true"
+  ENABLE_MCP: "true"
+  ENABLE_COMPUTER_USE: "true"
+  ENABLE_CODE_EXECUTION: "true"

@@ -1,0 +1,58 @@
+# Guardian Security Enforcer - HA Security Enforcement Container
+FROM python:3.11-alpine
+
+LABEL maintainer="Bev Security Team"
+LABEL description="High-Availability Guardian Security Enforcer"
+LABEL version="1.0.0"
+
+# Install system dependencies
+RUN apk add --no-cache \
+    iptables \
+    netfilter-dev \
+    build-base \
+    linux-headers \
+    tcpdump \
+    nmap \
+    curl \
+    redis
+
+# Install Python security libraries
+RUN pip install --no-cache-dir \
+    scapy==2.5.0 \
+    netfilterqueue==1.1.0 \
+    redis==4.5.4 \
+    pycryptodome==3.17.0 \
+    cryptography==40.0.2 \
+    psutil==5.9.5 \
+    requests==2.30.0 \
+    python-iptables==1.0.1 \
+    dpkt==1.9.8 \
+    aiodns==3.0.0 \
+    aioredis==2.0.1
+
+# Create guardian user
+RUN adduser -D -s /bin/sh guardian
+
+# Create directories
+RUN mkdir -p /app/logs /app/config /app/rules /app/data
+RUN chown -R guardian:guardian /app
+
+# Copy guardian enforcer
+COPY guardian_security_enforcer.py /app/
+COPY config/ /app/config/
+
+USER guardian
+WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8080/health')" || exit 1
+
+# Security hardening
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Run with minimal privileges
+EXPOSE 8080 8443
+
+CMD ["python", "guardian_security_enforcer.py"]

@@ -1,0 +1,485 @@
+{
+  "datacenter": "bev-osint-dc1",
+  "data_dir": "/opt/consul/data",
+  "log_level": "INFO",
+  "server": true,
+  "bind_addr": "0.0.0.0",
+  "client_addr": "0.0.0.0",
+  "retry_join": ["consul-server-1", "consul-server-2", "consul-server-3"],
+  "ui_config": {
+    "enabled": true
+  },
+  "connect": {
+    "enabled": true
+  },
+  "ports": {
+    "grpc": 8502
+  },
+  "services": [
+    {
+      "id": "dm-crawler",
+      "name": "dm-crawler",
+      "tags": ["phase7", "market-intelligence", "crawler", "osint"],
+      "address": "172.30.0.24",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "7",
+        "category": "market-intelligence",
+        "description": "Decentralized market crawler with Tor support"
+      },
+      "checks": [
+        {
+          "id": "dm-crawler-health",
+          "name": "DM Crawler Health Check",
+          "http": "http://172.30.0.24:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "3m"
+        },
+        {
+          "id": "dm-crawler-metrics",
+          "name": "DM Crawler Metrics Check",
+          "http": "http://172.30.0.24:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "dm-crawler-ready",
+          "name": "DM Crawler Readiness Check",
+          "http": "http://172.30.0.24:8000/ready",
+          "interval": "15s",
+          "timeout": "5s"
+        }
+      ]
+    },
+    {
+      "id": "crypto-intel",
+      "name": "crypto-intel",
+      "tags": ["phase7", "market-intelligence", "crypto", "blockchain", "osint"],
+      "address": "172.30.0.25",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "7",
+        "category": "market-intelligence",
+        "description": "Cryptocurrency transaction analyzer"
+      },
+      "checks": [
+        {
+          "id": "crypto-intel-health",
+          "name": "Crypto Intel Health Check",
+          "http": "http://172.30.0.25:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "3m"
+        },
+        {
+          "id": "crypto-intel-metrics",
+          "name": "Crypto Intel Metrics Check",
+          "http": "http://172.30.0.25:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "crypto-intel-api-health",
+          "name": "Crypto Intel External API Health",
+          "http": "http://172.30.0.25:8000/api-health",
+          "interval": "120s",
+          "timeout": "30s"
+        }
+      ]
+    },
+    {
+      "id": "reputation-analyzer",
+      "name": "reputation-analyzer",
+      "tags": ["phase7", "market-intelligence", "reputation", "ml", "osint"],
+      "address": "172.30.0.26",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "7",
+        "category": "market-intelligence",
+        "description": "Vendor reputation analyzer with ML models"
+      },
+      "checks": [
+        {
+          "id": "reputation-analyzer-health",
+          "name": "Reputation Analyzer Health Check",
+          "http": "http://172.30.0.26:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "3m"
+        },
+        {
+          "id": "reputation-analyzer-metrics",
+          "name": "Reputation Analyzer Metrics Check",
+          "http": "http://172.30.0.26:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "reputation-analyzer-model",
+          "name": "Reputation Analyzer Model Health",
+          "http": "http://172.30.0.26:8000/model-health",
+          "interval": "300s",
+          "timeout": "30s"
+        }
+      ]
+    },
+    {
+      "id": "economics-processor",
+      "name": "economics-processor",
+      "tags": ["phase7", "market-intelligence", "economics", "prediction", "ml", "osint"],
+      "address": "172.30.0.27",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "7",
+        "category": "market-intelligence",
+        "description": "Market economics and prediction processor"
+      },
+      "checks": [
+        {
+          "id": "economics-processor-health",
+          "name": "Economics Processor Health Check",
+          "http": "http://172.30.0.27:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "3m"
+        },
+        {
+          "id": "economics-processor-metrics",
+          "name": "Economics Processor Metrics Check",
+          "http": "http://172.30.0.27:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "economics-processor-gpu",
+          "name": "Economics Processor GPU Health",
+          "http": "http://172.30.0.27:8000/gpu-health",
+          "interval": "120s",
+          "timeout": "20s"
+        }
+      ]
+    },
+    {
+      "id": "tactical-intel",
+      "name": "tactical-intel",
+      "tags": ["phase8", "security-operations", "threat-intelligence", "osint"],
+      "address": "172.30.0.28",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "8",
+        "category": "security-operations",
+        "description": "Tactical intelligence processor"
+      },
+      "checks": [
+        {
+          "id": "tactical-intel-health",
+          "name": "Tactical Intel Health Check",
+          "http": "http://172.30.0.28:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "2m"
+        },
+        {
+          "id": "tactical-intel-metrics",
+          "name": "Tactical Intel Metrics Check",
+          "http": "http://172.30.0.28:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "tactical-intel-feeds",
+          "name": "Tactical Intel Feed Health",
+          "http": "http://172.30.0.28:8000/feeds-health",
+          "interval": "180s",
+          "timeout": "30s"
+        }
+      ]
+    },
+    {
+      "id": "defense-automation",
+      "name": "defense-automation",
+      "tags": ["phase8", "security-operations", "defense", "automation", "osint"],
+      "address": "172.30.0.29",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "8",
+        "category": "security-operations",
+        "description": "Automated threat response system"
+      },
+      "checks": [
+        {
+          "id": "defense-automation-health",
+          "name": "Defense Automation Health Check",
+          "http": "http://172.30.0.29:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "2m"
+        },
+        {
+          "id": "defense-automation-metrics",
+          "name": "Defense Automation Metrics Check",
+          "http": "http://172.30.0.29:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "defense-automation-response",
+          "name": "Defense Automation Response Capability",
+          "http": "http://172.30.0.29:8000/response-health",
+          "interval": "120s",
+          "timeout": "20s"
+        }
+      ]
+    },
+    {
+      "id": "opsec-enforcer",
+      "name": "opsec-enforcer",
+      "tags": ["phase8", "security-operations", "opsec", "privacy", "osint"],
+      "address": "172.30.0.30",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "8",
+        "category": "security-operations",
+        "description": "Operational security enforcement system"
+      },
+      "checks": [
+        {
+          "id": "opsec-enforcer-health",
+          "name": "OPSEC Enforcer Health Check",
+          "http": "http://172.30.0.30:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "2m"
+        },
+        {
+          "id": "opsec-enforcer-metrics",
+          "name": "OPSEC Enforcer Metrics Check",
+          "http": "http://172.30.0.30:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "opsec-enforcer-privacy",
+          "name": "OPSEC Enforcer Privacy Level",
+          "http": "http://172.30.0.30:8000/privacy-health",
+          "interval": "90s",
+          "timeout": "15s"
+        }
+      ]
+    },
+    {
+      "id": "intel-fusion",
+      "name": "intel-fusion",
+      "tags": ["phase8", "security-operations", "intelligence", "fusion", "correlation", "osint"],
+      "address": "172.30.0.31",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "8",
+        "category": "security-operations",
+        "description": "Multi-source intelligence correlation system"
+      },
+      "checks": [
+        {
+          "id": "intel-fusion-health",
+          "name": "Intel Fusion Health Check",
+          "http": "http://172.30.0.31:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "3m"
+        },
+        {
+          "id": "intel-fusion-metrics",
+          "name": "Intel Fusion Metrics Check",
+          "http": "http://172.30.0.31:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "intel-fusion-correlation",
+          "name": "Intel Fusion Correlation Engine",
+          "http": "http://172.30.0.31:8000/correlation-health",
+          "interval": "180s",
+          "timeout": "30s"
+        }
+      ]
+    },
+    {
+      "id": "autonomous-coordinator",
+      "name": "autonomous-coordinator",
+      "tags": ["phase9", "autonomous-systems", "coordination", "ai", "osint"],
+      "address": "172.30.0.32",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "9",
+        "category": "autonomous-systems",
+        "description": "Autonomous operations coordinator"
+      },
+      "checks": [
+        {
+          "id": "autonomous-coordinator-health",
+          "name": "Autonomous Coordinator Health Check",
+          "http": "http://172.30.0.32:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "2m"
+        },
+        {
+          "id": "autonomous-coordinator-metrics",
+          "name": "Autonomous Coordinator Metrics Check",
+          "http": "http://172.30.0.32:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "autonomous-coordinator-decisions",
+          "name": "Autonomous Coordinator Decision Engine",
+          "http": "http://172.30.0.32:8000/decision-health",
+          "interval": "120s",
+          "timeout": "20s"
+        }
+      ]
+    },
+    {
+      "id": "adaptive-learning",
+      "name": "adaptive-learning",
+      "tags": ["phase9", "autonomous-systems", "learning", "ml", "ai", "osint"],
+      "address": "172.30.0.33",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "9",
+        "category": "autonomous-systems",
+        "description": "Adaptive learning system"
+      },
+      "checks": [
+        {
+          "id": "adaptive-learning-health",
+          "name": "Adaptive Learning Health Check",
+          "http": "http://172.30.0.33:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "3m"
+        },
+        {
+          "id": "adaptive-learning-metrics",
+          "name": "Adaptive Learning Metrics Check",
+          "http": "http://172.30.0.33:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "adaptive-learning-gpu",
+          "name": "Adaptive Learning GPU Health",
+          "http": "http://172.30.0.33:8000/gpu-health",
+          "interval": "120s",
+          "timeout": "20s"
+        },
+        {
+          "id": "adaptive-learning-models",
+          "name": "Adaptive Learning Model Health",
+          "http": "http://172.30.0.33:8000/models-health",
+          "interval": "300s",
+          "timeout": "30s"
+        }
+      ]
+    },
+    {
+      "id": "resource-manager",
+      "name": "resource-manager",
+      "tags": ["phase9", "autonomous-systems", "resources", "optimization", "osint"],
+      "address": "172.30.0.34",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "9",
+        "category": "autonomous-systems",
+        "description": "Dynamic resource manager"
+      },
+      "checks": [
+        {
+          "id": "resource-manager-health",
+          "name": "Resource Manager Health Check",
+          "http": "http://172.30.0.34:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "2m"
+        },
+        {
+          "id": "resource-manager-metrics",
+          "name": "Resource Manager Metrics Check",
+          "http": "http://172.30.0.34:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "resource-manager-docker",
+          "name": "Resource Manager Docker Health",
+          "http": "http://172.30.0.34:8000/docker-health",
+          "interval": "90s",
+          "timeout": "20s"
+        },
+        {
+          "id": "resource-manager-optimization",
+          "name": "Resource Manager Optimization Engine",
+          "http": "http://172.30.0.34:8000/optimization-health",
+          "interval": "180s",
+          "timeout": "30s"
+        }
+      ]
+    },
+    {
+      "id": "knowledge-evolution",
+      "name": "knowledge-evolution",
+      "tags": ["phase9", "autonomous-systems", "knowledge", "semantic", "ai", "osint"],
+      "address": "172.30.0.35",
+      "port": 8000,
+      "meta": {
+        "version": "1.0.0",
+        "phase": "9",
+        "category": "autonomous-systems",
+        "description": "Knowledge evolution system"
+      },
+      "checks": [
+        {
+          "id": "knowledge-evolution-health",
+          "name": "Knowledge Evolution Health Check",
+          "http": "http://172.30.0.35:8000/health",
+          "interval": "30s",
+          "timeout": "10s",
+          "deregister_critical_service_after": "3m"
+        },
+        {
+          "id": "knowledge-evolution-metrics",
+          "name": "Knowledge Evolution Metrics Check",
+          "http": "http://172.30.0.35:8000/metrics",
+          "interval": "60s",
+          "timeout": "15s"
+        },
+        {
+          "id": "knowledge-evolution-graph",
+          "name": "Knowledge Evolution Graph Health",
+          "http": "http://172.30.0.35:8000/graph-health",
+          "interval": "300s",
+          "timeout": "30s"
+        },
+        {
+          "id": "knowledge-evolution-semantic",
+          "name": "Knowledge Evolution Semantic Engine",
+          "http": "http://172.30.0.35:8000/semantic-health",
+          "interval": "180s",
+          "timeout": "25s"
+        }
+      ]
+    }
+  ]
+}

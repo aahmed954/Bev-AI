@@ -1,0 +1,59 @@
+# Traffic Analyzer - Real-time Network Analysis
+FROM python:3.11-alpine
+
+LABEL maintainer="Bev Security Team"
+LABEL description="Real-time Network Traffic Analyzer"
+LABEL version="1.0.0"
+
+# Install system dependencies
+RUN apk add --no-cache \
+    libpcap-dev \
+    tcpdump \
+    wireshark-common \
+    build-base \
+    linux-headers \
+    musl-dev \
+    libffi-dev
+
+# Install Python libraries
+RUN pip install --no-cache-dir \
+    scapy==2.5.0 \
+    dpkt==1.9.8 \
+    pyshark==0.6 \
+    influxdb-client==1.36.1 \
+    redis==4.5.4 \
+    numpy==1.24.3 \
+    pandas==2.0.1 \
+    asyncio-mqtt==0.13.0 \
+    psutil==5.9.5 \
+    python-geoip2==4.7.0 \
+    maxminddb==2.2.0 \
+    loguru==0.7.0 \
+    aiofiles==23.1.0
+
+# Create traffic analyzer user
+RUN adduser -D -s /bin/sh traffic_user
+
+# Create directories
+RUN mkdir -p /app/logs /app/data /app/geoip /app/config
+RUN chown -R traffic_user:traffic_user /app
+
+# Copy traffic analyzer
+COPY traffic_analyzer.py /app/
+COPY config/ /app/config/
+
+USER traffic_user
+WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import psutil; exit(0 if any('traffic_analyzer' in p.name() for p in psutil.process_iter()) else 1)"
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Expose metrics port
+EXPOSE 8082
+
+CMD ["python", "traffic_analyzer.py"]

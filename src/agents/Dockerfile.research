@@ -1,0 +1,92 @@
+# Research Coordinator Container - OSINT, Threat Intel, Breach Analysis
+FROM python:3.11-slim
+
+LABEL maintainer="ORACLE1 Research Division"
+LABEL component="research-coordinator"
+LABEL version="3.0.0"
+
+# Install system dependencies and tools
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    wget \
+    nmap \
+    tor \
+    privoxy \
+    whois \
+    dnsutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Chrome for web scraping
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    fastapi==0.104.1 \
+    uvicorn==0.24.0 \
+    aiohttp==3.9.1 \
+    beautifulsoup4==4.12.2 \
+    selenium==4.15.2 \
+    playwright==1.40.0 \
+    scrapy==2.11.0 \
+    shodan==1.30.1 \
+    censys==2.2.9 \
+    maltego-trx==1.6.0 \
+    yara-python==4.3.1 \
+    dnspython==2.4.2 \
+    python-whois==0.8.0 \
+    tweepy==4.14.0 \
+    praw==7.7.1 \
+    telethon==1.32.0 \
+    cryptography==41.0.7 \
+    web3==6.11.4 \
+    ccxt==4.1.60 \
+    pandas==2.1.4 \
+    numpy==1.24.3 \
+    structlog==23.2.0 \
+    redis==5.0.1 \
+    prometheus-client==0.19.0
+
+# Install Playwright browsers
+RUN playwright install chromium firefox webkit
+
+# Copy research coordinator code
+COPY research_coordinator.py /app/
+COPY osint_modules/ /app/osint_modules/
+COPY threat_intel/ /app/threat_intel/
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data /app/cache /app/reports
+
+# Configure Tor
+RUN echo "SocksPort 9050" >> /etc/tor/torrc \
+    && echo "ControlPort 9051" >> /etc/tor/torrc
+
+# Expose ports
+EXPOSE 8200  # API port
+EXPOSE 9200  # Metrics port
+EXPOSE 9050  # Tor SOCKS proxy
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8200/health || exit 1
+
+# Environment variables
+ENV RESEARCH_MODE="osint" \
+    MAX_CONCURRENT_TASKS="20" \
+    CACHE_TTL="3600" \
+    TOR_ENABLED="true" \
+    LOG_LEVEL="INFO"
+
+# Start services
+CMD service tor start && \
+    service privoxy start && \
+    uvicorn research_coordinator:app --host 0.0.0.0 --port 8200 --workers 4

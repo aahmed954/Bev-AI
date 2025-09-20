@@ -1,0 +1,18 @@
+[Unit]
+Description=BEV Swarm Master Service
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+User=bev
+WorkingDirectory=/opt/bev
+Environment="PATH=/opt/bev/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/opt/bev/venv/bin/python /opt/bev/src/agents/swarm_master.py
+StandardOutput=append:/var/log/bev/swarm-master.log
+StandardError=append:/var/log/bev/swarm-master-error.log
+
+[Install]
+WantedBy=multi-user.target

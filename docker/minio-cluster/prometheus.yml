@@ -1,0 +1,68 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # MinIO cluster monitoring
+  - job_name: 'minio-cluster'
+    metrics_path: /minio/v2/metrics/cluster
+    scheme: http
+    static_configs:
+      - targets:
+        - 'minio1:9000'
+        - 'minio2:9000'
+        - 'minio3:9000'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # MinIO node-specific metrics
+  - job_name: 'minio-node'
+    metrics_path: /minio/v2/metrics/node
+    scheme: http
+    static_configs:
+      - targets:
+        - 'minio1:9000'
+        - 'minio2:9000'
+        - 'minio3:9000'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # MinIO bucket metrics
+  - job_name: 'minio-bucket'
+    metrics_path: /minio/v2/metrics/bucket
+    scheme: http
+    static_configs:
+      - targets:
+        - 'minio1:9000'
+        - 'minio2:9000'
+        - 'minio3:9000'
+    scrape_interval: 60s
+    scrape_timeout: 15s
+
+  # Load balancer metrics
+  - job_name: 'nginx-lb'
+    static_configs:
+      - targets: ['minio-lb:80']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 15s
+
+# Alerting rules (optional)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Recording rules for MinIO (optional)
+# rule_files:
+#   - "minio_rules.yml"

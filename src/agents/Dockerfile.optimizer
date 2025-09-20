@@ -1,0 +1,105 @@
+# Code Optimizer Container - Multi-Language Code Optimization
+FROM python:3.11-slim
+
+LABEL maintainer="ORACLE1 Code Optimization"
+LABEL component="code-optimizer"
+LABEL version="3.0.0"
+
+# Install system dependencies and language runtimes
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    wget \
+    # Node.js for JavaScript/TypeScript
+    nodejs \
+    npm \
+    # Rust
+    rustc \
+    cargo \
+    # Go
+    golang-go \
+    # Java
+    default-jdk \
+    # C/C++ tools
+    gcc \
+    g++ \
+    clang \
+    clang-format \
+    clang-tidy \
+    # Code analysis tools
+    cppcheck \
+    valgrind \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install language-specific tools
+RUN npm install -g \
+    typescript \
+    @typescript-eslint/parser \
+    @typescript-eslint/eslint-plugin \
+    prettier \
+    webpack \
+    terser
+
+# Set working directory
+WORKDIR /app
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    fastapi==0.104.1 \
+    uvicorn==0.24.0 \
+    black==23.12.0 \
+    isort==5.13.2 \
+    pylint==3.0.3 \
+    mypy==1.7.1 \
+    autopep8==2.0.4 \
+    bandit==1.7.5 \
+    radon==6.0.1 \
+    astroid==3.0.2 \
+    tree-sitter==0.20.4 \
+    jedi==0.19.1 \
+    rope==1.11.0 \
+    ast-grep-py==0.12.2 \
+    libcst==1.1.0 \
+    astor==0.8.1 \
+    numpy==1.24.3 \
+    numba==0.58.1 \
+    cython==3.0.6 \
+    structlog==23.2.0 \
+    redis==5.0.1 \
+    prometheus-client==0.19.0 \
+    pydantic==2.5.0
+
+# Install Rust optimization tools
+RUN cargo install --locked \
+    cargo-audit \
+    cargo-expand \
+    cargo-tarpaulin \
+    clippy
+
+# Copy code optimizer
+COPY code_optimizer.py /app/
+COPY optimizers/ /app/optimizers/
+COPY language_parsers/ /app/language_parsers/
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data /app/cache /app/optimized_code
+
+# Expose ports
+EXPOSE 8400  # API port
+EXPOSE 9400  # Metrics port
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8400/health || exit 1
+
+# Environment variables
+ENV SUPPORTED_LANGUAGES="python,javascript,typescript,rust,go,java,cpp" \
+    OPTIMIZATION_LEVEL="3" \
+    MAX_CODE_SIZE="10MB" \
+    PARALLEL_WORKERS="8" \
+    CACHE_OPTIMIZED="true" \
+    LOG_LEVEL="INFO"
+
+# Run code optimizer
+CMD ["uvicorn", "code_optimizer:app", "--host", "0.0.0.0", "--port", "8400", "--workers", "4"]

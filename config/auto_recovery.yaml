@@ -1,0 +1,390 @@
+# Auto-Recovery System Configuration
+# ===================================
+#
+# Configuration for the BEV OSINT Framework Auto-Recovery System
+# Defines services, recovery strategies, and monitoring parameters
+
+global:
+  max_concurrent_recoveries: 5
+  global_recovery_timeout: 600.0  # 10 minutes
+  snapshot_retention_days: 7
+  metrics_retention_days: 30
+  log_level: INFO
+
+  # Circuit breaker defaults
+  default_circuit_breaker:
+    failure_threshold: 5
+    failure_rate_threshold: 0.5
+    timeout_duration: 60.0
+    request_timeout: 30.0
+    max_concurrent_calls: 100
+
+  # Alert channels
+  alert_channels:
+    slack: "${SLACK_WEBHOOK_URL}"
+    email: ["${BEV_ADMIN_EMAIL}", "${BEV_ONCALL_EMAIL}"]
+    webhook: "${RECOVERY_WEBHOOK_URL}"
+
+# Service definitions
+services:
+  # Core Infrastructure Services
+  - name: postgres
+    container_name: bev_postgres
+    image: pgvector/pgvector:pg16
+    health_check_url: "http://172.30.0.2:5432"
+    health_check_command: "pg_isready -U ${POSTGRES_USER}"
+    health_check_interval: 30.0
+    health_check_timeout: 10.0
+    health_check_retries: 3
+    recovery_strategies: [restart, rollback, recreate]
+    max_recovery_attempts: 3
+    recovery_timeout: 300.0
+    dependencies: []
+    dependents: [intelowl-django, intelowl-celery-worker, cytoscape-server]
+    criticality: critical
+    priority: 100
+    target_availability: 99.95
+    max_downtime_minutes: 2.0
+    circuit_breaker_enabled: true
+    state_backup_enabled: true
+    state_backup_paths: ["/var/lib/postgresql/data"]
+    data_volume_paths: ["postgres_data:/var/lib/postgresql/data"]
+    alert_channels: [slack, email]
+    escalation_levels: [warning, critical, emergency]
+
+  - name: neo4j
+    container_name: bev_neo4j
+    image: neo4j:5.14-enterprise
+    health_check_url: "http://172.30.0.3:7474/db/data/"
+    health_check_interval: 30.0
+    health_check_timeout: 15.0
+    recovery_strategies: [restart, scale_up, rollback]
+    max_recovery_attempts: 3
+    dependencies: []
+    dependents: [cytoscape-server, reputation-analyzer, tactical-intel]
+    criticality: critical
+    priority: 95
+    target_availability: 99.9
+    max_downtime_minutes: 3.0
+    circuit_breaker_enabled: true
+    state_backup_enabled: true
+    state_backup_paths: ["/data"]
+    data_volume_paths: ["neo4j_data:/data"]
+
+  - name: redis-standalone
+    container_name: bev_redis_standalone
+    image: redis:7-alpine
+    health_check_command: "redis-cli -a ${REDIS_PASSWORD} ping"
+    health_check_interval: 20.0
+    health_check_timeout: 5.0
+    recovery_strategies: [restart, recreate]
+    max_recovery_attempts: 2
+    dependencies: []
+    dependents: [intelowl-celery-worker, intelowl-celery-beat]
+    criticality: high
+    priority: 85
+    target_availability: 99.8
+    max_downtime_minutes: 5.0
+    circuit_breaker_enabled: true
+
+  - name: elasticsearch
+    container_name: bev_elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    health_check_url: "http://172.30.0.15:9200/_cluster/health"
+    health_check_interval: 45.0
+    health_check_timeout: 15.0
+    recovery_strategies: [restart, scale_up, recreate]
+    max_recovery_attempts: 3
+    dependencies: []
+    dependents: [crypto-intel, reputation-analyzer, adaptive-learning]
+    criticality: high
+    priority: 80
+    target_availability: 99.7
+    max_downtime_minutes: 5.0
+    circuit_breaker_enabled: true
+    state_backup_enabled: true
+
+  - name: kafka-1
+    container_name: bev_kafka_1
+    image: confluentinc/cp-kafka:7.5.0
+    health_check_command: "kafka-broker-api-versions --bootstrap-server localhost:9092"
+    health_check_interval: 30.0
+    health_check_timeout: 10.0
+    recovery_strategies: [restart, scale_up]
+    max_recovery_attempts: 3
+    dependencies: [zookeeper]
+    dependents: [dm-crawler, crypto-intel, reputation-analyzer]
+    criticality: high
+    priority: 75
+    target_availability: 99.5
+    circuit_breaker_enabled: true
+
+  # Application Services
+  - name: intelowl-django
+    container_name: bev_intelowl_django
+    image: intelowlproject/intelowl:v5.2.0
+    health_check_url: "http://172.30.0.21:8000/api/health"
+    health_check_interval: 30.0
+    health_check_timeout: 10.0
+    recovery_strategies: [restart, rollback, scale_up, recreate]
+    max_recovery_attempts: 4
+    dependencies: [postgres, redis-standalone, rabbitmq-1]
+    dependents: []
+    criticality: high
+    priority: 70
+    target_availability: 99.5
+    max_downtime_minutes: 5.0
+    circuit_breaker_enabled: true
+    state_backup_enabled: false
+
+  - name: intelowl-celery-worker
+    container_name: bev_intelowl_celery_worker
+    image: intelowlproject/intelowl:v5.2.0
+    health_check_command: "celery -A intel_owl inspect ping"
+    health_check_interval: 45.0
+    health_check_timeout: 15.0
+    recovery_strategies: [restart, scale_up, recreate]
+    max_recovery_attempts: 3
+    dependencies: [postgres, redis-standalone, rabbitmq-1]
+    dependents: []
+    criticality: normal
+    priority: 60
+    target_availability: 99.0
+    circuit_breaker_enabled: true
+
+  - name: cytoscape-server
+    container_name: bev_cytoscape_server
+    image: custom
+    health_check_url: "http://172.30.0.23:3000/health"
+    health_check_interval: 30.0
+    health_check_timeout: 10.0
+    recovery_strategies: [restart, recreate]
+    max_recovery_attempts: 2
+    dependencies: [neo4j, postgres]
+    dependents: []
+    criticality: normal
+    priority: 50
+    target_availability: 98.0
+    circuit_breaker_enabled: true
+
+  # Phase 7 Services
+  - name: dm-crawler
+    container_name: bev_dm_crawler
+    image: custom
+    health_check_url: "http://172.30.0.24:8000/health"
+    health_check_interval: 60.0
+    health_check_timeout: 15.0
+    recovery_strategies: [restart, rollback, scale_up]
+    max_recovery_attempts: 3
+    dependencies: [postgres, kafka-1, tor]
+    dependents: []
+    criticality: normal
+    priority: 55
+    target_availability: 98.5
+    circuit_breaker_enabled: true
+    state_backup_enabled: true
+    state_backup_paths: ["/app/data"]
+
+  - name: crypto-intel
+    container_name: bev_crypto_intel
+    image: custom
+    health_check_url: "http://172.30.0.25:8000/health"
+    health_check_interval: 60.0
+    health_check_timeout: 15.0
+    recovery_strategies: [restart, scale_up, recreate]
+    max_recovery_attempts: 3
+    dependencies: [postgres, elasticsearch, kafka-1]
+    dependents: []
+    criticality: normal
+    priority: 55
+    target_availability: 98.0
+    circuit_breaker_enabled: true
+
+  - name: reputation-analyzer
+    container_name: bev_reputation_analyzer
+    image: custom
+    health_check_url: "http://172.30.0.26:8000/health"
+    health_check_interval: 60.0
+    health_check_timeout: 15.0
+    recovery_strategies: [restart, scale_up, recreate]
+    max_recovery_attempts: 3
+    dependencies: [postgres, neo4j, elasticsearch, kafka-1]
+    dependents: []
+    criticality: normal
+    priority: 50
+    target_availability: 97.5
+    circuit_breaker_enabled: true
+
+  # Phase 8 Services
+  - name: tactical-intel
+    container_name: bev_tactical_intel
+    image: custom
+    health_check_url: "http://172.30.0.28:8000/health"
+    health_check_interval: 60.0
+    health_check_timeout: 15.0
+    recovery_strategies: [restart, scale_up, recreate]
+    max_recovery_attempts: 3
+    dependencies: [postgres, neo4j, elasticsearch, kafka-1]
+    dependents: []
+    criticality: high
+    priority: 75
+    target_availability: 99.0
+    circuit_breaker_enabled: true
+
+  - name: defense-automation
+    container_name: bev_defense_automation
+    image: custom
+    health_check_url: "http://172.30.0.29:8000/health"
+    health_check_interval: 30.0
+    health_check_timeout: 10.0
+    recovery_strategies: [restart, failover, recreate]
+    max_recovery_attempts: 3
+    dependencies: [postgres, kafka-1, redis-standalone]
+    dependents: []
+    criticality: critical
+    priority: 90
+    target_availability: 99.8
+    max_downtime_minutes: 3.0
+    circuit_breaker_enabled: true
+
+  # Phase 9 Services
+  - name: autonomous-coordinator
+    container_name: bev_autonomous_coordinator
+    image: custom
+    health_check_url: "http://172.30.0.32:8000/health"
+    health_check_interval: 30.0
+    health_check_timeout: 10.0
+    recovery_strategies: [restart, scale_up, failover]
+    max_recovery_attempts: 4
+    dependencies: [postgres, neo4j, kafka-1, redis-standalone]
+    dependents: [adaptive-learning, resource-manager]
+    criticality: critical
+    priority: 95
+    target_availability: 99.9
+    max_downtime_minutes: 2.0
+    circuit_breaker_enabled: true
+
+  - name: adaptive-learning
+    container_name: bev_adaptive_learning
+    image: custom
+    health_check_url: "http://172.30.0.33:8000/health"
+    health_check_interval: 60.0
+    health_check_timeout: 20.0
+    recovery_strategies: [restart, scale_up, recreate]
+    max_recovery_attempts: 3
+    dependencies: [postgres, elasticsearch, kafka-1]
+    dependents: []
+    criticality: high
+    priority: 80
+    target_availability: 99.0
+    circuit_breaker_enabled: true
+
+  - name: resource-manager
+    container_name: bev_resource_manager
+    image: custom
+    health_check_url: "http://172.30.0.34:8000/health"
+    health_check_interval: 30.0
+    health_check_timeout: 10.0
+    recovery_strategies: [restart, scale_up]
+    max_recovery_attempts: 3
+    dependencies: [postgres, influxdb, kafka-1]
+    dependents: []
+    criticality: high
+    priority: 85
+    target_availability: 99.5
+    circuit_breaker_enabled: true
+
+  # Vector Databases
+  - name: qdrant-primary
+    container_name: bev_qdrant_primary
+    image: qdrant/qdrant:v1.8.1
+    health_check_url: "http://172.30.0.36:6333/health"
+    health_check_interval: 30.0
+    health_check_timeout: 10.0
+    recovery_strategies: [restart, scale_up, recreate]
+    max_recovery_attempts: 3
+    dependencies: []
+    dependents: [qdrant-replica]
+    criticality: high
+    priority: 80
+    target_availability: 99.5
+    circuit_breaker_enabled: true
+    state_backup_enabled: true
+    state_backup_paths: ["/qdrant/storage", "/qdrant/snapshots"]
+
+  - name: weaviate
+    container_name: bev_weaviate
+    image: semitechnologies/weaviate:1.23.9
+    health_check_url: "http://172.30.0.38:8080/v1/.well-known/ready"
+    health_check_interval: 30.0
+    health_check_timeout: 10.0
+    recovery_strategies: [restart, scale_up, recreate]
+    max_recovery_attempts: 3
+    dependencies: []
+    dependents: []
+    criticality: normal
+    priority: 60
+    target_availability: 98.5
+    circuit_breaker_enabled: true
+    state_backup_enabled: true
+
+# Recovery policies by service criticality
+recovery_policies:
+  critical:
+    max_attempts: 5
+    timeout_multiplier: 1.5
+    escalation_threshold: 2
+    immediate_alert: true
+
+  high:
+    max_attempts: 4
+    timeout_multiplier: 1.2
+    escalation_threshold: 3
+    immediate_alert: false
+
+  normal:
+    max_attempts: 3
+    timeout_multiplier: 1.0
+    escalation_threshold: 4
+    immediate_alert: false
+
+  low:
+    max_attempts: 2
+    timeout_multiplier: 0.8
+    escalation_threshold: 5
+    immediate_alert: false
+
+# Resource thresholds for auto-scaling
+resource_thresholds:
+  cpu_high: 80.0        # Trigger scale-up
+  cpu_low: 20.0         # Trigger scale-down
+  memory_high: 85.0     # Trigger scale-up
+  memory_low: 25.0      # Trigger scale-down
+  disk_high: 90.0       # Trigger cleanup
+  network_high: 80.0    # Trigger optimization
+
+# Circuit breaker configurations by service type
+circuit_breaker_profiles:
+  database:
+    failure_threshold: 3
+    failure_rate_threshold: 0.3
+    timeout_duration: 30.0
+    half_open_max_calls: 2
+
+  api:
+    failure_threshold: 5
+    failure_rate_threshold: 0.5
+    timeout_duration: 60.0
+    half_open_max_calls: 3
+
+  worker:
+    failure_threshold: 8
+    failure_rate_threshold: 0.6
+    timeout_duration: 120.0
+    half_open_max_calls: 5
+
+  ml:
+    failure_threshold: 10
+    failure_rate_threshold: 0.7
+    timeout_duration: 180.0
+    half_open_max_calls: 2

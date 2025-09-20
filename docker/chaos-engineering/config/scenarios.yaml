@@ -1,0 +1,130 @@
+scenarios:
+  - name: "bev_osint_stress_test"
+    description: "Comprehensive OSINT framework stress test"
+    category: "integration"
+    complexity: "complex"
+    target_services:
+      - "osint-collector"
+      - "threat-analyzer"
+      - "data-processor"
+      - "alert-manager"
+    steps:
+      - name: "baseline_metrics"
+        action_type: "validate"
+        parameters:
+          duration: 60.0
+        validation_criteria:
+          - "all_services_healthy"
+          - "baseline_performance_acceptable"
+      - name: "simulate_high_data_volume"
+        action_type: "inject_fault"
+        parameters:
+          injector_name: "load_generator"
+          target_service: "osint-collector"
+          requests_per_second: 200
+        delay_after: 120.0
+      - name: "add_network_latency"
+        action_type: "inject_fault"
+        parameters:
+          injector_name: "network_delay"
+          target_service: "threat-analyzer"
+          delay_ms: 150
+          jitter_ms: 30
+        delay_after: 90.0
+      - name: "stress_data_processor"
+        action_type: "inject_fault"
+        parameters:
+          injector_name: "cpu_stress"
+          target_service: "data-processor"
+          cpu_cores: 2
+          cpu_load: 80
+        delay_after: 60.0
+      - name: "validate_resilience"
+        action_type: "validate"
+        parameters:
+          duration: 180.0
+        validation_criteria:
+          - "availability > 95%"
+          - "data_processing_queue_stable"
+          - "alert_generation_functional"
+      - name: "cleanup_all_faults"
+        action_type: "cleanup"
+        parameters: {}
+    total_duration: 600.0
+    expected_outcomes:
+      - "graceful_degradation"
+      - "no_data_loss"
+      - "fast_recovery"
+    success_criteria:
+      - "availability > 95%"
+      - "no_critical_alerts_missed"
+      - "data_integrity_maintained"
+    tags:
+      - "osint"
+      - "integration"
+      - "stress"
+
+  - name: "bev_database_resilience"
+    description: "Database layer resilience testing"
+    category: "storage"
+    complexity: "moderate"
+    target_services:
+      - "postgres"
+      - "redis"
+      - "elasticsearch"
+    steps:
+      - name: "saturate_database_connections"
+        action_type: "inject_fault"
+        parameters:
+          injector_name: "connection_exhaustion"
+          target_service: "postgres"
+          max_connections: 80
+        delay_after: 90.0
+      - name: "add_disk_pressure"
+        action_type: "inject_fault"
+        parameters:
+          injector_name: "disk_fill"
+          target_service: "elasticsearch"
+          fill_size_mb: 300
+          fill_path: "/var/lib/elasticsearch"
+        delay_after: 60.0
+      - name: "validate_connection_pooling"
+        action_type: "validate"
+        parameters:
+          duration: 120.0
+        validation_criteria:
+          - "connection_pool_healthy"
+          - "query_performance_acceptable"
+          - "index_operations_functional"
+      - name: "cleanup_database_stress"
+        action_type: "cleanup"
+        parameters: {}
+    total_duration: 360.0
+    expected_outcomes:
+      - "graceful_degradation"
+      - "maintained_availability"
+    success_criteria:
+      - "no_database_crashes"
+      - "connection_recovery < 30s"
+    tags:
+      - "database"
+      - "storage"
+      - "connections"
+
+scenario_suites:
+  bev_comprehensive:
+    - "bev_osint_stress_test"
+    - "bev_database_resilience"
+    - "network_partition"
+    - "multi_tier_cascade_failure"
+
+  bev_quick_check:
+    - "network_latency_light"
+    - "cpu_stress_progressive"
+    - "service_crash_cascade"
+
+  bev_osint_focused:
+    - "bev_osint_stress_test"
+    - "osint_data_pipeline_stress"
+    - "threat_intel_system_failure"
+    - "external_api_failure"

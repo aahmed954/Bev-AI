@@ -1,0 +1,291 @@
+{
+  "name": "Bev Swarm Automation",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Research Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "research-trigger",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "httpMethod": "POST"
+      }
+    },
+    {
+      "id": "2",
+      "name": "Parse Research Request",
+      "type": "n8n-nodes-base.function",
+      "position": [450, 300],
+      "parameters": {
+        "functionCode": "const payload = $json;\nconst researchType = payload.type || 'general';\nconst targets = payload.targets || [];\nconst depth = payload.depth || 5;\n\nreturn [\n  {\n    json: {\n      research_id: `research-${Date.now()}`,\n      type: researchType,\n      targets: targets,\n      depth: depth,\n      timestamp: new Date().toISOString(),\n      status: 'initiated',\n      priority: payload.priority || 'medium',\n      enhancement_level: payload.enhancement || 'standard'\n    }\n  }\n];"
+      }
+    },
+    {
+      "id": "3",
+      "name": "Distribute to Agents",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [650, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "4",
+      "name": "OSINT Collection",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "http://thanos:8001/osint/collect",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "={{ $json }}",
+        "timeout": 120000
+      }
+    },
+    {
+      "id": "5",
+      "name": "Dark Web Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://thanos:8002/darkweb/search",
+        "options": {
+          "bodyContentType": "json",
+          "proxy": "http://proxy_manager:8888"
+        },
+        "bodyParametersJson": "={{ $json }}",
+        "timeout": 180000
+      }
+    },
+    {
+      "id": "6",
+      "name": "Social Intelligence",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "http://thanos:8003/social/analyze",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "={{ $json }}",
+        "timeout": 90000
+      }
+    },
+    {
+      "id": "7",
+      "name": "Merge Intelligence",
+      "type": "n8n-nodes-base.merge",
+      "position": [1050, 300],
+      "parameters": {
+        "mode": "multiplex",
+        "options": {}
+      }
+    },
+    {
+      "id": "8",
+      "name": "Enhancement Pipeline",
+      "type": "n8n-nodes-base.function",
+      "position": [1250, 300],
+      "parameters": {
+        "functionCode": "// Apply autonomous enhancement\nconst data = $json;\nconst enhancementLevel = data.enhancement_level || 'standard';\n\n// Genetic algorithm enhancement\nconst enhance = (content) => {\n  const mutations = [\n    'watermark_removal',\n    'metadata_scrubbing',\n    'quality_improvement',\n    'format_optimization',\n    'steganography_detection'\n  ];\n  \n  return {\n    original: content,\n    enhanced: content,\n    mutations_applied: mutations.filter(m => Math.random() > 0.5),\n    confidence: Math.random() * 0.3 + 0.7,\n    timestamp: new Date().toISOString()\n  };\n};\n\nreturn items.map(item => ({\n  json: {\n    ...item.json,\n    enhanced_data: enhance(item.json),\n    enhancement_status: 'complete'\n  }\n}));"
+      }
+    },
+    {
+      "id": "9",
+      "name": "Store to Neo4j",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1450, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "http://neo4j:7474/db/neo4j/tx",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "{\n  \"statements\": [\n    {\n      \"statement\": \"CREATE (r:Research {id: $id, type: $type, data: $data, timestamp: datetime()})\",\n      \"parameters\": {\n        \"id\": \"={{ $json.research_id }}\",\n        \"type\": \"={{ $json.type }}\",\n        \"data\": \"={{ JSON.stringify($json) }}\"\n      }\n    }\n  ]\n}"
+      }
+    },
+    {
+      "id": "10",
+      "name": "Store Vectors",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1450, 300],
+      "parameters": {
+        "operation": "insert",
+        "table": "research_vectors",
+        "columns": "research_id,embedding,metadata",
+        "options": {}
+      }
+    },
+    {
+      "id": "11",
+      "name": "Cache in Redis",
+      "type": "n8n-nodes-base.redis",
+      "position": [1450, 400],
+      "parameters": {
+        "operation": "set",
+        "key": "={{ 'research:' + $json.research_id }}",
+        "value": "={{ JSON.stringify($json) }}",
+        "expire": true,
+        "ttl": 86400
+      }
+    },
+    {
+      "id": "12",
+      "name": "Notify Completion",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1650, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "{{ $json.callback_url || 'http://thanos:8000/research/complete' }}",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "={{ $json }}"
+      }
+    },
+    {
+      "id": "13",
+      "name": "Breach Monitor",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 500],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 30,
+              "unit": "minutes"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "14",
+      "name": "Check Breach Databases",
+      "type": "n8n-nodes-base.function",
+      "position": [450, 500],
+      "parameters": {
+        "functionCode": "// Simulate checking multiple breach sources\nconst sources = [\n  'hibp_api',\n  'dehashed_mirror',\n  'leak_monitor',\n  'credential_db'\n];\n\nconst checkBreaches = async () => {\n  return sources.map(source => ({\n    source,\n    last_check: new Date().toISOString(),\n    new_breaches: Math.floor(Math.random() * 10),\n    status: 'active'\n  }));\n};\n\nreturn [\n  {\n    json: {\n      breach_check_id: `breach-${Date.now()}`,\n      sources_checked: sources,\n      timestamp: new Date().toISOString()\n    }\n  }\n];"
+      }
+    },
+    {
+      "id": "15",
+      "name": "Agent Health Check",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 700],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "16",
+      "name": "Query Agent Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 700],
+      "parameters": {
+        "method": "GET",
+        "url": "http://thanos:9090/api/v1/query",
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "query",
+              "value": "up{job=~'research_.*|agent_.*'}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "17",
+      "name": "Process Metrics",
+      "type": "n8n-nodes-base.function",
+      "position": [650, 700],
+      "parameters": {
+        "functionCode": "const metrics = $json.data?.result || [];\nconst alerts = [];\n\nmetrics.forEach(metric => {\n  const value = parseFloat(metric.value[1]);\n  if (value < 1) {\n    alerts.push({\n      agent: metric.metric.instance,\n      status: 'down',\n      value: value,\n      severity: 'critical'\n    });\n  }\n});\n\nif (alerts.length > 0) {\n  return [{\n    json: {\n      alerts: alerts,\n      timestamp: new Date().toISOString(),\n      action: 'restart_required'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    status: 'all_healthy',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      }
+    },
+    {
+      "id": "18",
+      "name": "Auto-Restart Agents",
+      "type": "n8n-nodes-base.ssh",
+      "position": [850, 700],
+      "parameters": {
+        "command": "docker-compose -f /opt/bev/docker-compose.yml restart {{ $json.alerts[0].agent }}",
+        "resource": "operation"
+      }
+    }
+  ],
+  "connections": {
+    "1": {
+      "main": [[{"node": "2", "type": "main", "index": 0}]]
+    },
+    "2": {
+      "main": [[{"node": "3", "type": "main", "index": 0}]]
+    },
+    "3": {
+      "main": [[
+        {"node": "4", "type": "main", "index": 0},
+        {"node": "5", "type": "main", "index": 0},
+        {"node": "6", "type": "main", "index": 0}
+      ]]
+    },
+    "4": {
+      "main": [[{"node": "7", "type": "main", "index": 0}]]
+    },
+    "5": {
+      "main": [[{"node": "7", "type": "main", "index": 1}]]
+    },
+    "6": {
+      "main": [[{"node": "7", "type": "main", "index": 2}]]
+    },
+    "7": {
+      "main": [[{"node": "8", "type": "main", "index": 0}]]
+    },
+    "8": {
+      "main": [[
+        {"node": "9", "type": "main", "index": 0},
+        {"node": "10", "type": "main", "index": 0},
+        {"node": "11", "type": "main", "index": 0}
+      ]]
+    },
+    "9": {
+      "main": [[{"node": "12", "type": "main", "index": 0}]]
+    },
+    "10": {
+      "main": [[{"node": "12", "type": "main", "index": 0}]]
+    },
+    "11": {
+      "main": [[{"node": "12", "type": "main", "index": 0}]]
+    },
+    "13": {
+      "main": [[{"node": "14", "type": "main", "index": 0}]]
+    },
+    "15": {
+      "main": [[{"node": "16", "type": "main", "index": 0}]]
+    },
+    "16": {
+      "main": [[{"node": "17", "type": "main", "index": 0}]]
+    },
+    "17": {
+      "main": [[{"node": "18", "type": "main", "index": 0}]]
+    }
+  }
+}

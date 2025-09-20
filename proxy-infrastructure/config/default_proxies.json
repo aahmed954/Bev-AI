@@ -1,0 +1,58 @@
+{
+  "default_proxies": [
+    {
+      "host": "127.0.0.1",
+      "port": 9050,
+      "proxy_type": "tor",
+      "region": "global",
+      "provider": "tor_internal",
+      "weight": 0.5,
+      "max_connections": 50,
+      "description": "Internal Tor proxy integration"
+    }
+  ],
+  "provider_templates": {
+    "residential_us_east": {
+      "proxy_type": "residential",
+      "region": "us-east",
+      "weight": 1.0,
+      "max_connections": 100,
+      "rotation_interval": 1800
+    },
+    "residential_us_west": {
+      "proxy_type": "residential",
+      "region": "us-west",
+      "weight": 1.0,
+      "max_connections": 100,
+      "rotation_interval": 1800
+    },
+    "residential_eu_central": {
+      "proxy_type": "residential",
+      "region": "eu-central",
+      "weight": 0.8,
+      "max_connections": 80,
+      "rotation_interval": 1800
+    },
+    "datacenter_global": {
+      "proxy_type": "datacenter",
+      "region": "global",
+      "weight": 0.6,
+      "max_connections": 200,
+      "rotation_interval": 3600
+    }
+  },
+  "region_preferences": {
+    "osint": ["global", "us-east", "eu-central"],
+    "social_media": ["us-east", "us-west", "global"],
+    "business_intel": ["eu-central", "us-east", "asia-pacific"],
+    "academic": ["global", "eu-central", "us-east"],
+    "darkweb": ["tor", "global"],
+    "crypto": ["global", "asia-pacific", "eu-central"]
+  },
+  "compliance_settings": {
+    "gdpr_regions": ["eu-central", "eu-west"],
+    "ccpa_regions": ["us-west"],
+    "strict_mode": true,
+    "data_sovereignty": true
+  }
+}

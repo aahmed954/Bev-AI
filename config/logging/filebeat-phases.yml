@@ -1,0 +1,371 @@
+# Filebeat Configuration for Phase 7-9 Services
+# Centralized log collection and shipping to ELK stack
+
+filebeat.inputs:
+# =============================================================================
+# PHASE 7 - ALTERNATIVE MARKET INTELLIGENCE LOGS
+# =============================================================================
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/dm-crawler/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/dm-crawler/logs/*.log
+  fields:
+    service: dm-crawler
+    phase: "7"
+    category: market-intelligence
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/crypto-intel/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/crypto-intel/logs/*.log
+  fields:
+    service: crypto-intel
+    phase: "7"
+    category: market-intelligence
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/reputation-analyzer/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/reputation-analyzer/logs/*.log
+  fields:
+    service: reputation-analyzer
+    phase: "7"
+    category: market-intelligence
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/economics-processor/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/economics-processor/logs/*.log
+  fields:
+    service: economics-processor
+    phase: "7"
+    category: market-intelligence
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+# =============================================================================
+# PHASE 8 - ADVANCED SECURITY OPERATIONS LOGS
+# =============================================================================
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/tactical-intel/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/tactical-intel/logs/*.log
+  fields:
+    service: tactical-intel
+    phase: "8"
+    category: security-operations
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/defense-automation/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/defense-automation/logs/*.log
+  fields:
+    service: defense-automation
+    phase: "8"
+    category: security-operations
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/opsec-enforcer/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/opsec-enforcer/logs/*.log
+  fields:
+    service: opsec-enforcer
+    phase: "8"
+    category: security-operations
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/intel-fusion/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/intel-fusion/logs/*.log
+  fields:
+    service: intel-fusion
+    phase: "8"
+    category: security-operations
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+# =============================================================================
+# PHASE 9 - AUTONOMOUS ENHANCEMENT LOGS
+# =============================================================================
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/autonomous-coordinator/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/autonomous-coordinator/logs/*.log
+  fields:
+    service: autonomous-coordinator
+    phase: "9"
+    category: autonomous-systems
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/adaptive-learning/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/adaptive-learning/logs/*.log
+  fields:
+    service: adaptive-learning
+    phase: "9"
+    category: autonomous-systems
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/resource-manager/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/resource-manager/logs/*.log
+  fields:
+    service: resource-manager
+    phase: "9"
+    category: autonomous-systems
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/bev_logs/_data/knowledge-evolution/*.log
+    - /var/lib/docker/volumes/bev_logs/_data/knowledge-evolution/logs/*.log
+  fields:
+    service: knowledge-evolution
+    phase: "9"
+    category: autonomous-systems
+    environment: production
+  fields_under_root: true
+  multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - drop_fields:
+        fields: ["agent", "ecs", "host", "input"]
+        ignore_missing: true
+
+# =============================================================================
+# OUTPUT CONFIGURATION
+# =============================================================================
+output.logstash:
+  hosts: ["${LOGSTASH_HOST:logstash}:${LOGSTASH_PORT:5044}"]
+  compression_level: 1
+  escape_html: false
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
+
+# =============================================================================
+# MONITORING
+# =============================================================================
+monitoring.enabled: true
+monitoring.elasticsearch:
+  hosts: ["${ELASTICSEARCH_HOST:elasticsearch}:${ELASTICSEARCH_PORT:9200}"]
+
+# =============================================================================
+# PROCESSORS FOR PII REDACTION AND SECURITY
+# =============================================================================
+processors:
+  # Redact sensitive information
+  - script:
+      lang: javascript
+      id: pii_redaction
+      source: >
+        function process(event) {
+          var message = event.Get("message");
+          if (message) {
+            // Redact email addresses
+            message = message.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, "[EMAIL_REDACTED]");
+            // Redact IP addresses
+            message = message.replace(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g, "[IP_REDACTED]");
+            // Redact potential API keys (common patterns)
+            message = message.replace(/\b[A-Za-z0-9]{32,}\b/g, "[API_KEY_REDACTED]");
+            // Redact credit card numbers
+            message = message.replace(/\b(?:\d{4}[-\s]?){3}\d{4}\b/g, "[CC_REDACTED]");
+            // Redact social security numbers
+            message = message.replace(/\b\d{3}-?\d{2}-?\d{4}\b/g, "[SSN_REDACTED]");
+            event.Put("message", message);
+          }
+        }
+
+  # Add environment tags
+  - add_tags:
+      tags: ["bev-osint", "phases-7-9"]
+      when:
+        or:
+          - equals:
+              service: dm-crawler
+          - equals:
+              service: crypto-intel
+          - equals:
+              service: reputation-analyzer
+          - equals:
+              service: economics-processor
+          - equals:
+              service: tactical-intel
+          - equals:
+              service: defense-automation
+          - equals:
+              service: opsec-enforcer
+          - equals:
+              service: intel-fusion
+          - equals:
+              service: autonomous-coordinator
+          - equals:
+              service: adaptive-learning
+          - equals:
+              service: resource-manager
+          - equals:
+              service: knowledge-evolution
+
+  # Add timestamp if missing
+  - timestamp:
+      field: "@timestamp"
+      layouts:
+        - '2006-01-02T15:04:05Z'
+        - '2006-01-02T15:04:05.000Z'
+        - '2006-01-02 15:04:05'
+      test:
+        - '2019-06-22T16:33:51Z'
+
+# =============================================================================
+# PERFORMANCE TUNING
+# =============================================================================
+queue.mem:
+  events: 4096
+  flush.min_events: 2048
+  flush.timeout: 1s
+
+max_procs: 4
+
+# Enable harvester buffer size optimization
+filebeat.inputs:
+  - harvester_buffer_size: 65536
+    max_bytes: 10485760

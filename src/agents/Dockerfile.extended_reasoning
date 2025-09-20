@@ -1,0 +1,56 @@
+# Extended Reasoning Pipeline Dockerfile
+FROM python:3.11-slim
+
+LABEL maintainer="BEV OSINT Team"
+LABEL description="Extended Reasoning Pipeline with 100K+ token support"
+LABEL version="1.0.0"
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements/extended_reasoning.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install spaCy model
+RUN python -m spacy download en_core_web_sm
+
+# Copy application code
+COPY src/agents/extended_reasoning.py /app/
+COPY src/agents/research_workflow.py /app/
+COPY src/agents/counterfactual_analyzer.py /app/
+COPY src/agents/knowledge_synthesizer.py /app/
+COPY src/agents/__init__.py /app/
+
+# Copy configuration
+COPY config/extended_reasoning.yaml /app/config/
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/logs /app/cache /app/models
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV EXTENDED_REASONING_CONFIG=/app/config/extended_reasoning.yaml
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose ports
+EXPOSE 8000 9090
+
+# Set user for security
+RUN useradd -m -u 1000 reasoning && chown -R reasoning:reasoning /app
+USER reasoning
+
+# Start the service
+CMD ["python", "-m", "uvicorn", "extended_reasoning:app", "--host", "0.0.0.0", "--port", "8000"]

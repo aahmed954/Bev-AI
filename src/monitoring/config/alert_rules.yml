@@ -1,0 +1,376 @@
+# BEV OSINT Framework - Alert Rules Configuration
+
+# Global alert settings
+global:
+  evaluation_interval: 30  # seconds
+  notification_rate_limit: 5  # minutes between notifications
+  alert_retention_days: 30
+  enable_inhibition: true
+  enable_escalation: true
+
+# Alert rule definitions
+rules:
+  # Service availability alerts
+  service_availability:
+    - name: "service_down"
+      metric_name: "service_up"
+      condition: "eq"
+      threshold: 0
+      severity: "critical"
+      duration: 60  # seconds
+      labels:
+        component: "availability"
+        team: "ops"
+      annotations:
+        summary: "Service {{ $labels.service }} is down"
+        description: "Service {{ $labels.service }} has been down for more than 1 minute"
+        runbook_url: "https://docs.bev-osint.com/runbooks/service-down"
+      notification_channels: ["email", "slack", "webhook"]
+
+    - name: "service_restart"
+      metric_name: "service_uptime"
+      condition: "lt"
+      threshold: 300  # 5 minutes
+      severity: "warning"
+      duration: 30
+      labels:
+        component: "availability"
+        team: "ops"
+      annotations:
+        summary: "Service {{ $labels.service }} recently restarted"
+        description: "Service {{ $labels.service }} uptime is less than 5 minutes"
+
+  # Performance alerts
+  performance:
+    - name: "high_response_time"
+      metric_name: "service_response_time"
+      condition: "gt"
+      threshold: 5.0
+      severity: "warning"
+      duration: 120
+      labels:
+        component: "performance"
+        team: "dev"
+      annotations:
+        summary: "High response time detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} response time is {{ $value }}s (threshold: 5s)"
+
+    - name: "critical_response_time"
+      metric_name: "service_response_time"
+      condition: "gt"
+      threshold: 10.0
+      severity: "critical"
+      duration: 60
+      labels:
+        component: "performance"
+        team: "dev"
+      annotations:
+        summary: "Critical response time detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} response time is {{ $value }}s (threshold: 10s)"
+      notification_channels: ["email", "slack", "webhook"]
+
+    - name: "low_throughput"
+      metric_name: "service_throughput"
+      condition: "lt"
+      threshold: 1.0
+      severity: "warning"
+      duration: 300
+      labels:
+        component: "performance"
+        team: "dev"
+      annotations:
+        summary: "Low throughput detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} throughput is {{ $value }} req/s"
+
+  # Resource utilization alerts
+  resources:
+    - name: "high_cpu_usage"
+      metric_name: "cpu_usage_percent"
+      condition: "gt"
+      threshold: 85.0
+      severity: "warning"
+      duration: 300
+      labels:
+        component: "resources"
+        team: "ops"
+      annotations:
+        summary: "High CPU usage detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} CPU usage is {{ $value }}%"
+
+    - name: "critical_cpu_usage"
+      metric_name: "cpu_usage_percent"
+      condition: "gt"
+      threshold: 95.0
+      severity: "critical"
+      duration: 120
+      labels:
+        component: "resources"
+        team: "ops"
+      annotations:
+        summary: "Critical CPU usage detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} CPU usage is {{ $value }}%"
+      notification_channels: ["email", "slack"]
+
+    - name: "high_memory_usage"
+      metric_name: "memory_usage_percent"
+      condition: "gt"
+      threshold: 90.0
+      severity: "warning"
+      duration: 300
+      labels:
+        component: "resources"
+        team: "ops"
+      annotations:
+        summary: "High memory usage detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} memory usage is {{ $value }}%"
+
+    - name: "critical_memory_usage"
+      metric_name: "memory_usage_percent"
+      condition: "gt"
+      threshold: 95.0
+      severity: "critical"
+      duration: 120
+      labels:
+        component: "resources"
+        team: "ops"
+      annotations:
+        summary: "Critical memory usage detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} memory usage is {{ $value }}%"
+      notification_channels: ["email", "slack"]
+
+    - name: "disk_space_low"
+      metric_name: "disk_usage_percent"
+      condition: "gt"
+      threshold: 85.0
+      severity: "warning"
+      duration: 300
+      labels:
+        component: "storage"
+        team: "ops"
+      annotations:
+        summary: "Low disk space on {{ $labels.service }}"
+        description: "Service {{ $labels.service }} disk usage is {{ $value }}%"
+
+    - name: "disk_space_critical"
+      metric_name: "disk_usage_percent"
+      condition: "gt"
+      threshold: 95.0
+      severity: "critical"
+      duration: 120
+      labels:
+        component: "storage"
+        team: "ops"
+      annotations:
+        summary: "Critical disk space on {{ $labels.service }}"
+        description: "Service {{ $labels.service }} disk usage is {{ $value }}%"
+      notification_channels: ["email", "slack", "webhook"]
+
+  # Error rate alerts
+  reliability:
+    - name: "high_error_rate"
+      metric_name: "error_rate"
+      condition: "gt"
+      threshold: 5.0
+      severity: "warning"
+      duration: 180
+      labels:
+        component: "reliability"
+        team: "dev"
+      annotations:
+        summary: "High error rate detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} error rate is {{ $value }}%"
+
+    - name: "critical_error_rate"
+      metric_name: "error_rate"
+      condition: "gt"
+      threshold: 15.0
+      severity: "critical"
+      duration: 120
+      labels:
+        component: "reliability"
+        team: "dev"
+      annotations:
+        summary: "Critical error rate detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} error rate is {{ $value }}%"
+      notification_channels: ["email", "slack", "webhook"]
+
+    - name: "request_timeout"
+      metric_name: "timeout_count"
+      condition: "gt"
+      threshold: 10
+      severity: "warning"
+      duration: 300
+      labels:
+        component: "reliability"
+        team: "dev"
+      annotations:
+        summary: "Request timeouts detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} has {{ $value }} timeouts in 5 minutes"
+
+  # Security alerts
+  security:
+    - name: "authentication_failures"
+      metric_name: "authentication_failures"
+      condition: "gt"
+      threshold: 10
+      severity: "warning"
+      duration: 300
+      labels:
+        component: "security"
+        team: "security"
+      annotations:
+        summary: "Multiple authentication failures for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} has {{ $value }} auth failures in 5 minutes"
+
+    - name: "suspicious_activity"
+      metric_name: "suspicious_activity"
+      condition: "gt"
+      threshold: 5
+      severity: "critical"
+      duration: 60
+      labels:
+        component: "security"
+        team: "security"
+      annotations:
+        summary: "Suspicious activity detected for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} has {{ $value }} suspicious activities"
+      notification_channels: ["email", "slack", "webhook"]
+
+  # Business metrics alerts
+  business:
+    - name: "low_api_usage"
+      metric_name: "api_requests"
+      condition: "lt"
+      threshold: 100
+      severity: "info"
+      duration: 900  # 15 minutes
+      labels:
+        component: "business"
+        team: "product"
+      annotations:
+        summary: "Low API usage for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} API requests below normal"
+
+    - name: "data_processing_stalled"
+      metric_name: "data_processed"
+      condition: "eq"
+      threshold: 0
+      severity: "warning"
+      duration: 600  # 10 minutes
+      labels:
+        component: "business"
+        team: "data"
+      annotations:
+        summary: "Data processing stalled for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} has not processed data in 10 minutes"
+
+# Service-specific rules
+service_specific:
+  # Critical infrastructure services
+  postgres:
+    - name: "postgres_connection_limit"
+      metric_name: "postgres_connections"
+      condition: "gt"
+      threshold: 400  # out of 500 max
+      severity: "warning"
+      duration: 180
+
+  elasticsearch:
+    - name: "elasticsearch_cluster_red"
+      metric_name: "elasticsearch_cluster_status"
+      condition: "eq"
+      threshold: "red"
+      severity: "critical"
+      duration: 60
+
+  redis:
+    - name: "redis_memory_fragmentation"
+      metric_name: "redis_memory_fragmentation_ratio"
+      condition: "gt"
+      threshold: 1.5
+      severity: "warning"
+      duration: 300
+
+  # Vector databases
+  qdrant:
+    - name: "qdrant_index_optimization"
+      metric_name: "qdrant_optimization_status"
+      condition: "eq"
+      threshold: "failed"
+      severity: "warning"
+      duration: 300
+
+  weaviate:
+    - name: "weaviate_vector_count_anomaly"
+      metric_name: "weaviate_vector_count"
+      condition: "lt"
+      threshold: 1000000
+      severity: "warning"
+      duration: 900
+
+# Escalation rules
+escalation:
+  levels:
+    - level: 1
+      duration: 300  # 5 minutes
+      channels: ["email"]
+      conditions:
+        - severity: "warning"
+
+    - level: 2
+      duration: 900  # 15 minutes
+      channels: ["email", "slack"]
+      conditions:
+        - severity: "warning"
+        - age_minutes: 15
+
+    - level: 3
+      duration: 1800  # 30 minutes
+      channels: ["email", "slack", "webhook"]
+      conditions:
+        - severity: "critical"
+        - age_minutes: 30
+
+    - level: 4
+      duration: 3600  # 1 hour
+      channels: ["email", "slack", "webhook", "sms"]
+      conditions:
+        - severity: "critical"
+        - age_minutes: 60
+
+# Inhibition rules (suppress alerts)
+inhibition:
+  rules:
+    - source_match:
+        alertname: "service_down"
+      target_match:
+        service: "{{ $labels.service }}"
+      equal: ["service"]
+
+    - source_match:
+        alertname: "critical_cpu_usage"
+      target_match:
+        alertname: "high_cpu_usage"
+        service: "{{ $labels.service }}"
+      equal: ["service"]
+
+    - source_match:
+        alertname: "critical_memory_usage"
+      target_match:
+        alertname: "high_memory_usage"
+        service: "{{ $labels.service }}"
+      equal: ["service"]
+
+# Notification templates
+templates:
+  default_title: "BEV Alert: {{ .GroupLabels.alertname }}"
+  default_message: |
+    Alert: {{ .GroupLabels.alertname }}
+    Service: {{ .GroupLabels.service }}
+    Severity: {{ .GroupLabels.severity }}
+    Summary: {{ .CommonAnnotations.summary }}
+    Description: {{ .CommonAnnotations.description }}
+
+  email_subject: "BEV Alert [{{ .GroupLabels.severity | upper }}]: {{ .GroupLabels.service }}"
+  slack_title: ":warning: BEV Alert: {{ .GroupLabels.alertname }}"
+  webhook_format: "json"

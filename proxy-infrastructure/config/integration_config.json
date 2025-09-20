@@ -1,0 +1,226 @@
+{
+  "tor_integration": {
+    "enabled": true,
+    "socks_proxy": {
+      "host": "tor",
+      "port": 9050,
+      "timeout": 30
+    },
+    "control_port": {
+      "host": "tor",
+      "port": 9051,
+      "password": "${TOR_CONTROL_PASSWORD}",
+      "timeout": 10
+    },
+    "circuit_management": {
+      "rotation_interval": 600,
+      "max_circuits": 10,
+      "circuit_timeout": 60,
+      "stream_isolation": true
+    },
+    "health_monitoring": {
+      "check_interval": 30,
+      "test_endpoints": [
+        "http://httpbin.org/ip",
+        "https://check.torproject.org/api/ip"
+      ]
+    }
+  },
+  "proxy_provider_integration": {
+    "brightdata": {
+      "enabled": false,
+      "api_endpoint": "https://brightdata.com/api/v1",
+      "api_key": "${BRIGHTDATA_API_KEY}",
+      "zones": {
+        "residential_us": {
+          "endpoint": "brd-customer-${BRIGHTDATA_CUSTOMER_ID}-zone-residential_us",
+          "port_range": [20000, 29999],
+          "session_type": "sticky",
+          "country": "US"
+        },
+        "residential_eu": {
+          "endpoint": "brd-customer-${BRIGHTDATA_CUSTOMER_ID}-zone-residential_eu",
+          "port_range": [30000, 39999],
+          "session_type": "sticky",
+          "country": "DE"
+        }
+      }
+    },
+    "smartproxy": {
+      "enabled": false,
+      "api_endpoint": "https://dashboard.smartproxy.com/api/v1",
+      "username": "${SMARTPROXY_USERNAME}",
+      "password": "${SMARTPROXY_PASSWORD}",
+      "endpoints": {
+        "residential": {
+          "host": "gate.smartproxy.com",
+          "port": 10000,
+          "auth_type": "userpass"
+        },
+        "datacenter": {
+          "host": "dc.smartproxy.com",
+          "port": 10001,
+          "auth_type": "userpass"
+        }
+      }
+    },
+    "oxylabs": {
+      "enabled": false,
+      "api_endpoint": "https://rt.oxylabs.io/api/v1",
+      "username": "${OXYLABS_USERNAME}",
+      "password": "${OXYLABS_PASSWORD}",
+      "endpoints": {
+        "datacenter": {
+          "host": "dc.oxylabs.io",
+          "port": 8001,
+          "protocols": ["http", "https", "socks5"]
+        },
+        "residential": {
+          "host": "pr.oxylabs.io",
+          "port": 7777,
+          "protocols": ["http", "https", "socks5"]
+        }
+      }
+    }
+  },
+  "geographic_optimization": {
+    "latency_thresholds": {
+      "excellent": 100,
+      "good": 300,
+      "acceptable": 1000,
+      "poor": 3000
+    },
+    "regional_priorities": {
+      "us-east": 1.0,
+      "us-west": 0.9,
+      "eu-central": 0.8,
+      "eu-west": 0.7,
+      "asia-pacific": 0.6,
+      "global": 0.5
+    },
+    "compliance_enforcement": {
+      "gdpr_strict": true,
+      "ccpa_compliance": true,
+      "data_localization": true
+    }
+  },
+  "load_balancing": {
+    "default_strategy": "least_connections",
+    "failover_strategy": "geographic",
+    "health_check": {
+      "interval": 30,
+      "timeout": 10,
+      "max_failures": 3,
+      "recovery_threshold": 5
+    },
+    "connection_limits": {
+      "per_proxy": 100,
+      "per_region": 500,
+      "global_max": 1000
+    }
+  },
+  "security": {
+    "request_sanitization": {
+      "remove_headers": [
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "X-Originating-IP"
+      ],
+      "randomize_user_agent": true,
+      "strip_tracking_params": true
+    },
+    "connection_security": {
+      "ssl_verification": true,
+      "min_tls_version": "1.2",
+      "cipher_preferences": "secure",
+      "certificate_pinning": false
+    },
+    "privacy_protection": {
+      "dns_over_https": true,
+      "leak_protection": true,
+      "disable_webrtc": true,
+      "block_tracking": true
+    }
+  },
+  "performance": {
+    "connection_pooling": {
+      "enabled": true,
+      "max_pool_size": 20,
+      "connection_timeout": 30,
+      "idle_timeout": 300
+    },
+    "caching": {
+      "response_cache": false,
+      "dns_cache": true,
+      "cache_ttl": 3600
+    },
+    "optimization": {
+      "compression": true,
+      "keep_alive": true,
+      "tcp_nodelay": true,
+      "socket_options": {
+        "SO_REUSEADDR": true,
+        "SO_KEEPALIVE": true
+      }
+    }
+  },
+  "monitoring": {
+    "metrics": {
+      "enabled": true,
+      "prometheus_port": 9090,
+      "collection_interval": 30
+    },
+    "logging": {
+      "level": "INFO",
+      "format": "structured",
+      "output": "console",
+      "file_rotation": true
+    },
+    "alerting": {
+      "health_alerts": true,
+      "performance_alerts": true,
+      "security_alerts": true,
+      "thresholds": {
+        "proxy_failure_rate": 0.1,
+        "average_response_time": 5.0,
+        "pool_utilization": 0.9
+      }
+    }
+  },
+  "api": {
+    "rate_limiting": {
+      "enabled": true,
+      "requests_per_minute": 1000,
+      "burst_size": 100
+    },
+    "authentication": {
+      "enabled": false,
+      "method": "api_key",
+      "header_name": "X-API-Key"
+    },
+    "cors": {
+      "enabled": true,
+      "allowed_origins": ["*"],
+      "allowed_methods": ["GET", "POST", "PUT", "DELETE"],
+      "allowed_headers": ["*"]
+    }
+  },
+  "data_storage": {
+    "metrics_retention": {
+      "raw_metrics": "24h",
+      "aggregated_hourly": "7d",
+      "aggregated_daily": "30d",
+      "summary_monthly": "1y"
+    },
+    "proxy_cache": {
+      "ttl": 3600,
+      "max_entries": 10000,
+      "cleanup_interval": 300
+    },
+    "geo_cache": {
+      "ttl": 86400,
+      "max_entries": 50000,
+      "cleanup_interval": 3600
+    }
+  }
+}

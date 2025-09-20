@@ -1,0 +1,131 @@
+# Context Compression Engine Dockerfile
+# Multi-stage build for optimized container size
+
+# Stage 1: Build dependencies
+FROM python:3.11-slim AS builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy requirements
+COPY src/pipeline/requirements.compression.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements.compression.txt
+
+# Download required models
+RUN python -c "
+from sentence_transformers import SentenceTransformer
+import spacy
+import nltk
+
+# Download sentence transformer model
+SentenceTransformer('all-MiniLM-L6-v2')
+
+# Download spaCy model
+import subprocess
+subprocess.run(['python', '-m', 'spacy', 'download', 'en_core_web_sm'])
+
+# Download NLTK data
+nltk.download('punkt', quiet=True)
+nltk.download('stopwords', quiet=True)
+nltk.download('wordnet', quiet=True)
+"
+
+# Stage 2: Production image
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r appuser \
+    && useradd -r -g appuser appuser
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY src/pipeline/ /app/src/pipeline/
+COPY src/infrastructure/ /app/src/infrastructure/
+COPY config/context_compression.yaml /app/config/compression.yaml
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/cache /app/models /app/logs \
+    && chown -R appuser:appuser /app
+
+# Set environment variables
+ENV PYTHONPATH="/app:/app/src"
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Health check script
+COPY <<EOF /app/healthcheck.py
+#!/usr/bin/env python3
+import requests
+import sys
+
+try:
+    response = requests.get('http://localhost:8000/health', timeout=10)
+    if response.status_code == 200:
+        sys.exit(0)
+    else:
+        sys.exit(1)
+except:
+    sys.exit(1)
+EOF
+
+RUN chmod +x /app/healthcheck.py
+
+# Startup script
+COPY <<EOF /app/start.sh
+#!/bin/bash
+set -e
+
+echo "Starting Context Compression Engine..."
+
+# Wait for dependencies
+echo "Waiting for Redis..."
+while ! nc -z \${REDIS_HOST:-redis-standalone} \${REDIS_PORT:-6379}; do
+    sleep 1
+done
+
+echo "Waiting for Qdrant..."
+while ! nc -z \${QDRANT_HOST:-qdrant-primary} \${QDRANT_PORT:-6333}; do
+    sleep 1
+done
+
+echo "Dependencies ready, starting application..."
+
+# Start the application
+exec python -m uvicorn src.pipeline.compression_api:app \\
+    --host \${API_HOST:-0.0.0.0} \\
+    --port \${API_PORT:-8000} \\
+    --workers \${API_WORKERS:-4} \\
+    --log-level \${LOG_LEVEL:-info}
+EOF
+
+RUN chmod +x /app/start.sh
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=3 \
+    CMD python /app/healthcheck.py
+
+# Expose ports
+EXPOSE 8000 9090
+
+# Default command
+CMD ["/app/start.sh"]

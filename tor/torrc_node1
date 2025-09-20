@@ -1,0 +1,120 @@
+# Tor Entry Node Configuration (Node 1)
+# First hop in the 3-hop circuit for maximum anonymity
+
+## Basic Configuration
+SocksPort 9050
+SocksPolicy accept 127.0.0.1/32
+SocksPolicy reject *
+
+ControlPort 9051
+ControlListenAddress 127.0.0.1
+HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C
+
+## Data Directory
+DataDirectory /var/lib/tor
+
+## Logging
+Log notice file /var/log/tor/notices.log
+Log warn file /var/log/tor/warnings.log
+
+## Entry Node Configuration
+ORPort 9001
+ORListenAddress 0.0.0.0:9001
+Nickname BEVEntryNode1
+ContactInfo security@bev.local
+
+## Relay Configuration
+RelayBandwidthRate 10 MB
+RelayBandwidthBurst 20 MB
+MaxMemInQueues 512 MB
+
+## Directory Configuration
+DirPort 9030
+DirListenAddress 0.0.0.0:9030
+
+## Exit Policy - No exits from entry node
+ExitPolicy reject *:*
+
+## Security Hardening
+DisableAllSwap 1
+HardwareAccel 1
+SafeLogging 1
+ProtocolWarnings 1
+
+## Entry Guard Configuration
+UseGuardFraction 0
+GuardLifetime 3 months
+NumPrimaryGuards 3
+
+## Client Configuration
+UseEntryGuards 1
+NumEntryGuards 3
+EnforceDistinctSubnets 1
+
+## Bandwidth Management
+MaxAdvertisedBandwidth 10 MB
+BandwidthRate 5 MB
+BandwidthBurst 10 MB
+MaxOnionQueueDelay 1750 msec
+
+## Connection Limits
+ConnLimit 1000
+MaxClientCircuitsPending 32
+MaxOnionsPending 100
+
+## Security Features
+LearnCircuitBuildTimeout 1
+BuildTimeoutInitialTimeout 60 seconds
+CircuitBuildTimeout 60 seconds
+
+## Entry Node Specific
+EntryNodes $FingerprintEntryNode1,$FingerprintEntryNode2
+StrictNodes 1
+
+## Network Configuration
+ClientOnly 0
+PublishServerDescriptor 1
+AssumeReachable 1
+Address 0.0.0.0
+
+## GeoIP Configuration
+GeoIPFile /usr/share/tor/geoip
+GeoIPv6File /usr/share/tor/geoip6
+
+## Statistics (disabled for privacy)
+CellStatistics 0
+DirReqStatistics 0
+EntryStatistics 0
+ExitPortStatistics 0
+
+## Hidden Service Configuration (for management)
+HiddenServiceDir /var/lib/tor/hidden_service_mgmt/
+HiddenServicePort 22 127.0.0.1:22
+HiddenServicePort 80 127.0.0.1:80
+
+## Circuit Configuration
+PathsNeededToBuildCircuits 0.25
+CircuitIdleTimeout 30 minutes
+NewCircuitPeriod 30 seconds
+
+## Performance Tuning
+KeepalivePeriod 60 seconds
+CircuitPriorityHalflife 30 seconds
+
+## Onion Service Configuration
+HiddenServiceVersion 3
+HiddenServiceMaxStreams 5
+HiddenServiceMaxStreamsCloseCircuit 1
+
+## Consensus Parameters
+UseMicrodescriptors 1
+FetchDirInfoExtraEarly 0
+FetchDirInfoEarly 0
+
+## Bridge Configuration (if needed)
+#UseBridges 1
+#Bridge obfs4 [IP:PORT] [FINGERPRINT] cert=[CERT] iat-mode=0
+
+## Circuit Padding
+CircuitPadding 1
+ReducedCircuitPadding 0
