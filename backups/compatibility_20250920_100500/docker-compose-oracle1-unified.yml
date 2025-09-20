@@ -91,7 +91,6 @@ services:
   # Lightweight Redis for distributed coordination
   redis-arm:
     image: redis:7-alpine
-    platform: linux/arm64
     container_name: bev_redis_oracle
     ports:
       - "6379:6379"
@@ -135,7 +134,6 @@ services:
   # Nginx load balancer
   nginx:
     image: nginx:alpine
-    platform: linux/arm64
     container_name: bev_nginx
     ports:
       - "80:80"
@@ -217,7 +215,6 @@ services:
   # InfluxDB cluster - Primary instance
   influxdb-primary:
     image: influxdb:2.7-alpine
-    platform: linux/arm64
     container_name: bev_influxdb_primary
     ports:
       - "8086:8086"
@@ -243,7 +240,6 @@ services:
   # InfluxDB cluster - Replica instance
   influxdb-replica:
     image: influxdb:2.7-alpine
-    platform: linux/arm64
     container_name: bev_influxdb_replica
     ports:
       - "8087:8086"
@@ -266,7 +262,6 @@ services:
   # Telegraf metrics collection from THANOS
   telegraf:
     image: telegraf:1.28-alpine
-    platform: linux/arm64
     container_name: bev_telegraf
     environment:
       INFLUXDB_URL: http://influxdb-primary:8086
@@ -289,7 +284,6 @@ services:
   # Node Exporter for ARM system metrics
   node-exporter:
     image: prom/node-exporter:latest
-    platform: linux/arm64
     container_name: bev_node_exporter
     ports:
       - "9100:9100"
@@ -894,7 +888,6 @@ services:
   # MinIO Storage Expansion for Live2D models
   minio-expansion:
     image: minio/minio:latest
-    platform: linux/arm64
     container_name: bev_minio_expansion
     ports:
       - "9004:9000"

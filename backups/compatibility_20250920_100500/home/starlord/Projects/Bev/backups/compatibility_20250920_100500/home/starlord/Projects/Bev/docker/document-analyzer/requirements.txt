@@ -6,7 +6,7 @@ uvicorn[standard]==0.24.0
 spacy==3.7.2
 spacy-transformers==1.3.4
 transformers==4.36.0
-torch==2.1.1+cu121
+torch==2.1.1
 sentence-transformers==2.2.2
 
 # Entity recognition and NLP
@@ -64,5 +64,4 @@ plotly==5.17.0
 
 # Date and time processing
 python-dateutil==2.8.2
-arrow==1.3.0torchvision==0.16.1+cu121
-torchaudio==2.1.1+cu121
+arrow==1.3.0

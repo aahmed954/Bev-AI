@@ -1,0 +1,56 @@
+# Core framework dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+uvloop==0.19.0
+websockets==12.0
+
+# Database drivers
+asyncpg==0.29.0
+neo4j==5.15.0
+redis[hiredis]==5.0.1
+elasticsearch==8.11.1
+
+# Security dependencies
+cryptography==41.0.8
+PyJWT==2.8.0
+bcrypt==4.1.2
+passlib[bcrypt]==1.7.4
+
+# HTTP client
+aiohttp==3.9.1
+httpx==0.25.2
+
+# Data validation and serialization
+pydantic==2.5.2
+marshmallow==3.20.2
+
+# Monitoring and metrics
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# Performance and caching
+cachetools==5.3.2
+aiocache==0.12.2
+
+# Async utilities
+aiofiles==23.2.1
+async-timeout==4.0.3
+
+# Development and testing dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+httpx==0.25.2  # For testing HTTP clients
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Environment and configuration
+python-dotenv==1.0.0
+click==8.1.7
+
+# Additional utilities
+python-multipart==0.0.6
+jinja2==3.1.2
