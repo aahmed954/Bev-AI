@@ -246,6 +246,24 @@
       icon: 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z',
       href: '/enhancement',
       badge: { text: 'FORENSICS', variant: 'success' }
+    },
+    {
+      label: 'Auto-Recovery',
+      icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
+      href: '/recovery',
+      badge: { text: 'DISASTER RECOVERY', variant: 'danger' }
+    },
+    {
+      label: 'AI Pipeline Controls',
+      icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+      href: '/ai-pipeline',
+      badge: { text: '100K+ TOKENS', variant: 'info' }
+    },
+    {
+      label: 'IntelOwl Admin',
+      icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
+      href: '/intelowl-admin',
+      badge: { text: 'CORE ENGINE', variant: 'warning' }
     }
   ];
   
