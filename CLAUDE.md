@@ -12,17 +12,21 @@ The BEV OSINT Framework is a comprehensive cybersecurity research platform that 
 
 ### System Lifecycle
 ```bash
-# Complete system deployment
-./deploy_everything.sh
+# ⚠️ DEPLOYMENT NOT READY - CONFIGURATION ISSUES
+# Current status: Fixing Docker Compose syntax errors and environment variables
+# DO NOT USE: ./deploy_everything.sh (OUTDATED - Sept 18)
+
+# Current working development containers:
+docker ps  # Shows: redis, qdrant, open-webui
+
+# When deployment is fixed, use:
+# ./deploy_local_distributed.sh (NEEDS YAML FIXES)
 
 # System health validation
 ./validate_bev_deployment.sh
 
 # Complete system shutdown
 docker-compose -f docker-compose.complete.yml down
-
-# Emergency recovery
-./verify_deployment.sh
 ```
 
 ### Development Workflow
