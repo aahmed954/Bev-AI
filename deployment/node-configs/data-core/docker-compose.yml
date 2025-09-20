@@ -1,0 +1,290 @@
+version: '3.8'
+
+# BEV OSINT Framework - Data Core Node
+# This node provides the foundational data storage services
+# Requirements: 32+ GB RAM, Fast SSD, High I/O
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+networks:
+  bev_osint:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  redis_data:
+    driver: local
+  influxdb_data:
+    driver: local
+  logs:
+    driver: local
+
+services:
+  # PostgreSQL with pgvector - Primary Data Storage
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: bev_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: osint,intelowl,breach_data,crypto_analysis
+      POSTGRES_HOST_AUTH_METHOD: md5
+      SHARED_PRELOAD_LIBRARIES: pg_stat_statements,pgvector
+      MAX_CONNECTIONS: 500
+      SHARED_BUFFERS: 2GB
+      EFFECTIVE_CACHE_SIZE: 6GB
+      MAINTENANCE_WORK_MEM: 512MB
+      WORK_MEM: 32MB
+      # Distributed deployment configs
+      POSTGRES_CLUSTER_NODE: primary
+      POSTGRES_EXTERNAL_ACCESS: "true"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_scripts/postgres_init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - logs:/var/log/postgresql
+    ports:
+      - "5432:5432"
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.2
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Neo4j Graph Database - Relationship Storage
+  neo4j:
+    image: neo4j:5.14-enterprise
+    container_name: bev_neo4j
+    restart: always
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: yes
+      NEO4J_server_memory_heap_initial__size: 2G
+      NEO4J_server_memory_heap_max__size: 4G
+      NEO4J_server_memory_pagecache__size: 2G
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
+      NEO4J_dbms_security_procedures_allowlist: apoc.*,gds.*
+      NEO4J_apoc_export_file_enabled: true
+      NEO4J_apoc_import_file_enabled: true
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_dbms_connector_bolt_listen__address: 0.0.0.0:7687
+      NEO4J_dbms_connector_http_listen__address: 0.0.0.0:7474
+      NEO4J_dbms_connector_https_listen__address: 0.0.0.0:7473
+      # Distributed deployment configs
+      NEO4J_CLUSTER_MODE: primary
+      NEO4J_EXTERNAL_ACCESS: "true"
+    volumes:
+      - neo4j_data:/data
+      - ./init_scripts/neo4j_init.cypher:/import/init.cypher:ro
+      - logs:/logs
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+      - "7473:7473"  # HTTPS
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.3
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "neo4j", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis Cluster Node 1 - Primary Cache/Session Storage
+  redis-node-1:
+    image: redis:7-alpine
+    container_name: bev_redis_1
+    restart: always
+    command: >
+      redis-server
+      --port 7001
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --bind 0.0.0.0
+      --protected-mode no
+    volumes:
+      - ./redis/node1:/data
+      - logs:/var/log/redis
+    ports:
+      - "7001:7001"
+      - "17001:17001"
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.4
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "7001", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cluster Node 2
+  redis-node-2:
+    image: redis:7-alpine
+    container_name: bev_redis_2
+    restart: always
+    command: >
+      redis-server
+      --port 7002
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --bind 0.0.0.0
+      --protected-mode no
+    volumes:
+      - ./redis/node2:/data
+      - logs:/var/log/redis
+    ports:
+      - "7002:7002"
+      - "17002:17002"
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.5
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "7002", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cluster Node 3
+  redis-node-3:
+    image: redis:7-alpine
+    container_name: bev_redis_3
+    restart: always
+    command: >
+      redis-server
+      --port 7003
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --bind 0.0.0.0
+      --protected-mode no
+    volumes:
+      - ./redis/node3:/data
+      - logs:/var/log/redis
+    ports:
+      - "7003:7003"
+      - "17003:17003"
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.6
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "7003", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cluster Setup - One-time initialization
+  redis-cluster-setup:
+    image: redis:7-alpine
+    container_name: bev_redis_cluster_setup
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+    command: >
+      sh -c "
+        sleep 10 &&
+        redis-cli --cluster create
+        172.30.0.4:7001
+        172.30.0.5:7002
+        172.30.0.6:7003
+        --cluster-replicas 0
+        --cluster-yes
+        -a ${REDIS_PASSWORD}
+      "
+    networks:
+      - bev_osint
+    logging: *default-logging
+
+  # InfluxDB - Time Series Metrics Storage
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: bev_influxdb
+    restart: always
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: bev_osint
+      DOCKER_INFLUXDB_INIT_BUCKET: metrics
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
+      INFLUXDB_HTTP_AUTH_ENABLED: true
+      # Distributed deployment configs
+      INFLUXDB_EXTERNAL_ACCESS: "true"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - logs:/var/log/influxdb
+    ports:
+      - "8086:8086"
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.7
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Data Core Health Monitor
+  data-core-health:
+    image: alpine:latest
+    container_name: bev_data_core_health
+    restart: always
+    depends_on:
+      - postgres
+      - neo4j
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+      - influxdb
+    command: >
+      sh -c "
+        apk add --no-cache curl postgresql-client redis &&
+        while true; do
+          echo 'Data Core Health Check:' &&
+          pg_isready -h postgres -p 5432 -U ${POSTGRES_USER} &&
+          redis-cli -h redis-node-1 -p 7001 -a ${REDIS_PASSWORD} ping &&
+          curl -f http://neo4j:7474/db/data/ &&
+          curl -f http://influxdb:8086/health &&
+          echo 'All data core services healthy' &&
+          sleep 60
+        done
+      "
+    networks:
+      - bev_osint
+    logging: *default-logging
