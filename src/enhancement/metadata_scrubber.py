@@ -29,7 +29,7 @@ from PyPDF2 import PdfReader, PdfWriter
 # Office documents
 from docx import Document
 from openpyxl import load_workbook
-import python-pptx
+from pptx import Presentation
 
 # Audio/Video metadata  
 from mutagen import File as MutagenFile

@@ -588,7 +588,7 @@ class IntrusionDetectionSystem:
                         self._handle_threat_detection(final_result)
 
                     # Store results
-                    await self._store_detection_result(final_result)
+                    asyncio.create_task(self._store_detection_result(final_result))
 
             except Exception as e:
                 logger.error(f"Packet analysis error: {e}")

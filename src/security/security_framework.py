@@ -95,6 +95,7 @@ class OperationalSecurityFramework:
                 # SECURITY: Replace with subprocess.run() - os.system('sync')
                 if os.path.exists('/proc/sys/vm/drop_caches'):
                     # SECURITY: Replace with subprocess.run() - os.system('echo 3 > /proc/sys/vm/drop_caches')
+                    pass
             except:
                 pass
         
