@@ -94,7 +94,12 @@ fn main() {
             osint_handlers::get_crypto_data,
             osint_handlers::get_threat_intel_data,
             osint_handlers::search_address,
-            osint_handlers::analyze_mixer
+            osint_handlers::analyze_mixer,
+            // OCR Commands
+            osint_handlers::process_ocr_file,
+            osint_handlers::get_ocr_status,
+            osint_handlers::get_ocr_stats,
+            osint_handlers::get_ocr_results
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

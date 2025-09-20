@@ -480,3 +480,80 @@ fn generate_mock_threat_data() -> ThreatIntelData {
         feeds: vec![],
     }
 }
+
+// OCR Processing Commands
+#[tauri::command]
+pub async fn process_ocr_file(
+    job_id: String,
+    filename: String,
+    file_data: String,
+    engines: Vec<String>,
+    options: serde_json::Value,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    
+    let payload = serde_json::json!({
+        "job_id": job_id,
+        "filename": filename,
+        "file_data": file_data,
+        "engines": engines,
+        "options": options
+    });
+    
+    match client
+        .post("http://localhost:3020/ocr/process")
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                Ok(job_id)
+            } else {
+                Err(format!("OCR service error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to OCR service: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_ocr_status(job_id: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    
+    match client
+        .get(&format!("http://localhost:3020/ocr/status/{}", job_id))
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                response.json().await.map_err(|e| e.to_string())
+            } else {
+                Err(format!("OCR service error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to OCR service: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_ocr_stats() -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    
+    match client
+        .get("http://localhost:3020/ocr/stats")
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                response.json().await.map_err(|e| e.to_string())
+            } else {
+                Err(format!("OCR service error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to OCR service: {}", e)),
+    }
+}
+
