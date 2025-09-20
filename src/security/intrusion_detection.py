@@ -585,7 +585,7 @@ class IntrusionDetectionSystem:
 
                     if final_result.attack_type != AttackType.NORMAL:
                         self.metrics['threats_detected'] += 1
-                        await self._handle_threat_detection(final_result)
+                        self._handle_threat_detection(final_result)
 
                     # Store results
                     await self._store_detection_result(final_result)

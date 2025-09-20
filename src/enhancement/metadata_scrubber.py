@@ -27,7 +27,7 @@ import PyPDF2
 from PyPDF2 import PdfReader, PdfWriter
 
 # Office documents
-import python-docx import Document
+from docx import Document
 from openpyxl import load_workbook
 import python-pptx
 

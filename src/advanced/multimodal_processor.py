@@ -850,4 +850,4 @@ async def main():
     # correlation = await processor.correlate_modalities(image_features, audio_features)
 
 if __name__ == "__main__":
-    asyncio.run(main()
+    asyncio.run(main()))

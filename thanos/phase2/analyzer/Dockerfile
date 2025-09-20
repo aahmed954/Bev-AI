@@ -1,21 +1,5 @@
-# Document Analysis Service
 FROM python:3.11-slim
-
-LABEL maintainer="BEV OSINT Team"
-LABEL description="Document Analysis Service"
-
-# Set working directory
 WORKDIR /app
-
-# Copy source code
-COPY . .
-
-# Install dependencies if requirements exist
-RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Default command
-CMD ["python", "main.py"]
+RUN apt-get update && apt-get install -y tesseract-ocr && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir pytesseract pillow
+CMD ["python", "-m", "http.server", "8000"]
