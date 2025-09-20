@@ -675,6 +675,103 @@ pub async fn upload_to_knowledge_base(
     }
 }
 
+// Additional Infrastructure Commands
+#[tauri::command]
+pub async fn get_database_statuses() -> Result<serde_json::Value, String> {
+    // Mock database statuses for development
+    let statuses = serde_json::json!([
+        {
+            "id": "postgresql",
+            "name": "PostgreSQL",
+            "type": "postgresql",
+            "host": "172.21.0.2",
+            "port": 5432,
+            "status": "connected",
+            "version": "14.9",
+            "size": 8.2,
+            "connections": 15,
+            "maxConnections": 100,
+            "uptime": 72,
+            "lastCheck": chrono::Utc::now().to_rfc3339(),
+            "metrics": {
+                "cpu": 25.4,
+                "memory": 67.8,
+                "disk": 34.2,
+                "queries_per_second": 145.7
+            }
+        }
+    ]);
+    
+    Ok(statuses)
+}
+
+#[tauri::command]
+pub async fn execute_database_query(
+    database_id: String,
+    query: String,
+    index: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    
+    let payload = serde_json::json!({
+        "database_id": database_id,
+        "query": query,
+        "index": index
+    });
+    
+    match client
+        .post("http://localhost:3010/database/query")
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                response.json().await.map_err(|e| e.to_string())
+            } else {
+                Err(format!("Database query error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to database service: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_system_performance() -> Result<serde_json::Value, String> {
+    let metrics = serde_json::json!({
+        "overallHealth": "healthy",
+        "totalServices": 70,
+        "onlineServices": 68,
+        "cpuUsage": 34.7,
+        "memoryUsage": 42.1,
+        "diskUsage": 23.8,
+        "networkThroughput": 128.4,
+        "activeConnections": 1247,
+        "responseTime": 45.2
+    });
+    
+    Ok(metrics)
+}
+
+#[tauri::command]
+pub async fn get_analyzer_statuses() -> Result<serde_json::Value, String> {
+    let statuses = serde_json::json!([
+        {
+            "id": "breach",
+            "name": "Breach Database Analyzer",
+            "status": "online",
+            "activeJobs": 2,
+            "totalJobs": 156,
+            "successRate": 94.2,
+            "avgResponseTime": 1247.3,
+            "lastUsed": chrono::Utc::now().to_rfc3339(),
+            "capabilities": ["dehashed", "snusbase", "hibp"]
+        }
+    ]);
+    
+    Ok(statuses)
+}
+
 #[tauri::command]
 pub async fn get_ocr_status(job_id: String) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();

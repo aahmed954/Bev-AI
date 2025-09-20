@@ -105,7 +105,12 @@ fn main() {
             osint_handlers::ask_document,
             osint_handlers::get_knowledge_stats,
             osint_handlers::get_knowledge_graph,
-            osint_handlers::upload_to_knowledge_base
+            osint_handlers::upload_to_knowledge_base,
+            // Infrastructure Commands
+            osint_handlers::get_database_statuses,
+            osint_handlers::execute_database_query,
+            osint_handlers::get_system_performance,
+            osint_handlers::get_analyzer_statuses
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
