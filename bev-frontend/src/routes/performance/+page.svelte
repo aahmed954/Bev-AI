@@ -1,5 +1,17 @@
 <!-- System Performance & Monitoring Platform -->
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import Card from '$lib/components/ui/Card.svelte';
@@ -51,7 +63,7 @@
   }
 
   function connectWebSocket() {
-    websocket = new WebSocket('ws://localhost:9090/metrics-stream');
+    websocket = new WebSocket('ws://${getWebSocketHost()}:9090/metrics-stream');
     websocket.onopen = () => { connectionStatus = 'connected'; };
     websocket.onmessage = (event) => {
       const data = JSON.parse(event.data);

@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -104,7 +116,7 @@
 
   function initializeWebSockets() {
     // Watermark research WebSocket
-    watermarkWs = new WebSocket('ws://localhost:8060/watermark');
+    watermarkWs = new WebSocket('ws://${getWebSocketHost()}:8060/watermark');
     watermarkWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       enhancementState.update(state => ({
@@ -117,7 +129,7 @@
     };
 
     // DRM research WebSocket
-    drmWs = new WebSocket('ws://localhost:8061/drm');
+    drmWs = new WebSocket('ws://${getWebSocketHost()}:8061/drm');
     drmWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       enhancementState.update(state => ({
@@ -130,7 +142,7 @@
     };
 
     // Metadata scrubbing WebSocket
-    metadataWs = new WebSocket('ws://localhost:8062/metadata');
+    metadataWs = new WebSocket('ws://${getWebSocketHost()}:8062/metadata');
     metadataWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       enhancementState.update(state => ({
@@ -143,7 +155,7 @@
     };
 
     // Research framework WebSocket
-    researchWs = new WebSocket('ws://localhost:8063/research');
+    researchWs = new WebSocket('ws://${getWebSocketHost()}:8063/research');
     researchWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       enhancementState.update(state => ({
@@ -156,10 +168,10 @@
   async function loadResearchData() {
     try {
       const [watermarkRes, drmRes, metadataRes, projectsRes] = await Promise.all([
-        fetch('http://localhost:8060/api/results'),
-        fetch('http://localhost:8061/api/analysis'),
-        fetch('http://localhost:8062/api/reports'),
-        fetch('http://localhost:8063/api/projects')
+        fetch('http://${getServiceHost()}:8060/api/results'),
+        fetch('http://${getServiceHost()}:8061/api/analysis'),
+        fetch('http://${getServiceHost()}:8062/api/reports'),
+        fetch('http://${getServiceHost()}:8063/api/projects')
       ]);
 
       const watermarkData = await watermarkRes.json();
@@ -179,7 +191,7 @@
   async function startProgressMonitoring() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8060/api/metrics');
+        const response = await fetch('http://${getServiceHost()}:8060/api/metrics');
         const metrics = await response.json();
         enhancementState.update(state => ({
           ...state,
@@ -199,7 +211,7 @@
       formData.append('file', selectedFile);
       formData.append('config', JSON.stringify(watermarkConfig));
 
-      const response = await fetch('http://localhost:8060/api/analyze', {
+      const response = await fetch('http://${getServiceHost()}:8060/api/analyze', {
         method: 'POST',
         body: formData
       });
@@ -221,7 +233,7 @@
       formData.append('file', selectedFile);
       formData.append('config', JSON.stringify(drmConfig));
 
-      const response = await fetch('http://localhost:8061/api/analyze', {
+      const response = await fetch('http://${getServiceHost()}:8061/api/analyze', {
         method: 'POST',
         body: formData
       });
@@ -251,7 +263,7 @@
 
       formData.append('config', JSON.stringify(scrubConfig));
 
-      const response = await fetch('http://localhost:8062/api/scrub', {
+      const response = await fetch('http://${getServiceHost()}:8062/api/scrub', {
         method: 'POST',
         body: formData
       });

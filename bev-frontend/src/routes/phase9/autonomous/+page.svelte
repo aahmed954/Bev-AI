@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -79,7 +91,7 @@
 
   function initializeWebSockets() {
     // Autonomous coordinator WebSocket
-    autonomousWs = new WebSocket('ws://localhost:8009/ws');
+    autonomousWs = new WebSocket('ws://${getWebSocketHost()}:8009/ws');
     autonomousWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       autonomousState.update(state => ({
@@ -90,7 +102,7 @@
     };
 
     // Adaptive learning WebSocket
-    adaptiveLearningWs = new WebSocket('ws://localhost:8010/ws');
+    adaptiveLearningWs = new WebSocket('ws://${getWebSocketHost()}:8010/ws');
     adaptiveLearningWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       autonomousState.update(state => ({
@@ -100,7 +112,7 @@
     };
 
     // Resource manager WebSocket
-    resourceManagerWs = new WebSocket('ws://localhost:8011/ws');
+    resourceManagerWs = new WebSocket('ws://${getWebSocketHost()}:8011/ws');
     resourceManagerWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       autonomousState.update(state => ({
@@ -110,7 +122,7 @@
     };
 
     // Knowledge evolution WebSocket
-    knowledgeEvolutionWs = new WebSocket('ws://localhost:8012/ws');
+    knowledgeEvolutionWs = new WebSocket('ws://${getWebSocketHost()}:8012/ws');
     knowledgeEvolutionWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       autonomousState.update(state => ({
@@ -122,7 +134,7 @@
 
   async function loadDecisionTree() {
     try {
-      const response = await fetch('http://localhost:8009/api/decision-tree');
+      const response = await fetch('http://${getServiceHost()}:8009/api/decision-tree');
       const decisionTree = await response.json();
       autonomousState.update(state => ({ ...state, decision_tree: decisionTree }));
     } catch (error) {
@@ -133,7 +145,7 @@
   async function startPerformanceMonitoring() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8009/api/performance');
+        const response = await fetch('http://${getServiceHost()}:8009/api/performance');
         const performance = await response.json();
         autonomousState.update(state => ({
           ...state,
@@ -149,7 +161,7 @@
     if (!selectedOperation) return;
 
     try {
-      const response = await fetch('http://localhost:8009/api/delegate-task', {
+      const response = await fetch('http://${getServiceHost()}:8009/api/delegate-task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -171,7 +183,7 @@
 
   async function adjustAutonomyLevel(level: number) {
     try {
-      await fetch('http://localhost:8009/api/autonomy-level', {
+      await fetch('http://${getServiceHost()}:8009/api/autonomy-level', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level })
@@ -184,7 +196,7 @@
 
   async function emergencyStop() {
     try {
-      await fetch('http://localhost:8009/api/emergency-stop', {
+      await fetch('http://${getServiceHost()}:8009/api/emergency-stop', {
         method: 'POST'
       });
     } catch (error) {

@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -92,7 +104,7 @@
 
   function initializeWebSockets() {
     // Docker daemon WebSocket
-    dockerWs = new WebSocket('ws://localhost:8024/docker');
+    dockerWs = new WebSocket('ws://${getWebSocketHost()}:8024/docker');
     dockerWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       dockerState.update(state => ({
@@ -102,7 +114,7 @@
     };
 
     // Metrics WebSocket
-    metricsWs = new WebSocket('ws://localhost:8025/metrics');
+    metricsWs = new WebSocket('ws://${getWebSocketHost()}:8025/metrics');
     metricsWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       dockerState.update(state => ({
@@ -112,7 +124,7 @@
     };
 
     // Logs WebSocket
-    logsWs = new WebSocket('ws://localhost:8026/logs');
+    logsWs = new WebSocket('ws://${getWebSocketHost()}:8026/logs');
     logsWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       handleLogEvent(data);
@@ -121,7 +133,7 @@
 
   async function loadServiceStatus() {
     try {
-      const response = await fetch('http://localhost:8024/api/services');
+      const response = await fetch('http://${getServiceHost()}:8024/api/services');
       const services = await response.json();
       // Process service data
     } catch (error) {
@@ -132,7 +144,7 @@
   async function startResourceMonitoring() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8025/api/cluster-metrics');
+        const response = await fetch('http://${getServiceHost()}:8025/api/cluster-metrics');
         const metrics = await response.json();
         dockerState.update(state => ({
           ...state,
@@ -148,7 +160,7 @@
     if (!selectedAction || selectedServices.length === 0) return;
 
     try {
-      const response = await fetch('http://localhost:8024/api/cluster/action', {
+      const response = await fetch('http://${getServiceHost()}:8024/api/cluster/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -177,7 +189,7 @@
     if (!scalingConfig.service_name) return;
 
     try {
-      const response = await fetch('http://localhost:8024/api/scale', {
+      const response = await fetch('http://${getServiceHost()}:8024/api/scale', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(scalingConfig)
@@ -193,7 +205,7 @@
 
   async function performHealthCheck() {
     try {
-      const response = await fetch('http://localhost:8024/api/health-check', {
+      const response = await fetch('http://${getServiceHost()}:8024/api/health-check', {
         method: 'POST'
       });
 
@@ -208,7 +220,7 @@
 
   async function triggerRollingUpdate() {
     try {
-      const response = await fetch('http://localhost:8024/api/rolling-update', {
+      const response = await fetch('http://${getServiceHost()}:8024/api/rolling-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -100,7 +112,7 @@
 
   function initializeWebSockets() {
     // Multi-source correlation engine
-    correlationWs = new WebSocket('ws://localhost:8013/correlation');
+    correlationWs = new WebSocket('ws://${getWebSocketHost()}:8013/correlation');
     correlationWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       researchState.update(state => ({
@@ -110,7 +122,7 @@
     };
 
     // Research pipeline builder
-    pipelineWs = new WebSocket('ws://localhost:8014/pipeline');
+    pipelineWs = new WebSocket('ws://${getWebSocketHost()}:8014/pipeline');
     pipelineWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       researchState.update(state => ({
@@ -120,7 +132,7 @@
     };
 
     // Hypothesis testing framework
-    hypothesisWs = new WebSocket('ws://localhost:8015/hypothesis');
+    hypothesisWs = new WebSocket('ws://${getWebSocketHost()}:8015/hypothesis');
     hypothesisWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       researchState.update(state => ({
@@ -132,7 +144,7 @@
 
   async function loadActiveProjects() {
     try {
-      const response = await fetch('http://localhost:8013/api/projects');
+      const response = await fetch('http://${getServiceHost()}:8013/api/projects');
       const projects = await response.json();
       activeProjects.set(projects);
     } catch (error) {
@@ -143,7 +155,7 @@
   async function startMetricsCollection() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8013/api/metrics');
+        const response = await fetch('http://${getServiceHost()}:8013/api/metrics');
         const metrics = await response.json();
         researchState.update(state => ({
           ...state,
@@ -159,7 +171,7 @@
     if (!correlationQuery) return;
 
     try {
-      const response = await fetch('http://localhost:8013/api/correlate', {
+      const response = await fetch('http://${getServiceHost()}:8013/api/correlate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -180,7 +192,7 @@
 
   async function createResearchPipeline() {
     try {
-      const response = await fetch('http://localhost:8014/api/pipeline', {
+      const response = await fetch('http://${getServiceHost()}:8014/api/pipeline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pipelineConfig)
@@ -199,7 +211,7 @@
     if (!hypothesisFormulation) return;
 
     try {
-      const response = await fetch('http://localhost:8015/api/hypothesis', {
+      const response = await fetch('http://${getServiceHost()}:8015/api/hypothesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -219,7 +231,7 @@
 
   async function synthesizeData() {
     try {
-      const response = await fetch('http://localhost:8016/api/synthesize', {
+      const response = await fetch('http://${getServiceHost()}:8016/api/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(synthesisParameters)

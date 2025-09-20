@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -118,14 +130,14 @@
 
   function initializeWebSockets() {
     // Real-time log stream WebSocket
-    logStreamWs = new WebSocket('ws://localhost:8110/logs/stream');
+    logStreamWs = new WebSocket('ws://${getWebSocketHost()}:8110/logs/stream');
     logStreamWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       logResults.update(logs => [data, ...logs.slice(0, 999)]);
     };
 
     // Log search WebSocket
-    searchWs = new WebSocket('ws://localhost:8111/logs/search');
+    searchWs = new WebSocket('ws://${getWebSocketHost()}:8111/logs/search');
     searchWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.search_results) {
@@ -134,7 +146,7 @@
     };
 
     // Log correlation WebSocket
-    correlationWs = new WebSocket('ws://localhost:8112/logs/correlation');
+    correlationWs = new WebSocket('ws://${getWebSocketHost()}:8112/logs/correlation');
     correlationWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       logState.update(state => ({
@@ -147,7 +159,7 @@
     };
 
     // Alert management WebSocket
-    alertWs = new WebSocket('ws://localhost:8113/logs/alerts');
+    alertWs = new WebSocket('ws://${getWebSocketHost()}:8113/logs/alerts');
     alertWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       logState.update(state => ({
@@ -163,9 +175,9 @@
   async function loadLogData() {
     try {
       const [resultsRes, correlationsRes, alertsRes] = await Promise.all([
-        fetch('http://localhost:8110/api/recent'),
-        fetch('http://localhost:8112/api/correlations'),
-        fetch('http://localhost:8113/api/alerts')
+        fetch('http://${getServiceHost()}:8110/api/recent'),
+        fetch('http://${getServiceHost()}:8112/api/correlations'),
+        fetch('http://${getServiceHost()}:8113/api/alerts')
       ]);
 
       const results = await resultsRes.json();
@@ -183,7 +195,7 @@
   async function startMetricsCollection() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8110/api/metrics');
+        const response = await fetch('http://${getServiceHost()}:8110/api/metrics');
         const metrics = await response.json();
         logState.update(state => ({
           ...state,
@@ -200,7 +212,7 @@
     if (!searchQuery) return;
 
     try {
-      const response = await fetch('http://localhost:8111/api/search', {
+      const response = await fetch('http://${getServiceHost()}:8111/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -225,7 +237,7 @@
     if (!alertConfig.pattern) return;
 
     try {
-      const response = await fetch('http://localhost:8113/api/create-alert', {
+      const response = await fetch('http://${getServiceHost()}:8113/api/create-alert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(alertConfig)
@@ -243,7 +255,7 @@
 
   async function startCorrelationAnalysis() {
     try {
-      const response = await fetch('http://localhost:8112/api/correlate', {
+      const response = await fetch('http://${getServiceHost()}:8112/api/correlate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(correlationConfig)

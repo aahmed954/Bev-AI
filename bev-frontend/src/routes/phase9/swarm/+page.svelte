@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -102,7 +114,7 @@
 
   function initializeWebSockets() {
     // Main swarm coordinator WebSocket
-    swarmWs = new WebSocket('ws://localhost:8017/swarm');
+    swarmWs = new WebSocket('ws://${getWebSocketHost()}:8017/swarm');
     swarmWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       swarmState.update(state => ({
@@ -113,14 +125,14 @@
     };
 
     // Topology monitoring WebSocket
-    topologyWs = new WebSocket('ws://localhost:8018/topology');
+    topologyWs = new WebSocket('ws://${getWebSocketHost()}:8018/topology');
     topologyWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       updateTopology(data);
     };
 
     // Performance metrics WebSocket
-    performanceWs = new WebSocket('ws://localhost:8019/performance');
+    performanceWs = new WebSocket('ws://${getWebSocketHost()}:8019/performance');
     performanceWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       swarmState.update(state => ({
@@ -306,7 +318,7 @@
   async function startPerformanceMonitoring() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8017/api/metrics');
+        const response = await fetch('http://${getServiceHost()}:8017/api/metrics');
         const metrics = await response.json();
         swarmState.update(state => ({
           ...state,
@@ -320,7 +332,7 @@
 
   async function updateSwarmConfiguration() {
     try {
-      const response = await fetch('http://localhost:8017/api/configure', {
+      const response = await fetch('http://${getServiceHost()}:8017/api/configure', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(swarmConfiguration)
@@ -336,7 +348,7 @@
 
   async function allocateTask() {
     try {
-      const response = await fetch('http://localhost:8017/api/tasks', {
+      const response = await fetch('http://${getServiceHost()}:8017/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTask)

@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -132,7 +144,7 @@
 
   function initializeWebSockets() {
     // MCP admin WebSocket
-    mcpAdminWs = new WebSocket('ws://localhost:8120/mcp-admin');
+    mcpAdminWs = new WebSocket('ws://${getWebSocketHost()}:8120/mcp-admin');
     mcpAdminWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       mcpState.update(state => ({
@@ -142,7 +154,7 @@
     };
 
     // Server metrics WebSocket
-    serverMetricsWs = new WebSocket('ws://localhost:8121/mcp-metrics');
+    serverMetricsWs = new WebSocket('ws://${getWebSocketHost()}:8121/mcp-metrics');
     serverMetricsWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       serverMetrics.set(data);
@@ -153,7 +165,7 @@
     };
 
     // Configuration WebSocket
-    configWs = new WebSocket('ws://localhost:8122/mcp-config');
+    configWs = new WebSocket('ws://${getWebSocketHost()}:8122/mcp-config');
     configWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       mcpState.update(state => ({
@@ -166,9 +178,9 @@
   async function loadMCPData() {
     try {
       const [metricsRes, logsRes, configRes] = await Promise.all([
-        fetch('http://localhost:8120/api/metrics'),
-        fetch('http://localhost:8120/api/logs'),
-        fetch('http://localhost:8122/api/config')
+        fetch('http://${getServiceHost()}:8120/api/metrics'),
+        fetch('http://${getServiceHost()}:8120/api/logs'),
+        fetch('http://${getServiceHost()}:8122/api/config')
       ]);
 
       const metrics = await metricsRes.json();
@@ -186,7 +198,7 @@
   async function startMetricsCollection() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8121/api/realtime');
+        const response = await fetch('http://${getServiceHost()}:8121/api/realtime');
         const metrics = await response.json();
         mcpState.update(state => ({
           ...state,
@@ -202,7 +214,7 @@
     if (!selectedServer || !serverAction) return;
 
     try {
-      const response = await fetch(`http://localhost:8120/api/server/${selectedServer}/${serverAction}`, {
+      const response = await fetch(`http://${getServiceHost()}:8120/api/server/${selectedServer}/${serverAction}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(serverConfig)
@@ -220,7 +232,7 @@
     if (!selectedServer) return;
 
     try {
-      const response = await fetch(`http://localhost:8122/api/server/${selectedServer}/config`, {
+      const response = await fetch(`http://${getServiceHost()}:8122/api/server/${selectedServer}/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(serverConfig)
@@ -236,7 +248,7 @@
 
   async function performSecurityScan() {
     try {
-      const response = await fetch('http://localhost:8120/api/security-scan', {
+      const response = await fetch('http://${getServiceHost()}:8120/api/security-scan', {
         method: 'POST'
       });
 

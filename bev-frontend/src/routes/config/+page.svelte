@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -121,7 +133,7 @@
 
   function initializeWebSockets() {
     // Vault management WebSocket
-    vaultWs = new WebSocket('ws://localhost:8040/vault');
+    vaultWs = new WebSocket('ws://${getWebSocketHost()}:8040/vault');
     vaultWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       configState.update(state => ({
@@ -131,7 +143,7 @@
     };
 
     // SSL certificate WebSocket
-    sslWs = new WebSocket('ws://localhost:8041/ssl');
+    sslWs = new WebSocket('ws://${getWebSocketHost()}:8041/ssl');
     sslWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       configState.update(state => ({
@@ -144,7 +156,7 @@
     };
 
     // Configuration sync WebSocket
-    configWs = new WebSocket('ws://localhost:8042/config');
+    configWs = new WebSocket('ws://${getWebSocketHost()}:8042/config');
     configWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       configState.update(state => ({
@@ -154,7 +166,7 @@
     };
 
     // Audit logging WebSocket
-    auditWs = new WebSocket('ws://localhost:8043/audit');
+    auditWs = new WebSocket('ws://${getWebSocketHost()}:8043/audit');
     auditWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       auditLogs.update(logs => [data, ...logs.slice(0, 99)]);
@@ -163,7 +175,7 @@
 
   async function loadVaultData() {
     try {
-      const response = await fetch('http://localhost:8040/api/status');
+      const response = await fetch('http://${getServiceHost()}:8040/api/status');
       const vaultData = await response.json();
       configState.update(state => ({
         ...state,
@@ -176,7 +188,7 @@
 
   async function loadCertificates() {
     try {
-      const response = await fetch('http://localhost:8041/api/certificates');
+      const response = await fetch('http://${getServiceHost()}:8041/api/certificates');
       const certs = await response.json();
       certificates.set(certs);
     } catch (error) {
@@ -186,7 +198,7 @@
 
   async function loadSecrets() {
     try {
-      const response = await fetch('http://localhost:8040/api/secrets');
+      const response = await fetch('http://${getServiceHost()}:8040/api/secrets');
       const secretsList = await response.json();
       secrets.set(secretsList);
     } catch (error) {
@@ -196,7 +208,7 @@
 
   async function startAuditMonitoring() {
     try {
-      const response = await fetch('http://localhost:8043/api/audit/recent');
+      const response = await fetch('http://${getServiceHost()}:8043/api/audit/recent');
       const logs = await response.json();
       auditLogs.set(logs);
     } catch (error) {
@@ -206,7 +218,7 @@
 
   async function unsealVault() {
     try {
-      const response = await fetch('http://localhost:8040/api/unseal', {
+      const response = await fetch('http://${getServiceHost()}:8040/api/unseal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(vaultConfig)
@@ -224,7 +236,7 @@
     if (!sslConfig.domain) return;
 
     try {
-      const response = await fetch('http://localhost:8041/api/certificates', {
+      const response = await fetch('http://${getServiceHost()}:8041/api/certificates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sslConfig)
@@ -251,7 +263,7 @@
 
   async function rotateSecret(secretPath: string) {
     try {
-      const response = await fetch(`http://localhost:8040/api/secrets/${secretPath}/rotate`, {
+      const response = await fetch(`http://${getServiceHost()}:8040/api/secrets/${secretPath}/rotate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rotationConfig)
@@ -267,7 +279,7 @@
 
   async function syncConfiguration() {
     try {
-      const response = await fetch('http://localhost:8042/api/sync', {
+      const response = await fetch('http://${getServiceHost()}:8042/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

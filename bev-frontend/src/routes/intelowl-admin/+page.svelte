@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -93,7 +105,7 @@
 
   function initializeWebSockets() {
     // IntelOwl platform WebSocket
-    intelowlWs = new WebSocket('ws://localhost:8090/intelowl');
+    intelowlWs = new WebSocket('ws://${getWebSocketHost()}:8090/intelowl');
     intelowlWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       intelowlState.update(state => ({
@@ -104,7 +116,7 @@
     };
 
     // Queue management WebSocket
-    queueWs = new WebSocket('ws://localhost:8091/queue');
+    queueWs = new WebSocket('ws://${getWebSocketHost()}:8091/queue');
     queueWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       intelowlState.update(state => ({
@@ -117,7 +129,7 @@
     };
 
     // Analyzer management WebSocket
-    analyzerWs = new WebSocket('ws://localhost:8092/analyzers');
+    analyzerWs = new WebSocket('ws://${getWebSocketHost()}:8092/analyzers');
     analyzerWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       intelowlState.update(state => ({
@@ -130,7 +142,7 @@
     };
 
     // BEV-IntelOwl integration WebSocket
-    integrationWs = new WebSocket('ws://localhost:8093/integration');
+    integrationWs = new WebSocket('ws://${getWebSocketHost()}:8093/integration');
     integrationWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       integrationLogs.update(logs => [data, ...logs.slice(0, 99)]);
@@ -140,9 +152,9 @@
   async function loadIntelOwlData() {
     try {
       const [analysesRes, statusRes, queueRes] = await Promise.all([
-        fetch('http://localhost:8090/api/analyses'),
-        fetch('http://localhost:8092/api/status'),
-        fetch('http://localhost:8091/api/queue')
+        fetch('http://${getServiceHost()}:8090/api/analyses'),
+        fetch('http://${getServiceHost()}:8092/api/status'),
+        fetch('http://${getServiceHost()}:8091/api/queue')
       ]);
 
       const analyses = await analysesRes.json();
@@ -160,7 +172,7 @@
   async function startIntegrationMonitoring() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8093/api/integration-status');
+        const response = await fetch('http://${getServiceHost()}:8093/api/integration-status');
         const integration = await response.json();
         // Update integration status
       } catch (error) {
@@ -171,7 +183,7 @@
 
   async function checkIntelOwlConnectivity() {
     try {
-      const response = await fetch('http://localhost/api/me');
+      const response = await fetch('http://' + getServiceHost() + '/api/me');
       if (response.ok) {
         console.log('IntelOwl connectivity confirmed');
       }
@@ -184,7 +196,7 @@
     if (!selectedAnalyzer || !analysisTarget) return;
 
     try {
-      const response = await fetch('http://localhost:8090/api/start-analysis', {
+      const response = await fetch('http://${getServiceHost()}:8090/api/start-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -208,7 +220,7 @@
     if (!customAnalyzerConfig.name || !customAnalyzerConfig.python_module) return;
 
     try {
-      const response = await fetch('http://localhost:8092/api/deploy-analyzer', {
+      const response = await fetch('http://${getServiceHost()}:8092/api/deploy-analyzer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(customAnalyzerConfig)
@@ -232,7 +244,7 @@
 
   async function openIntelOwlInterface() {
     try {
-      await invoke('open_external', { url: 'http://localhost' });
+      await invoke('open_external', { url: 'http://' + getServiceHost() + '' });
     } catch (error) {
       console.error('Failed to open IntelOwl interface:', error);
     }
@@ -240,7 +252,7 @@
 
   async function syncBEVIntelOwl() {
     try {
-      const response = await fetch('http://localhost:8093/api/sync', {
+      const response = await fetch('http://${getServiceHost()}:8093/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

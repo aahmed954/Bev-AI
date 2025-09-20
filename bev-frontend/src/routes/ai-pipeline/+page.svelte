@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -121,7 +133,7 @@
 
   function initializeWebSockets() {
     // Context compression WebSocket
-    compressionWs = new WebSocket('ws://localhost:8080/compression');
+    compressionWs = new WebSocket('ws://${getWebSocketHost()}:8080/compression');
     compressionWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       aiPipelineState.update(state => ({
@@ -134,7 +146,7 @@
     };
 
     // Extended reasoning WebSocket
-    reasoningWs = new WebSocket('ws://localhost:8081/reasoning');
+    reasoningWs = new WebSocket('ws://${getWebSocketHost()}:8081/reasoning');
     reasoningWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       aiPipelineState.update(state => ({
@@ -147,7 +159,7 @@
     };
 
     // Model synchronization WebSocket
-    syncWs = new WebSocket('ws://localhost:8082/sync');
+    syncWs = new WebSocket('ws://${getWebSocketHost()}:8082/sync');
     syncWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       aiPipelineState.update(state => ({
@@ -160,7 +172,7 @@
     };
 
     // T2V transformers WebSocket
-    t2vWs = new WebSocket('ws://localhost:8083/t2v');
+    t2vWs = new WebSocket('ws://${getWebSocketHost()}:8083/t2v');
     t2vWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       aiPipelineState.update(state => ({
@@ -176,10 +188,10 @@
   async function loadPipelineData() {
     try {
       const [compressionRes, reasoningRes, modelsRes, queueRes] = await Promise.all([
-        fetch('http://localhost:8080/api/compressions'),
-        fetch('http://localhost:8081/api/sessions'),
-        fetch('http://localhost:8082/api/models'),
-        fetch('http://localhost:8083/api/queue')
+        fetch('http://${getServiceHost()}:8080/api/compressions'),
+        fetch('http://${getServiceHost()}:8081/api/sessions'),
+        fetch('http://${getServiceHost()}:8082/api/models'),
+        fetch('http://${getServiceHost()}:8083/api/queue')
       ]);
 
       const compressions = await compressionRes.json();
@@ -199,7 +211,7 @@
   async function startMetricsCollection() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8080/api/metrics');
+        const response = await fetch('http://${getServiceHost()}:8080/api/metrics');
         const metrics = await response.json();
         aiPipelineState.update(state => ({
           ...state,
@@ -213,7 +225,7 @@
 
   async function startContextCompression() {
     try {
-      const response = await fetch('http://localhost:8080/api/compress', {
+      const response = await fetch('http://${getServiceHost()}:8080/api/compress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(compressionConfig)
@@ -230,7 +242,7 @@
 
   async function startExtendedReasoning() {
     try {
-      const response = await fetch('http://localhost:8081/api/reason', {
+      const response = await fetch('http://${getServiceHost()}:8081/api/reason', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reasoningConfig)
@@ -247,7 +259,7 @@
 
   async function synchronizeModels() {
     try {
-      const response = await fetch('http://localhost:8082/api/sync', {
+      const response = await fetch('http://${getServiceHost()}:8082/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(syncConfig)
@@ -263,7 +275,7 @@
 
   async function submitT2VTransformation() {
     try {
-      const response = await fetch('http://localhost:8083/api/transform', {
+      const response = await fetch('http://${getServiceHost()}:8083/api/transform', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(t2vConfig)

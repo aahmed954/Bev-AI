@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -98,7 +110,7 @@
 
   function initializeWebSockets() {
     // Deployment orchestration WebSocket
-    deploymentWs = new WebSocket('ws://localhost:8030/deployment');
+    deploymentWs = new WebSocket('ws://${getWebSocketHost()}:8030/deployment');
     deploymentWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       devopsState.update(state => ({
@@ -111,7 +123,7 @@
     };
 
     // CI/CD pipeline WebSocket
-    cicdWs = new WebSocket('ws://localhost:8031/cicd');
+    cicdWs = new WebSocket('ws://${getWebSocketHost()}:8031/cicd');
     cicdWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       devopsState.update(state => ({
@@ -124,7 +136,7 @@
     };
 
     // Cluster management WebSocket
-    clusterWs = new WebSocket('ws://localhost:8032/cluster');
+    clusterWs = new WebSocket('ws://${getWebSocketHost()}:8032/cluster');
     clusterWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       devopsState.update(state => ({
@@ -134,7 +146,7 @@
     };
 
     // DevOps metrics WebSocket
-    metricsWs = new WebSocket('ws://localhost:8033/metrics');
+    metricsWs = new WebSocket('ws://${getWebSocketHost()}:8033/metrics');
     metricsWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       devopsState.update(state => ({
@@ -147,8 +159,8 @@
   async function loadDeploymentData() {
     try {
       const [deploymentsRes, historyRes] = await Promise.all([
-        fetch('http://localhost:8030/api/deployments/active'),
-        fetch('http://localhost:8030/api/deployments/history')
+        fetch('http://${getServiceHost()}:8030/api/deployments/active'),
+        fetch('http://${getServiceHost()}:8030/api/deployments/history')
       ]);
 
       const deployments = await deploymentsRes.json();
@@ -163,7 +175,7 @@
 
   async function loadPipelineData() {
     try {
-      const response = await fetch('http://localhost:8031/api/pipelines');
+      const response = await fetch('http://${getServiceHost()}:8031/api/pipelines');
       const pipelines = await response.json();
       cicdPipelines.set(pipelines);
     } catch (error) {
@@ -174,7 +186,7 @@
   async function startMetricsCollection() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8033/api/metrics');
+        const response = await fetch('http://${getServiceHost()}:8033/api/metrics');
         const metrics = await response.json();
         devopsState.update(state => ({
           ...state,
@@ -188,7 +200,7 @@
 
   async function startDeployment() {
     try {
-      const response = await fetch('http://localhost:8030/api/deploy', {
+      const response = await fetch('http://${getServiceHost()}:8030/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -211,7 +223,7 @@
 
   async function triggerRollback(deploymentId: string) {
     try {
-      const response = await fetch(`http://localhost:8030/api/rollback/${deploymentId}`, {
+      const response = await fetch(`http://${getServiceHost()}:8030/api/rollback/${deploymentId}`, {
         method: 'POST'
       });
 
@@ -225,7 +237,7 @@
 
   async function approveDeployment(deploymentId: string) {
     try {
-      const response = await fetch(`http://localhost:8030/api/approve/${deploymentId}`, {
+      const response = await fetch(`http://${getServiceHost()}:8030/api/approve/${deploymentId}`, {
         method: 'POST'
       });
 
@@ -239,7 +251,7 @@
 
   async function pauseDeployment(deploymentId: string) {
     try {
-      const response = await fetch(`http://localhost:8030/api/pause/${deploymentId}`, {
+      const response = await fetch(`http://${getServiceHost()}:8030/api/pause/${deploymentId}`, {
         method: 'POST'
       });
 
@@ -253,7 +265,7 @@
 
   async function triggerCICDPipeline(pipelineId: string) {
     try {
-      const response = await fetch(`http://localhost:8031/api/trigger/${pipelineId}`, {
+      const response = await fetch(`http://${getServiceHost()}:8031/api/trigger/${pipelineId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pipelineConfig)

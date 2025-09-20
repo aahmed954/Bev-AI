@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -112,7 +124,7 @@
 
   function initializeWebSockets() {
     // API Gateway WebSocket
-    gatewayWs = new WebSocket('ws://localhost:8020/gateway');
+    gatewayWs = new WebSocket('ws://${getWebSocketHost()}:8020/gateway');
     gatewayWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       apiState.update(state => ({
@@ -122,7 +134,7 @@
     };
 
     // Monitoring WebSocket
-    monitoringWs = new WebSocket('ws://localhost:8021/monitoring');
+    monitoringWs = new WebSocket('ws://${getWebSocketHost()}:8021/monitoring');
     monitoringWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       apiState.update(state => ({
@@ -132,7 +144,7 @@
     };
 
     // Alerts WebSocket
-    alertsWs = new WebSocket('ws://localhost:8022/alerts');
+    alertsWs = new WebSocket('ws://${getWebSocketHost()}:8022/alerts');
     alertsWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       handleAlert(data);
@@ -141,7 +153,7 @@
 
   async function loadAPIs() {
     try {
-      const response = await fetch('http://localhost:8020/api/registry');
+      const response = await fetch('http://${getServiceHost()}:8020/api/registry');
       const apis = await response.json();
       registeredAPIs.set(apis);
     } catch (error) {
@@ -151,7 +163,7 @@
 
   async function loadEndpoints() {
     try {
-      const response = await fetch('http://localhost:8020/api/endpoints');
+      const response = await fetch('http://${getServiceHost()}:8020/api/endpoints');
       const endpoints = await response.json();
       apiEndpoints.set(endpoints);
     } catch (error) {
@@ -161,7 +173,7 @@
 
   async function loadRateLimitPolicies() {
     try {
-      const response = await fetch('http://localhost:8021/api/rate-limits');
+      const response = await fetch('http://${getServiceHost()}:8021/api/rate-limits');
       const policies = await response.json();
       rateLimitPolicies.set(policies);
     } catch (error) {
@@ -172,7 +184,7 @@
   async function startMetricsCollection() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8020/api/metrics');
+        const response = await fetch('http://${getServiceHost()}:8020/api/metrics');
         const metrics = await response.json();
         apiState.update(state => ({
           ...state,
@@ -186,7 +198,7 @@
 
   async function updateGatewayConfig() {
     try {
-      const response = await fetch('http://localhost:8020/api/gateway/configure', {
+      const response = await fetch('http://${getServiceHost()}:8020/api/gateway/configure', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(gatewayConfig)
@@ -204,7 +216,7 @@
     if (!rateLimitConfig.policy_name) return;
 
     try {
-      const response = await fetch('http://localhost:8021/api/rate-limits', {
+      const response = await fetch('http://${getServiceHost()}:8021/api/rate-limits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rateLimitConfig)
@@ -232,7 +244,7 @@
 
   async function updateAuthConfig() {
     try {
-      const response = await fetch('http://localhost:8022/api/auth/configure', {
+      const response = await fetch('http://${getServiceHost()}:8022/api/auth/configure', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(authConfig)
@@ -248,7 +260,7 @@
 
   async function generateAPIDocumentation() {
     try {
-      const response = await fetch('http://localhost:8023/api/docs/generate', {
+      const response = await fetch('http://${getServiceHost()}:8023/api/docs/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ auto_generate: true })
@@ -264,7 +276,7 @@
 
   async function generateSDK(language: string) {
     try {
-      const response = await fetch('http://localhost:8023/api/sdk/generate', {
+      const response = await fetch('http://${getServiceHost()}:8023/api/sdk/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ language, include_examples: true })

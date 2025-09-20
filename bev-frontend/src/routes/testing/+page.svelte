@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -121,7 +133,7 @@
 
   function initializeWebSockets() {
     // Test orchestration WebSocket
-    testingWs = new WebSocket('ws://localhost:8050/testing');
+    testingWs = new WebSocket('ws://${getWebSocketHost()}:8050/testing');
     testingWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       testingState.update(state => ({
@@ -131,7 +143,7 @@
     };
 
     // Chaos engineering WebSocket
-    chaosWs = new WebSocket('ws://localhost:8051/chaos');
+    chaosWs = new WebSocket('ws://${getWebSocketHost()}:8051/chaos');
     chaosWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       testingState.update(state => ({
@@ -144,7 +156,7 @@
     };
 
     // Performance testing WebSocket
-    performanceWs = new WebSocket('ws://localhost:8052/performance');
+    performanceWs = new WebSocket('ws://${getWebSocketHost()}:8052/performance');
     performanceWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       testingState.update(state => ({
@@ -154,7 +166,7 @@
     };
 
     // Security validation WebSocket
-    securityWs = new WebSocket('ws://localhost:8053/security');
+    securityWs = new WebSocket('ws://${getWebSocketHost()}:8053/security');
     securityWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       testingState.update(state => ({
@@ -167,10 +179,10 @@
   async function loadTestData() {
     try {
       const [suitesRes, experimentsRes, resultsRes, scansRes] = await Promise.all([
-        fetch('http://localhost:8050/api/suites'),
-        fetch('http://localhost:8051/api/experiments'),
-        fetch('http://localhost:8052/api/results'),
-        fetch('http://localhost:8053/api/scans')
+        fetch('http://${getServiceHost()}:8050/api/suites'),
+        fetch('http://${getServiceHost()}:8051/api/experiments'),
+        fetch('http://${getServiceHost()}:8052/api/results'),
+        fetch('http://${getServiceHost()}:8053/api/scans')
       ]);
 
       const suites = await suitesRes.json();
@@ -190,7 +202,7 @@
   async function startMetricsCollection() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8050/api/metrics');
+        const response = await fetch('http://${getServiceHost()}:8050/api/metrics');
         const metrics = await response.json();
         testingState.update(state => ({
           ...state,
@@ -206,7 +218,7 @@
     if (!selectedTestSuite) return;
 
     try {
-      const response = await fetch('http://localhost:8050/api/execute', {
+      const response = await fetch('http://${getServiceHost()}:8050/api/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -227,7 +239,7 @@
 
   async function startChaosExperiment() {
     try {
-      const response = await fetch('http://localhost:8051/api/experiment', {
+      const response = await fetch('http://${getServiceHost()}:8051/api/experiment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(chaosConfig)
@@ -244,7 +256,7 @@
 
   async function runPerformanceTest() {
     try {
-      const response = await fetch('http://localhost:8052/api/test', {
+      const response = await fetch('http://${getServiceHost()}:8052/api/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(performanceConfig)
@@ -261,7 +273,7 @@
 
   async function startSecurityScan() {
     try {
-      const response = await fetch('http://localhost:8053/api/scan', {
+      const response = await fetch('http://${getServiceHost()}:8053/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(securityConfig)

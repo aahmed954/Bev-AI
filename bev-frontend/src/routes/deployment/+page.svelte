@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -93,7 +105,7 @@
 
   function initializeWebSockets() {
     // Deployment automation WebSocket
-    deploymentWs = new WebSocket('ws://localhost:8100/deployment');
+    deploymentWs = new WebSocket('ws://${getWebSocketHost()}:8100/deployment');
     deploymentWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       deploymentState.update(state => ({
@@ -106,7 +118,7 @@
     };
 
     // Node configuration WebSocket
-    nodeWs = new WebSocket('ws://localhost:8101/nodes');
+    nodeWs = new WebSocket('ws://${getWebSocketHost()}:8101/nodes');
     nodeWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       deploymentState.update(state => ({
@@ -119,7 +131,7 @@
     };
 
     // Cluster orchestration WebSocket
-    orchestrationWs = new WebSocket('ws://localhost:8102/orchestration');
+    orchestrationWs = new WebSocket('ws://${getWebSocketHost()}:8102/orchestration');
     orchestrationWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       deploymentState.update(state => ({
@@ -129,7 +141,7 @@
     };
 
     // Automation logs WebSocket
-    automationWs = new WebSocket('ws://localhost:8103/automation-logs');
+    automationWs = new WebSocket('ws://${getWebSocketHost()}:8103/automation-logs');
     automationWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       automationLogs.update(logs => [data, ...logs.slice(0, 99)]);
@@ -139,8 +151,8 @@
   async function loadDeploymentData() {
     try {
       const [deploymentsRes, historyRes] = await Promise.all([
-        fetch('http://localhost:8100/api/deployments'),
-        fetch('http://localhost:8100/api/history')
+        fetch('http://${getServiceHost()}:8100/api/deployments'),
+        fetch('http://${getServiceHost()}:8100/api/history')
       ]);
 
       const deployments = await deploymentsRes.json();
@@ -155,7 +167,7 @@
 
   async function loadNodeStatus() {
     try {
-      const response = await fetch('http://localhost:8101/api/nodes');
+      const response = await fetch('http://${getServiceHost()}:8101/api/nodes');
       const nodes = await response.json();
       nodeStatus.set(nodes);
     } catch (error) {
@@ -166,7 +178,7 @@
   async function startAutomationMonitoring() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8100/api/metrics');
+        const response = await fetch('http://${getServiceHost()}:8100/api/metrics');
         const metrics = await response.json();
         deploymentState.update(state => ({
           ...state,
@@ -182,7 +194,7 @@
     if (!selectedScript) return;
 
     try {
-      const response = await fetch('http://localhost:8100/api/execute', {
+      const response = await fetch('http://${getServiceHost()}:8100/api/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -204,7 +216,7 @@
 
   async function configureNode() {
     try {
-      const response = await fetch('http://localhost:8101/api/configure', {
+      const response = await fetch('http://${getServiceHost()}:8101/api/configure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -224,7 +236,7 @@
 
   async function triggerClusterRebalance() {
     try {
-      const response = await fetch('http://localhost:8102/api/rebalance', {
+      const response = await fetch('http://${getServiceHost()}:8102/api/rebalance', {
         method: 'POST'
       });
 

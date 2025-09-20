@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { invoke } from '@tauri-apps/api/core';
@@ -102,7 +114,7 @@
 
   function initializeWebSockets() {
     // Auto-recovery WebSocket
-    recoveryWs = new WebSocket('ws://localhost:8070/recovery');
+    recoveryWs = new WebSocket('ws://${getWebSocketHost()}:8070/recovery');
     recoveryWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       recoveryState.update(state => ({
@@ -115,7 +127,7 @@
     };
 
     // System health WebSocket
-    healthWs = new WebSocket('ws://localhost:8071/health');
+    healthWs = new WebSocket('ws://${getWebSocketHost()}:8071/health');
     healthWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       recoveryState.update(state => ({
@@ -125,14 +137,14 @@
     };
 
     // Failure alerts WebSocket
-    alertsWs = new WebSocket('ws://localhost:8072/alerts');
+    alertsWs = new WebSocket('ws://${getWebSocketHost()}:8072/alerts');
     alertsWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       failureAlerts.update(alerts => [data, ...alerts.slice(0, 49)]);
     };
 
     // Resource metrics WebSocket
-    metricsWs = new WebSocket('ws://localhost:8073/metrics');
+    metricsWs = new WebSocket('ws://${getWebSocketHost()}:8073/metrics');
     metricsWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
       systemMetrics.set(data);
@@ -146,9 +158,9 @@
   async function loadRecoveryData() {
     try {
       const [recoveriesRes, historyRes, alertsRes] = await Promise.all([
-        fetch('http://localhost:8070/api/active'),
-        fetch('http://localhost:8070/api/history'),
-        fetch('http://localhost:8072/api/recent')
+        fetch('http://${getServiceHost()}:8070/api/active'),
+        fetch('http://${getServiceHost()}:8070/api/history'),
+        fetch('http://${getServiceHost()}:8072/api/recent')
       ]);
 
       const recoveries = await recoveriesRes.json();
@@ -166,7 +178,7 @@
   async function startHealthMonitoring() {
     setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:8071/api/health');
+        const response = await fetch('http://${getServiceHost()}:8071/api/health');
         const health = await response.json();
         recoveryState.update(state => ({
           ...state,
@@ -182,7 +194,7 @@
     if (!selectedService || !recoveryAction) return;
 
     try {
-      const response = await fetch('http://localhost:8070/api/recover', {
+      const response = await fetch('http://${getServiceHost()}:8070/api/recover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -204,7 +216,7 @@
 
   async function updateRecoveryConfig() {
     try {
-      const response = await fetch('http://localhost:8070/api/config', {
+      const response = await fetch('http://${getServiceHost()}:8070/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recoveryConfig)
@@ -220,7 +232,7 @@
 
   async function triggerDisasterRecovery() {
     try {
-      const response = await fetch('http://localhost:8074/api/disaster-recovery', {
+      const response = await fetch('http://${getServiceHost()}:8074/api/disaster-recovery', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(drConfig)
@@ -236,7 +248,7 @@
 
   async function createSystemBackup() {
     try {
-      const response = await fetch('http://localhost:8074/api/backup', {
+      const response = await fetch('http://${getServiceHost()}:8074/api/backup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
