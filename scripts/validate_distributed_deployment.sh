@@ -58,8 +58,8 @@ echo "======================"
 validate_check "Thanos GPU" "ssh thanos 'nvidia-smi'" "GPU availability on Thanos"
 validate_check "Oracle1 ARM" "ssh oracle1 'test $(uname -m) = aarch64'" "ARM64 architecture on Oracle1"
 validate_check "Thanos x86" "ssh thanos 'test $(uname -m) = x86_64'" "x86_64 architecture on Thanos"
-validate_check "Thanos Memory" "ssh thanos 'test $(free -g | awk \"NR==2{print \\$2}\") -ge 32'" "Sufficient memory on Thanos (32GB+)"
-validate_check "Oracle1 Memory" "ssh oracle1 'test $(free -g | awk \"NR==2{print \\$2}\") -ge 16'" "Sufficient memory on Oracle1 (16GB+)"
+validate_check "Thanos Memory" "ssh thanos 'test \$(free -g | awk \"NR==2{print \\\$2}\") -ge 32'" "Sufficient memory on Thanos (32GB+)"
+validate_check "Oracle1 Memory" "ssh oracle1 'test \$(free -g | awk \"NR==2{print \\\$2}\") -ge 16'" "Sufficient memory on Oracle1 (16GB+)"
 
 echo ""
 
