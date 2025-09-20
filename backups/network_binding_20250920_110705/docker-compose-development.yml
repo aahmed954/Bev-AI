@@ -96,7 +96,6 @@ services:
       dockerfile: Dockerfile.dev
     container_name: bev_frontend_dev
     environment:
-      VITE_HOST: 0.0.0.0
       NODE_ENV: development
       VITE_API_BASE_URL: http://0.0.0.0:3010
       VITE_THANOS_URL: http://thanos

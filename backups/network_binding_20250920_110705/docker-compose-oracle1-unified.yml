@@ -293,7 +293,6 @@ services:
     container_name: bev_node_exporter
     ports:
       - "9100:9100"
-    command: redis-server --bind 0.0.0.0 --protected-mode no
     command:
       - '--path.procfs=/host/proc'
       - '--path.rootfs=/rootfs'
@@ -903,7 +902,6 @@ services:
     environment:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-admin123456}
-    command: redis-server --bind 0.0.0.0 --protected-mode no
     command: server --console-address ":9001" /data
     volumes:
       - minio_expansion_data:/data

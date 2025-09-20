@@ -18,7 +18,7 @@ THANOS_HOST="thanos"
 ORACLE1_HOST="oracle1"
 STARLORD_HOST="localhost"
 DEPLOYMENT_DIR="/opt/bev-deployment"
-PROJECT_REPO="https://github.com/starlord/bev-platform.git"
+PROJECT_REPO="https://github.com/aahmed954/Bev-AI.git"
 
 echo -e "${PURPLE}🚀 BEV ENTERPRISE DISTRIBUTED DEPLOYMENT${NC}"
 echo -e "${BLUE}====================================================${NC}"

@@ -617,7 +617,6 @@ services:
       - redis
       - rabbitmq-1
     environment:
-      - DJANGO_ALLOWED_HOSTS=0.0.0.0,*
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - POSTGRES_HOST=${INTELOWL_POSTGRES_HOST}
       - POSTGRES_DB=${INTELOWL_POSTGRES_DB}
@@ -734,8 +733,6 @@ services:
       - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
       - logs:/var/log/prometheus
-    environment:
-      - --web.listen-address=0.0.0.0:9090
     ports:
       - "9090:9090"
     networks:
@@ -759,7 +756,6 @@ services:
     container_name: bev_grafana
     restart: always
     environment:
-      GF_SERVER_HTTP_ADDR: 0.0.0.0
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel
