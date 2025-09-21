@@ -1,0 +1,615 @@
+################################################################################
+# BEV OSINT Framework - Enterprise Observability Stack
+# Complete monitoring for 2000+ users, 151+ services, 99.99% availability
+################################################################################
+
+version: '3.9'
+
+services:
+  #=============================================================================
+  # METRICS COLLECTION - Prometheus Stack
+  #=============================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: bev_prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=100GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--storage.tsdb.no-lockfile'
+      - '--query.max-samples=50000000'
+      - '--query.timeout=2m'
+    ports:
+      - "9090:9090"
+    networks:
+      - bev_monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    restart: unless-stopped
+
+  # Prometheus Federation - Regional collectors
+  prometheus_us_east:
+    image: prom/prometheus:v2.45.0
+    container_name: bev_prometheus_us_east
+    volumes:
+      - ./prometheus-federation.yml:/etc/prometheus/prometheus.yml
+      - prometheus_us_east_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  prometheus_us_west:
+    image: prom/prometheus:v2.45.0
+    container_name: bev_prometheus_us_west
+    volumes:
+      - ./prometheus-federation.yml:/etc/prometheus/prometheus.yml
+      - prometheus_us_west_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  # VictoriaMetrics - Long-term storage
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.93.0
+    container_name: bev_victoriametrics
+    ports:
+      - "8428:8428"
+    volumes:
+      - victoria_data:/storage
+    command:
+      - '-storageDataPath=/storage'
+      - '-retentionPeriod=12M'
+      - '-maxLabelsPerTimeseries=50'
+      - '-search.maxQueryDuration=120s'
+      - '-search.maxSamplesPerQuery=1e9'
+      - '-memory.allowedPercent=80'
+    networks:
+      - bev_monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+    restart: unless-stopped
+
+  # Thanos - Global view and long-term storage
+  thanos_sidecar:
+    image: quay.io/thanos/thanos:v0.32.0
+    container_name: bev_thanos_sidecar
+    command:
+      - sidecar
+      - --tsdb.path=/prometheus
+      - --prometheus.url=http://prometheus:9090
+      - --grpc-address=0.0.0.0:10901
+      - --http-address=0.0.0.0:10902
+      - --objstore.config-file=/etc/thanos/bucket.yml
+    volumes:
+      - prometheus_data:/prometheus:ro
+      - ./thanos-bucket.yml:/etc/thanos/bucket.yml
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  thanos_query:
+    image: quay.io/thanos/thanos:v0.32.0
+    container_name: bev_thanos_query
+    command:
+      - query
+      - --http-address=0.0.0.0:10904
+      - --store=thanos_sidecar:10901
+      - --store=thanos_store:10905
+      - --query.replica-label=replica
+      - --query.auto-downsampling
+    ports:
+      - "10904:10904"
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  thanos_store:
+    image: quay.io/thanos/thanos:v0.32.0
+    container_name: bev_thanos_store
+    command:
+      - store
+      - --data-dir=/data
+      - --objstore.config-file=/etc/thanos/bucket.yml
+      - --http-address=0.0.0.0:10906
+      - --grpc-address=0.0.0.0:10905
+    volumes:
+      - thanos_store_data:/data
+      - ./thanos-bucket.yml:/etc/thanos/bucket.yml
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  #=============================================================================
+  # DISTRIBUTED TRACING - Jaeger Stack
+  #=============================================================================
+
+  jaeger_collector:
+    image: jaegertracing/jaeger-collector:1.48
+    container_name: bev_jaeger_collector
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+      - COLLECTOR_OTLP_ENABLED=true
+      - METRICS_BACKEND=prometheus
+    ports:
+      - "14250:14250"  # gRPC
+      - "14268:14268"  # HTTP
+      - "14269:14269"  # Admin
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    networks:
+      - bev_monitoring
+    depends_on:
+      - elasticsearch
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    restart: unless-stopped
+
+  jaeger_query:
+    image: jaegertracing/jaeger-query:1.48
+    container_name: bev_jaeger_query
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200
+      - METRICS_BACKEND=prometheus
+      - QUERY_MAX_CLOCK_SKEW_ADJUSTMENT=30s
+    ports:
+      - "16686:16686"  # UI
+      - "16687:16687"  # Health
+    networks:
+      - bev_monitoring
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  jaeger_agent:
+    image: jaegertracing/jaeger-agent:1.48
+    container_name: bev_jaeger_agent
+    command:
+      - "--reporter.grpc.host-port=jaeger_collector:14250"
+      - "--log-level=info"
+      - "--metrics-backend=prometheus"
+    ports:
+      - "6831:6831/udp"  # Thrift Compact
+      - "6832:6832/udp"  # Thrift Binary
+      - "5775:5775/udp"  # Zipkin Compact
+      - "5778:5778"      # Config
+      - "14271:14271"    # Admin
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  # Tempo - Alternative tracing backend
+  tempo:
+    image: grafana/tempo:2.2.0
+    container_name: bev_tempo
+    command: [ "-config.file=/etc/tempo.yml" ]
+    volumes:
+      - ./tempo.yml:/etc/tempo.yml
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"   # Tempo
+      - "9095:9095"   # Tempo gRPC
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  #=============================================================================
+  # LOGGING - ELK Stack
+  #=============================================================================
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    container_name: bev_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - cluster.name=bev-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms8g -Xmx8g"
+      - xpack.security.enabled=false
+      - xpack.monitoring.enabled=true
+      - xpack.monitoring.collection.enabled=true
+      - indices.query.bool.max_clause_count=10000
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - bev_monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+        reservations:
+          cpus: '4'
+          memory: 8G
+    restart: unless-stopped
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.9.0
+    container_name: bev_logstash
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./logstash.yml:/usr/share/logstash/config/logstash.yml
+    ports:
+      - "5044:5044"   # Beats
+      - "5000:5000"   # TCP
+      - "5001:5001"   # UDP
+      - "12201:12201/udp" # GELF
+    environment:
+      - "LS_JAVA_OPTS=-Xms2g -Xmx2g"
+      - PIPELINE_WORKERS=8
+      - PIPELINE_BATCH_SIZE=1000
+      - PIPELINE_BATCH_DELAY=50
+    networks:
+      - bev_monitoring
+    depends_on:
+      - elasticsearch
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.9.0
+    container_name: bev_kibana
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=bev-kibana
+      - SERVER_HOST=0.0.0.0
+      - MONITORING_ENABLED=true
+    ports:
+      - "5601:5601"
+    networks:
+      - bev_monitoring
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  # Filebeat - Log shipper
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.9.0
+    container_name: bev_filebeat
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat_data:/usr/share/filebeat/data
+    command: filebeat -e -strict.perms=false
+    networks:
+      - bev_monitoring
+    depends_on:
+      - elasticsearch
+      - logstash
+    restart: unless-stopped
+
+  # Loki - Alternative log aggregation
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: bev_loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: bev_promtail
+    volumes:
+      - ./promtail.yml:/etc/promtail/config.yml
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  #=============================================================================
+  # VISUALIZATION - Grafana
+  #=============================================================================
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: bev_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,redis-datasource,hazelcast-health-check
+      - GF_SERVER_ROOT_URL=https://monitoring.bev.internal
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_UNIFIED_ALERTING_ENABLED=true
+      - GF_ALERTING_ENABLED=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    ports:
+      - "3000:3000"
+    networks:
+      - bev_monitoring
+    depends_on:
+      - prometheus
+      - elasticsearch
+      - loki
+    restart: unless-stopped
+
+  #=============================================================================
+  # APPLICATION PERFORMANCE MONITORING
+  #=============================================================================
+
+  # OpenTelemetry Collector
+  otel_collector:
+    image: otel/opentelemetry-collector-contrib:0.82.0
+    container_name: bev_otel_collector
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./otel-collector.yml:/etc/otel-collector-config.yml
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Prometheus metrics
+      - "8889:8889"   # Prometheus exporter
+      - "13133:13133" # Health check
+      - "55679:55679" # ZPages
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  # SigNoz - APM Platform
+  signoz_frontend:
+    image: signoz/frontend:0.28.0
+    container_name: bev_signoz_frontend
+    ports:
+      - "3301:3301"
+    environment:
+      - ALERTMANAGER_API_PREFIX=http://alertmanager:9093
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  signoz_query_service:
+    image: signoz/query-service:0.28.0
+    container_name: bev_signoz_query
+    environment:
+      - ClickHouseUrl=tcp://clickhouse:9000
+      - ALERTMANAGER_API_PREFIX=http://alertmanager:9093
+      - SIGNOZ_LOCAL_DB_PATH=/var/lib/signoz/signoz.db
+    volumes:
+      - signoz_data:/var/lib/signoz
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  # ClickHouse for SigNoz
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.7
+    container_name: bev_clickhouse
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse-config.xml:/etc/clickhouse-server/config.d/config.xml
+    environment:
+      - CLICKHOUSE_DB=signoz
+      - CLICKHOUSE_USER=signoz
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-signoz}
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  #=============================================================================
+  # ALERTING
+  #=============================================================================
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: bev_alertmanager
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--cluster.advertise-address=0.0.0.0:9093'
+      - '--web.external-url=https://alerts.bev.internal'
+    ports:
+      - "9093:9093"
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  # PagerDuty integration
+  pagerduty_prometheus:
+    image: weaveworks/pagerduty-prometheus:latest
+    container_name: bev_pagerduty
+    environment:
+      - PAGERDUTY_SERVICE_KEY=${PAGERDUTY_KEY}
+      - PAGERDUTY_URL=https://events.pagerduty.com/v2/enqueue
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  #=============================================================================
+  # SYNTHETIC MONITORING
+  #=============================================================================
+
+  blackbox_exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: bev_blackbox
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/config.yml
+    ports:
+      - "9115:9115"
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  # Uptime Kuma - Status page and monitoring
+  uptime_kuma:
+    image: louislam/uptime-kuma:1.22.0
+    container_name: bev_uptime_kuma
+    volumes:
+      - uptime_kuma_data:/app/data
+    ports:
+      - "3001:3001"
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  #=============================================================================
+  # EXPORTERS FOR SERVICE MONITORING
+  #=============================================================================
+
+  node_exporter:
+    image: prom/node-exporter:v1.6.0
+    container_name: bev_node_exporter
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--collector.netclass.ignored-devices=^(veth.*)$$'
+    ports:
+      - "9100:9100"
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:v0.13.0
+    container_name: bev_postgres_exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://postgres:${DB_PASSWORD}@postgres:5432/osint?sslmode=disable
+    ports:
+      - "9187:9187"
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  redis_exporter:
+    image: oliver006/redis_exporter:v1.52.0
+    container_name: bev_redis_exporter
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    ports:
+      - "9121:9121"
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: bev_cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /cgroup:/cgroup:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - bev_monitoring
+    restart: unless-stopped
+
+  #=============================================================================
+  # PERFORMANCE TESTING
+  #=============================================================================
+
+  k6:
+    image: grafana/k6:0.46.0
+    container_name: bev_k6
+    volumes:
+      - ./k6:/scripts
+    networks:
+      - bev_monitoring
+    command: run /scripts/load-test.js
+
+networks:
+  bev_monitoring:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  prometheus_data:
+  prometheus_us_east_data:
+  prometheus_us_west_data:
+  victoria_data:
+  thanos_store_data:
+  elasticsearch_data:
+  grafana_data:
+  loki_data:
+  tempo_data:
+  alertmanager_data:
+  clickhouse_data:
+  signoz_data:
+  filebeat_data:
+  uptime_kuma_data:

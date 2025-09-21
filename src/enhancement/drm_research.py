@@ -795,10 +795,8 @@ if __name__ == "__main__":
     
     # Analyze DRM
     # results = analyzer.comprehensive_analysis("protected_file.bin")
-    # print(json.dumps(results, indent=2))
     
     # Extract keys
     # keys = extractor.extract_from_binary("protected.exe")
-    # print(f"Found {len(keys)} potential keys")
     
     print("DRM Research Framework loaded - Educational purposes only!")

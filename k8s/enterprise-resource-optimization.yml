@@ -1,0 +1,674 @@
+################################################################################
+# BEV OSINT Framework - Kubernetes Resource Optimization
+# Enterprise resource management for 151+ services across multi-node deployment
+################################################################################
+
+#===============================================================================
+# NAMESPACE WITH RESOURCE QUOTAS
+#===============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bev-production
+  labels:
+    name: bev-production
+    environment: production
+    monitoring: enabled
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: bev-compute-quota
+  namespace: bev-production
+spec:
+  hard:
+    requests.cpu: "400"          # 400 CPU cores total
+    requests.memory: "800Gi"     # 800 GB RAM total
+    limits.cpu: "600"            # 600 CPU cores limit
+    limits.memory: "1200Gi"      # 1.2 TB RAM limit
+    requests.nvidia.com/gpu: "8" # 8 GPUs for ML services
+    persistentvolumeclaims: "200"
+    services.loadbalancers: "10"
+    services.nodeports: "50"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: bev-limit-range
+  namespace: bev-production
+spec:
+  limits:
+  - max:
+      cpu: "32"
+      memory: "128Gi"
+      nvidia.com/gpu: "2"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+    default:
+      cpu: "1"
+      memory: "2Gi"
+    defaultRequest:
+      cpu: "500m"
+      memory: "1Gi"
+    type: Container
+  - max:
+      cpu: "64"
+      memory: "256Gi"
+    min:
+      cpu: "200m"
+      memory: "256Mi"
+    type: Pod
+
+#===============================================================================
+# PRIORITY CLASSES FOR SERVICE TIERS
+#===============================================================================
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: bev-critical
+value: 1000
+globalDefault: false
+description: "Critical BEV services - databases, core APIs"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: bev-high
+value: 800
+globalDefault: false
+description: "High priority BEV services - edge nodes, cache"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: bev-medium
+value: 500
+globalDefault: true
+description: "Standard BEV services - workers, processors"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: bev-low
+value: 200
+globalDefault: false
+description: "Low priority BEV services - batch jobs, maintenance"
+
+#===============================================================================
+# HPA - HORIZONTAL POD AUTOSCALING CONFIGURATIONS
+#===============================================================================
+
+# Edge Computing Nodes HPA
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: edge-nodes-hpa
+  namespace: bev-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: edge-compute-nodes
+  minReplicas: 5
+  maxReplicas: 50
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Pods
+    pods:
+      metric:
+        name: concurrent_connections
+      target:
+        type: AverageValue
+        averageValue: "100"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 10
+        periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Min
+
+# Cache Services HPA
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache-services-hpa
+  namespace: bev-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: predictive-cache
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85
+  - type: Object
+    object:
+      metric:
+        name: cache_hit_rate
+      describedObject:
+        apiVersion: v1
+        kind: Service
+        name: predictive-cache
+      target:
+        type: Value
+        value: "0.95"  # Scale up if hit rate drops below 95%
+
+# Database Connection Pooler HPA
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pgbouncer-hpa
+  namespace: bev-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pgbouncer
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Object
+    object:
+      metric:
+        name: postgresql_connections_active
+      describedObject:
+        apiVersion: v1
+        kind: Service
+        name: postgres
+      target:
+        type: AverageValue
+        averageValue: "50"
+
+#===============================================================================
+# VPA - VERTICAL POD AUTOSCALING
+#===============================================================================
+
+# ML Services VPA
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: ml-predictor-vpa
+  namespace: bev-production
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ml-predictor
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: ml-predictor
+      minAllowed:
+        cpu: "1"
+        memory: "2Gi"
+      maxAllowed:
+        cpu: "16"
+        memory: "64Gi"
+        nvidia.com/gpu: "2"
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+
+# OSINT Analyzers VPA
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: osint-analyzers-vpa
+  namespace: bev-production
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: osint-analyzers
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: breach-analyzer
+      minAllowed:
+        cpu: "500m"
+        memory: "1Gi"
+      maxAllowed:
+        cpu: "4"
+        memory: "16Gi"
+    - containerName: darknet-analyzer
+      minAllowed:
+        cpu: "500m"
+        memory: "1Gi"
+      maxAllowed:
+        cpu: "4"
+        memory: "16Gi"
+
+#===============================================================================
+# POD DISRUPTION BUDGETS
+#===============================================================================
+
+# Critical Services PDB
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: critical-services-pdb
+  namespace: bev-production
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      tier: critical
+
+# Database PDB
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: database-pdb
+  namespace: bev-production
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgresql
+
+# Edge Nodes PDB
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: edge-nodes-pdb
+  namespace: bev-production
+spec:
+  minAvailable: "30%"
+  selector:
+    matchLabels:
+      app: edge-node
+
+#===============================================================================
+# NODE AFFINITY AND TOPOLOGY CONSTRAINTS
+#===============================================================================
+
+# High-Performance Node Pool for Databases
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql-primary
+  namespace: bev-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+      role: primary
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        role: primary
+        tier: critical
+    spec:
+      priorityClassName: bev-critical
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values: ["high-memory", "nvme-storage"]
+              - key: kubernetes.io/hostname
+                operator: In
+                values: ["thanos"]
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values: ["postgresql"]
+            topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: postgresql
+      containers:
+      - name: postgresql
+        image: postgres:15-alpine
+        resources:
+          requests:
+            cpu: "8"
+            memory: "32Gi"
+            ephemeral-storage: "100Gi"
+          limits:
+            cpu: "16"
+            memory: "64Gi"
+            ephemeral-storage: "200Gi"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        - name: hugepages
+          mountPath: /hugepages
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: postgresql-data
+      - name: hugepages
+        emptyDir:
+          medium: HugePages-2Mi
+          sizeLimit: 2Gi
+
+# GPU Node Pool for ML Services
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-predictor
+  namespace: bev-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ml-predictor
+  template:
+    metadata:
+      labels:
+        app: ml-predictor
+        tier: high
+    spec:
+      priorityClassName: bev-high
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: accelerator
+                operator: In
+                values: ["nvidia-gpu"]
+              - key: gpu-type
+                operator: In
+                values: ["rtx-3080", "rtx-4090", "a100"]
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: ml-predictor
+        image: bev/ml-predictor:latest
+        resources:
+          requests:
+            cpu: "4"
+            memory: "16Gi"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "8"
+            memory: "32Gi"
+            nvidia.com/gpu: "1"
+
+#===============================================================================
+# CLUSTER AUTOSCALER CONFIGURATION
+#===============================================================================
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+    spec:
+      serviceAccountName: cluster-autoscaler
+      containers:
+      - name: cluster-autoscaler
+        image: k8s.gcr.io/autoscaling/cluster-autoscaler:v1.27.0
+        command:
+        - ./cluster-autoscaler
+        - --v=4
+        - --stderrthreshold=info
+        - --cloud-provider=aws
+        - --skip-nodes-with-local-storage=false
+        - --expander=least-waste
+        - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/bev-cluster
+        - --balance-similar-node-groups
+        - --skip-nodes-with-system-pods=false
+        - --scale-down-enabled=true
+        - --scale-down-delay-after-add=10m
+        - --scale-down-unneeded-time=10m
+        - --scale-down-utilization-threshold=0.5
+        - --max-node-provision-time=15m
+        - --max-nodes-total=50
+        resources:
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+
+#===============================================================================
+# RESOURCE OPTIMIZATION CONFIGMAP
+#===============================================================================
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: resource-optimization
+  namespace: bev-production
+data:
+  # Service-specific resource allocations
+  service_resources.yaml: |
+    services:
+      # Critical Services (Tier 1)
+      postgresql:
+        requests: { cpu: "8", memory: "32Gi" }
+        limits: { cpu: "16", memory: "64Gi" }
+        replicas: { min: 1, max: 3 }
+        priority: critical
+
+      neo4j:
+        requests: { cpu: "4", memory: "16Gi" }
+        limits: { cpu: "8", memory: "32Gi" }
+        replicas: { min: 1, max: 3 }
+        priority: critical
+
+      redis-cluster:
+        requests: { cpu: "2", memory: "8Gi" }
+        limits: { cpu: "4", memory: "16Gi" }
+        replicas: { min: 6, max: 12 }
+        priority: critical
+
+      elasticsearch:
+        requests: { cpu: "4", memory: "16Gi" }
+        limits: { cpu: "8", memory: "32Gi" }
+        replicas: { min: 3, max: 9 }
+        priority: critical
+
+      # High Priority Services (Tier 2)
+      edge-compute-nodes:
+        requests: { cpu: "4", memory: "8Gi" }
+        limits: { cpu: "8", memory: "16Gi" }
+        replicas: { min: 5, max: 50 }
+        priority: high
+
+      predictive-cache:
+        requests: { cpu: "2", memory: "16Gi" }
+        limits: { cpu: "4", memory: "32Gi" }
+        replicas: { min: 3, max: 20 }
+        priority: high
+
+      load-balancer:
+        requests: { cpu: "2", memory: "4Gi" }
+        limits: { cpu: "4", memory: "8Gi" }
+        replicas: { min: 3, max: 10 }
+        priority: high
+
+      # Medium Priority Services (Tier 3)
+      osint-analyzers:
+        requests: { cpu: "1", memory: "2Gi" }
+        limits: { cpu: "2", memory: "4Gi" }
+        replicas: { min: 10, max: 100 }
+        priority: medium
+
+      celery-workers:
+        requests: { cpu: "1", memory: "2Gi" }
+        limits: { cpu: "2", memory: "4Gi" }
+        replicas: { min: 20, max: 200 }
+        priority: medium
+
+      airflow-scheduler:
+        requests: { cpu: "2", memory: "4Gi" }
+        limits: { cpu: "4", memory: "8Gi" }
+        replicas: { min: 1, max: 3 }
+        priority: medium
+
+      # Low Priority Services (Tier 4)
+      batch-processors:
+        requests: { cpu: "500m", memory: "1Gi" }
+        limits: { cpu: "1", memory: "2Gi" }
+        replicas: { min: 5, max: 50 }
+        priority: low
+
+      maintenance-jobs:
+        requests: { cpu: "250m", memory: "512Mi" }
+        limits: { cpu: "500m", memory: "1Gi" }
+        replicas: { min: 1, max: 5 }
+        priority: low
+
+  # JVM optimization for Java services
+  jvm_opts.conf: |
+    # Elasticsearch JVM options
+    ES_JAVA_OPTS="-Xms8g -Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch -Xss1m"
+
+    # Neo4j JVM options
+    NEO4J_dbms_memory_heap_initial__size="8g"
+    NEO4J_dbms_memory_heap_max__size="8g"
+    NEO4J_dbms_memory_pagecache_size="16g"
+    NEO4J_dbms_jvm_additional="-XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+ParallelRefProcEnabled"
+
+    # Logstash JVM options
+    LS_JAVA_OPTS="-Xms2g -Xmx2g -XX:+UseG1GC"
+
+  # Container runtime optimization
+  container_runtime.conf: |
+    # Docker daemon configuration
+    {
+      "storage-driver": "overlay2",
+      "storage-opts": [
+        "overlay2.override_kernel_check=true"
+      ],
+      "log-driver": "json-file",
+      "log-opts": {
+        "max-size": "100m",
+        "max-file": "10",
+        "compress": "true"
+      },
+      "default-ulimits": {
+        "nofile": {
+          "Hard": 65536,
+          "Soft": 65536
+        }
+      },
+      "max-concurrent-downloads": 10,
+      "max-concurrent-uploads": 10,
+      "default-runtime": "nvidia",
+      "runtimes": {
+        "nvidia": {
+          "path": "nvidia-container-runtime",
+          "runtimeArgs": []
+        }
+      }
+    }
+
+  # Kernel tuning parameters
+  kernel_tuning.conf: |
+    # Network optimization
+    net.core.somaxconn=65535
+    net.core.netdev_max_backlog=65536
+    net.ipv4.tcp_max_syn_backlog=65536
+    net.ipv4.tcp_fin_timeout=20
+    net.ipv4.tcp_tw_reuse=1
+    net.ipv4.tcp_keepalive_time=600
+    net.ipv4.tcp_keepalive_intvl=60
+    net.ipv4.tcp_keepalive_probes=10
+    net.ipv4.ip_local_port_range="1024 65535"
+
+    # Memory management
+    vm.swappiness=10
+    vm.dirty_ratio=40
+    vm.dirty_background_ratio=10
+    vm.vfs_cache_pressure=50
+
+    # File descriptors
+    fs.file-max=2097152
+    fs.nr_open=2097152
+
+#===============================================================================
+# MONITORING SERVICEMONITOR FOR RESOURCE METRICS
+#===============================================================================
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: resource-metrics
+  namespace: bev-production
+spec:
+  selector:
+    matchLabels:
+      monitoring: enabled
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+    relabelings:
+    - sourceLabels: [__address__]
+      targetLabel: __param_target
+    - sourceLabels: [__param_target]
+      targetLabel: instance
+    - targetLabel: __address__
+      replacement: blackbox-exporter:9115

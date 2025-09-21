@@ -1525,7 +1525,6 @@ async def main():
 
         # Analyze a transaction (example)
         # analysis = await engine.analyze_transaction('tx_id_here', 'bitcoin')
-        # print(f"Analysis results: {analysis}")
 
         # Get statistics
         stats = await engine.get_statistics()

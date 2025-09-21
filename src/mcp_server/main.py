@@ -119,8 +119,8 @@ def validate_environment():
     try:
         import socket
         
-        # Test database connections
-        postgres_host = os.getenv('POSTGRES_HOST', '172.21.0.2')
+        # Test database connections - use environment variables only
+        postgres_host = os.getenv('POSTGRES_HOST', 'postgres')
         postgres_port = int(os.getenv('POSTGRES_PORT', '5432'))
         
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

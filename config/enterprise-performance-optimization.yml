@@ -1,0 +1,599 @@
+################################################################################
+# BEV OSINT Framework - Enterprise Performance Optimization Configuration
+# Target: 2000+ concurrent users, <50ms global latency, 99.99% availability
+################################################################################
+
+#===============================================================================
+# GLOBAL EDGE COMPUTING OPTIMIZATION
+#===============================================================================
+edge_computing:
+  # Global edge network configuration
+  regions:
+    us-east:
+      nodes: 3
+      primary_node: "thanos"
+      capacity: 800  # concurrent users
+      cache_size_gb: 128
+      model_cache_gb: 32
+      priority: 1
+    us-west:
+      nodes: 2
+      primary_node: "oracle1"
+      capacity: 600
+      cache_size_gb: 96
+      model_cache_gb: 24
+      priority: 2
+    europe:
+      nodes: 2
+      primary_node: "edge-eu-1"
+      capacity: 400
+      cache_size_gb: 64
+      model_cache_gb: 16
+      priority: 3
+    asia-pacific:
+      nodes: 2
+      primary_node: "edge-ap-1"
+      capacity: 400
+      cache_size_gb: 64
+      model_cache_gb: 16
+      priority: 4
+
+  # Edge performance optimization
+  performance:
+    max_concurrent_requests: 2500
+    request_timeout_ms: 100
+    connection_pool_size: 1000
+    keep_alive_timeout_ms: 60000
+    tcp_no_delay: true
+    tcp_keep_alive: true
+    http2_enabled: true
+    compression_enabled: true
+    compression_level: 6
+
+  # Intelligent routing optimization
+  routing:
+    strategy: "latency_aware"  # Options: round_robin, latency_aware, load_balanced, geo_proximity
+    health_check_interval_ms: 5000
+    failure_detection_threshold: 3
+    circuit_breaker_timeout_ms: 30000
+    retry_max_attempts: 3
+    retry_backoff_ms: [100, 500, 1000]
+    cross_region_failover: true
+    sticky_sessions: false
+
+#===============================================================================
+# ADVANCED CACHING STRATEGIES (99% Hit Rate Target)
+#===============================================================================
+caching:
+  # Multi-tier cache architecture
+  tiers:
+    l1_memory:
+      type: "in_memory"
+      size_mb: 4096
+      ttl_seconds: 300
+      eviction_policy: "lfu"  # Least Frequently Used for hot data
+      preload_critical: true
+    l2_redis:
+      type: "redis_cluster"
+      nodes: 6
+      size_gb: 64
+      ttl_seconds: 3600
+      eviction_policy: "allkeys-lru"
+      persistence: true
+      aof_enabled: true
+    l3_distributed:
+      type: "hazelcast"
+      nodes: 4
+      size_gb: 256
+      ttl_seconds: 86400
+      eviction_policy: "lru"
+      near_cache_enabled: true
+
+  # Predictive caching with ML
+  predictive:
+    enabled: true
+    ml_models:
+      - type: "lstm"
+        confidence_threshold: 0.85
+        prediction_window_minutes: 15
+      - type: "gradient_boost"
+        confidence_threshold: 0.80
+        prediction_window_minutes: 30
+    prefetch_threshold: 0.75
+    batch_prefetch_size: 100
+    async_warming: true
+    warming_threads: 8
+
+  # Cache optimization strategies
+  optimization:
+    hit_rate_target: 0.99
+    response_time_target_ms: 10
+    auto_tuning: true
+    memory_pressure_threshold: 0.85
+    compression:
+      enabled: true
+      algorithms: ["lz4", "zstd"]
+      threshold_bytes: 1024
+    deduplication: true
+    semantic_clustering: true
+
+  # Content-aware caching
+  content_strategies:
+    osint_data:
+      ttl_hours: 24
+      refresh_on_stale: true
+      priority: "high"
+    user_sessions:
+      ttl_minutes: 30
+      sticky: true
+      priority: "critical"
+    api_responses:
+      ttl_seconds: 300
+      vary_by: ["user", "params"]
+      priority: "normal"
+    static_assets:
+      ttl_days: 30
+      cdn_enabled: true
+      priority: "low"
+
+#===============================================================================
+# DATABASE OPTIMIZATION
+#===============================================================================
+database:
+  # PostgreSQL optimization
+  postgresql:
+    # Connection pooling
+    connection_pool:
+      min_size: 50
+      max_size: 200
+      max_overflow: 50
+      pool_timeout_seconds: 30
+      max_lifetime_minutes: 60
+      statement_cache_size: 1000
+
+    # Performance tuning
+    performance:
+      shared_buffers: "16GB"
+      effective_cache_size: "48GB"
+      maintenance_work_mem: "2GB"
+      work_mem: "256MB"
+      max_connections: 500
+      max_prepared_transactions: 100
+
+    # Query optimization
+    query_optimization:
+      enable_parallel_query: true
+      max_parallel_workers: 16
+      max_parallel_workers_per_gather: 8
+      effective_io_concurrency: 200
+      random_page_cost: 1.1
+
+    # Partitioning strategy
+    partitioning:
+      enabled: true
+      strategy: "range"  # by timestamp
+      partition_size_days: 7
+      auto_vacuum: true
+      auto_analyze: true
+
+  # Neo4j optimization
+  neo4j:
+    heap_size: "8GB"
+    page_cache_size: "16GB"
+    bolt_thread_pool_size: 100
+    query_cache_size: 1000
+    index_sampling_buffer_size: "256MB"
+    transaction_timeout_seconds: 300
+
+  # Redis optimization
+  redis:
+    cluster_mode: true
+    nodes: 6
+    maxmemory: "32GB"
+    maxmemory_policy: "allkeys-lru"
+    tcp_keepalive: 60
+    timeout: 300
+    databases: 16
+    save_intervals:
+      - "900 1"      # 15 min if at least 1 key changed
+      - "300 10"     # 5 min if at least 10 keys changed
+      - "60 10000"   # 1 min if at least 10000 keys changed
+
+  # Elasticsearch optimization
+  elasticsearch:
+    heap_size: "16GB"
+    indices:
+      number_of_shards: 5
+      number_of_replicas: 2
+      refresh_interval: "5s"
+      max_result_window: 50000
+    thread_pools:
+      search:
+        size: 50
+        queue_size: 1000
+      write:
+        size: 30
+        queue_size: 500
+    cache:
+      query_cache_enabled: true
+      query_cache_size: "10%"
+      field_data_cache_size: "30%"
+
+#===============================================================================
+# NETWORK OPTIMIZATION
+#===============================================================================
+network:
+  # Load balancing configuration
+  load_balancing:
+    algorithm: "least_response_time"  # Options: round_robin, least_connections, least_response_time, weighted
+    health_check:
+      interval_seconds: 5
+      timeout_seconds: 2
+      unhealthy_threshold: 2
+      healthy_threshold: 3
+    session_affinity:
+      enabled: false
+      cookie_name: "BEV_SESSION"
+      ttl_seconds: 3600
+
+  # CDN configuration
+  cdn:
+    enabled: true
+    providers:
+      - cloudflare:
+          zones: ["us", "eu", "asia"]
+          cache_level: "aggressive"
+          browser_cache_ttl: 14400
+          edge_cache_ttl: 7200
+      - fastly:
+          pops: 70
+          shield_pops: true
+          instant_purge: true
+    cache_rules:
+      static_assets:
+        ttl_days: 30
+        compress: true
+      api_responses:
+        ttl_seconds: 300
+        vary_by: ["Accept", "Authorization"]
+
+  # Protocol optimization
+  protocols:
+    http2:
+      enabled: true
+      max_concurrent_streams: 250
+      initial_window_size: 65535
+      max_frame_size: 16384
+    http3_quic:
+      enabled: true
+      max_idle_timeout_ms: 30000
+      max_udp_payload_size: 1350
+    websocket:
+      enabled: true
+      compression: true
+      max_frame_size: 65536
+      ping_interval_seconds: 30
+
+  # Connection optimization
+  connections:
+    tcp:
+      nodelay: true
+      keepalive: true
+      keepalive_time_seconds: 600
+      keepalive_interval_seconds: 60
+      keepalive_probes: 9
+    connection_pooling:
+      min_idle: 10
+      max_idle: 100
+      max_total: 500
+      max_wait_ms: 5000
+
+#===============================================================================
+# RESOURCE OPTIMIZATION
+#===============================================================================
+resources:
+  # CPU optimization
+  cpu:
+    affinity:
+      enabled: true
+      numa_aware: true
+      isolate_cores: true
+    scheduling:
+      policy: "performance"
+      nice_level: -10
+      rt_priority: 50
+    power_management:
+      governor: "performance"
+      disable_c_states: true
+      disable_turbo: false
+
+  # Memory optimization
+  memory:
+    huge_pages:
+      enabled: true
+      size: "2MB"
+      count: 8192
+    swap:
+      enabled: false
+    overcommit:
+      enabled: true
+      ratio: 0.5
+    transparent_huge_pages: "always"
+    numa_balancing: true
+
+  # I/O optimization
+  io:
+    scheduler: "noop"  # For SSDs
+    read_ahead_kb: 256
+    nr_requests: 256
+    dirty_ratio: 40
+    dirty_background_ratio: 10
+    swappiness: 10
+
+  # Container resource limits
+  containers:
+    default_limits:
+      cpu: "2"
+      memory: "4Gi"
+    service_limits:
+      edge_nodes:
+        cpu: "8"
+        memory: "16Gi"
+      databases:
+        cpu: "16"
+        memory: "64Gi"
+      cache_services:
+        cpu: "4"
+        memory: "32Gi"
+      ml_services:
+        cpu: "8"
+        memory: "32Gi"
+        gpu: "1"
+
+#===============================================================================
+# MONITORING & OBSERVABILITY
+#===============================================================================
+monitoring:
+  # Metrics collection
+  metrics:
+    prometheus:
+      scrape_interval_seconds: 15
+      evaluation_interval_seconds: 15
+      retention_days: 30
+      storage_size_gb: 500
+      remote_write:
+        - url: "https://metrics.bev.internal/api/v1/write"
+          batch_send_deadline: "5s"
+          max_samples_per_send: 10000
+
+    custom_metrics:
+      - name: "bev_request_latency_p99"
+        type: "histogram"
+        buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+      - name: "bev_cache_hit_rate"
+        type: "gauge"
+      - name: "bev_concurrent_users"
+        type: "gauge"
+      - name: "bev_edge_node_health"
+        type: "gauge"
+
+  # Distributed tracing
+  tracing:
+    enabled: true
+    sampling_rate: 0.1  # 10% sampling in production
+    backend: "jaeger"
+    jaeger:
+      agent_host: "localhost"
+      agent_port: 6831
+      collector_endpoint: "http://jaeger-collector:14268/api/traces"
+    span_processors:
+      batch:
+        max_queue_size: 2048
+        scheduled_delay_millis: 5000
+        max_export_batch_size: 512
+
+  # Logging optimization
+  logging:
+    level: "INFO"
+    structured: true
+    format: "json"
+    buffer_size: 65536
+    async: true
+    rotation:
+      max_size_mb: 100
+      max_files: 10
+      compress: true
+    aggregation:
+      enabled: true
+      backend: "elasticsearch"
+      batch_size: 1000
+      flush_interval_seconds: 5
+
+  # Alerting rules
+  alerting:
+    rules:
+      - name: "high_latency"
+        condition: "p99_latency > 100ms"
+        severity: "warning"
+      - name: "critical_latency"
+        condition: "p99_latency > 500ms"
+        severity: "critical"
+      - name: "low_cache_hit_rate"
+        condition: "cache_hit_rate < 0.90"
+        severity: "warning"
+      - name: "node_down"
+        condition: "node_health == 0"
+        severity: "critical"
+      - name: "high_error_rate"
+        condition: "error_rate > 0.01"
+        severity: "warning"
+
+#===============================================================================
+# SECURITY HARDENING
+#===============================================================================
+security:
+  # TLS configuration
+  tls:
+    min_version: "1.3"
+    cipher_suites:
+      - "TLS_AES_256_GCM_SHA384"
+      - "TLS_AES_128_GCM_SHA256"
+      - "TLS_CHACHA20_POLY1305_SHA256"
+    certificate_rotation_days: 30
+    ocsp_stapling: true
+    session_tickets: false
+
+  # Rate limiting
+  rate_limiting:
+    enabled: true
+    global_limit: 10000  # requests per second
+    per_user_limit: 100  # requests per second
+    burst_size: 50
+    window_seconds: 60
+    backend: "redis"
+
+  # DDoS protection
+  ddos_protection:
+    enabled: true
+    syn_cookies: true
+    connection_limit: 100000
+    new_connection_rate: 1000
+    blacklist_threshold: 1000
+    blacklist_duration_seconds: 3600
+
+  # Vault integration
+  vault:
+    enabled: true
+    address: "https://vault.bev.internal:8200"
+    token_renewal_interval_hours: 1
+    secrets_refresh_interval_hours: 24
+    kv_version: 2
+    transit_encryption: true
+
+#===============================================================================
+# AUTO-SCALING & ELASTICITY
+#===============================================================================
+autoscaling:
+  # Horizontal pod autoscaling
+  hpa:
+    enabled: true
+    min_replicas: 3
+    max_replicas: 50
+    target_cpu_percent: 70
+    target_memory_percent: 80
+    scale_up_rate: 100  # percent per minute
+    scale_down_rate: 10  # percent per minute
+
+  # Vertical pod autoscaling
+  vpa:
+    enabled: true
+    update_mode: "Auto"
+    resource_policy:
+      min_cpu: "500m"
+      max_cpu: "16"
+      min_memory: "1Gi"
+      max_memory: "64Gi"
+
+  # Cluster autoscaling
+  cluster:
+    enabled: true
+    min_nodes: 5
+    max_nodes: 20
+    scale_down_delay_minutes: 10
+    scale_down_utilization_threshold: 0.5
+
+  # Predictive scaling
+  predictive:
+    enabled: true
+    ml_model: "prophet"
+    forecast_window_hours: 24
+    scale_ahead_minutes: 5
+    confidence_threshold: 0.85
+
+#===============================================================================
+# DISASTER RECOVERY & HIGH AVAILABILITY
+#===============================================================================
+disaster_recovery:
+  # Backup configuration
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention_days: 30
+    incremental: true
+    compression: true
+    encryption: true
+    destinations:
+      - "s3://bev-backups-primary/"
+      - "gs://bev-backups-secondary/"
+
+  # Replication
+  replication:
+    enabled: true
+    mode: "async"  # Options: sync, async, semi-sync
+    lag_threshold_seconds: 5
+    parallel_workers: 4
+    compression: true
+
+  # Failover configuration
+  failover:
+    automatic: true
+    detection_interval_seconds: 10
+    confirmation_count: 3
+    failover_timeout_seconds: 60
+    priority_order: ["us-east", "us-west", "europe", "asia-pacific"]
+
+  # Recovery objectives
+  objectives:
+    rto_minutes: 15  # Recovery Time Objective
+    rpo_minutes: 5   # Recovery Point Objective
+    availability_target: 0.9999  # 99.99%
+
+#===============================================================================
+# PERFORMANCE TESTING & VALIDATION
+#===============================================================================
+testing:
+  # Load testing configuration
+  load_testing:
+    tool: "k6"
+    scenarios:
+      - name: "baseline"
+        vus: 100
+        duration: "5m"
+        rps: 1000
+      - name: "stress"
+        vus: 2000
+        duration: "10m"
+        rps: 5000
+      - name: "spike"
+        vus: 5000
+        duration: "2m"
+        rps: 10000
+      - name: "soak"
+        vus: 500
+        duration: "2h"
+        rps: 2000
+
+  # Performance thresholds
+  thresholds:
+    http_req_duration:
+      - "p(50)<25"   # 50th percentile < 25ms
+      - "p(95)<50"   # 95th percentile < 50ms
+      - "p(99)<100"  # 99th percentile < 100ms
+    http_req_failed:
+      - "rate<0.001"  # Error rate < 0.1%
+    http_reqs:
+      - "rate>2000"   # Throughput > 2000 RPS
+
+  # Chaos engineering
+  chaos:
+    enabled: true
+    experiments:
+      - type: "network_latency"
+        target: "10%"
+        latency_ms: 100
+      - type: "pod_kill"
+        target: "1"
+        interval_minutes: 60
+      - type: "cpu_stress"
+        target: "25%"
+        load_percent: 80
