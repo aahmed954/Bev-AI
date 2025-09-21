@@ -1,0 +1,24 @@
+{
+  "marketplaces": [
+    {
+      "name": "example_market",
+      "base_url": "http://example.onion",
+      "protocol": "tor",
+      "auth_required": false,
+      "rate_limit_per_second": 0.5,
+      "endpoints": {
+        "listings": "/listings",
+        "vendors": "/vendors",
+        "search": "/search"
+      },
+      "selectors": {
+        "listing_title": ".listing-title",
+        "listing_price": ".price",
+        "vendor_name": ".vendor"
+      },
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0"
+      }
+    }
+  ]
+}

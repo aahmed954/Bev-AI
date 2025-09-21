@@ -1,0 +1,31 @@
+[Unit]
+Description=BEV Vault Token Renewal Service
+After=network.target
+Requires=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/home/starlord/Projects/Bev/scripts/vault-renewal-service.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vault-renewal
+
+# Environment variables
+Environment=VAULT_ADDR=http://localhost:8200
+Environment=VAULT_TOKEN_FILE=/opt/vault/token
+Environment=LOG_FILE=/var/log/vault-renewal.log
+Environment=RENEWAL_INTERVAL=21600
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/log /opt/vault
+
+[Install]
+WantedBy=multi-user.target
