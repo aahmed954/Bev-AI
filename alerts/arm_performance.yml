@@ -1,0 +1,157 @@
+# ARM Performance Alerts for ORACLE1
+# BEV OSINT Framework - ARM-specific monitoring rules
+
+groups:
+  - name: arm_performance
+    interval: 30s
+    rules:
+      # ARM CPU performance alerts
+      - alert: ARMCPUHighUsage
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle",instance=~".*oracle1.*"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+          platform: arm64
+          service: system
+        annotations:
+          summary: "ARM CPU usage is high on {{ $labels.instance }}"
+          description: "ARM CPU usage has been above 85% for more than 5 minutes on {{ $labels.instance }}. Current value: {{ $value }}%"
+
+      - alert: ARMCPUCritical
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle",instance=~".*oracle1.*"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          platform: arm64
+          service: system
+        annotations:
+          summary: "ARM CPU usage is critically high on {{ $labels.instance }}"
+          description: "ARM CPU usage has been above 95% for more than 2 minutes on {{ $labels.instance }}. Current value: {{ $value }}%"
+
+      # ARM Memory alerts
+      - alert: ARMMemoryHigh
+        expr: (1 - (node_memory_MemAvailable_bytes{instance=~".*oracle1.*"} / node_memory_MemTotal_bytes{instance=~".*oracle1.*"})) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          platform: arm64
+          service: system
+        annotations:
+          summary: "ARM memory usage is high on {{ $labels.instance }}"
+          description: "ARM memory usage has been above 80% for more than 5 minutes on {{ $labels.instance }}. Current value: {{ $value }}%"
+
+      - alert: ARMMemoryCritical
+        expr: (1 - (node_memory_MemAvailable_bytes{instance=~".*oracle1.*"} / node_memory_MemTotal_bytes{instance=~".*oracle1.*"})) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+          platform: arm64
+          service: system
+        annotations:
+          summary: "ARM memory usage is critically high on {{ $labels.instance }}"
+          description: "ARM memory usage has been above 90% for more than 2 minutes on {{ $labels.instance }}. Current value: {{ $value }}%"
+
+      # ARM Disk I/O performance
+      - alert: ARMDiskIOHigh
+        expr: rate(node_disk_io_time_seconds_total{instance=~".*oracle1.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          platform: arm64
+          service: system
+        annotations:
+          summary: "ARM disk I/O wait time is high on {{ $labels.instance }}"
+          description: "Disk I/O wait time has been above 80% for more than 5 minutes on {{ $labels.instance }} device {{ $labels.device }}"
+
+      # ARM Network performance
+      - alert: ARMNetworkReceiveHigh
+        expr: rate(node_network_receive_bytes_total{instance=~".*oracle1.*",device!~"lo|docker.*|veth.*"}[5m]) > 100000000  # 100MB/s
+        for: 5m
+        labels:
+          severity: warning
+          platform: arm64
+          service: network
+        annotations:
+          summary: "ARM network receive rate is high on {{ $labels.instance }}"
+          description: "Network receive rate has been above 100MB/s for more than 5 minutes on {{ $labels.instance }} interface {{ $labels.device }}"
+
+      - alert: ARMNetworkTransmitHigh
+        expr: rate(node_network_transmit_bytes_total{instance=~".*oracle1.*",device!~"lo|docker.*|veth.*"}[5m]) > 100000000  # 100MB/s
+        for: 5m
+        labels:
+          severity: warning
+          platform: arm64
+          service: network
+        annotations:
+          summary: "ARM network transmit rate is high on {{ $labels.instance }}"
+          description: "Network transmit rate has been above 100MB/s for more than 5 minutes on {{ $labels.instance }} interface {{ $labels.device }}"
+
+      # ARM Temperature monitoring (if available)
+      - alert: ARMTemperatureHigh
+        expr: node_thermal_zone_temp{instance=~".*oracle1.*"} > 70
+        for: 3m
+        labels:
+          severity: warning
+          platform: arm64
+          service: hardware
+        annotations:
+          summary: "ARM CPU temperature is high on {{ $labels.instance }}"
+          description: "ARM CPU temperature has been above 70°C for more than 3 minutes on {{ $labels.instance }}. Current value: {{ $value }}°C"
+
+      - alert: ARMTemperatureCritical
+        expr: node_thermal_zone_temp{instance=~".*oracle1.*"} > 80
+        for: 1m
+        labels:
+          severity: critical
+          platform: arm64
+          service: hardware
+        annotations:
+          summary: "ARM CPU temperature is critically high on {{ $labels.instance }}"
+          description: "ARM CPU temperature has been above 80°C for more than 1 minute on {{ $labels.instance }}. Current value: {{ $value }}°C"
+
+      # ARM Docker container performance
+      - alert: ARMContainerCPUHigh
+        expr: rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project="bev",instance=~".*oracle1.*"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          platform: arm64
+          service: docker
+        annotations:
+          summary: "ARM container CPU usage is high"
+          description: "Container {{ $labels.name }} CPU usage has been above 80% for more than 5 minutes on ARM instance {{ $labels.instance }}"
+
+      - alert: ARMContainerMemoryHigh
+        expr: (container_memory_usage_bytes{container_label_com_docker_compose_project="bev",instance=~".*oracle1.*"} / container_spec_memory_limit_bytes{container_label_com_docker_compose_project="bev",instance=~".*oracle1.*"}) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          platform: arm64
+          service: docker
+        annotations:
+          summary: "ARM container memory usage is high"
+          description: "Container {{ $labels.name }} memory usage has been above 80% of limit for more than 5 minutes on ARM instance {{ $labels.instance }}"
+
+      # ARM File descriptor limits
+      - alert: ARMFileDescriptorsHigh
+        expr: (node_filefd_allocated{instance=~".*oracle1.*"} / node_filefd_maximum{instance=~".*oracle1.*"}) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          platform: arm64
+          service: system
+        annotations:
+          summary: "ARM file descriptor usage is high"
+          description: "File descriptor usage has been above 80% for more than 5 minutes on ARM instance {{ $labels.instance }}. Current: {{ $value }}%"
+
+      # ARM Load average
+      - alert: ARMLoadAverageHigh
+        expr: node_load5{instance=~".*oracle1.*"} / on(instance) count by (instance) (node_cpu_seconds_total{mode="idle",instance=~".*oracle1.*"}) > 2
+        for: 10m
+        labels:
+          severity: warning
+          platform: arm64
+          service: system
+        annotations:
+          summary: "ARM system load average is high"
+          description: "5-minute load average has been above 2x CPU count for more than 10 minutes on ARM instance {{ $labels.instance }}. Current value: {{ $value }}"

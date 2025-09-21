@@ -1,0 +1,282 @@
+# AlertManager Configuration for BEV Infrastructure
+# ARM64-optimized notification management with multi-node coordination
+
+global:
+  # Global settings
+  smtp_smarthost: '${SMTP_SMARTHOST:-localhost:587}'
+  smtp_from: '${SMTP_FROM:-alerts@bev.local}'
+  smtp_auth_username: '${SMTP_AUTH_USERNAME:-}'
+  smtp_auth_password: '${SMTP_AUTH_PASSWORD:-}'
+  smtp_require_tls: true
+
+  # Slack global settings
+  slack_api_url: '${SLACK_API_URL:-}'
+
+  # Webhook global settings
+  http_config:
+    tls_config:
+      insecure_skip_verify: true
+
+# Clustering configuration for multi-node deployment
+cluster:
+  # Listen address for cluster communication
+  listen_address: '0.0.0.0:9094'
+
+  # Peer addresses (THANOS node)
+  peers:
+    - '100.122.12.54:9094'
+
+  # Cluster settings
+  gossip_interval: '200ms'
+  pushpull_interval: '60s'
+  tcp_timeout: '10s'
+  probe_timeout: '500ms'
+  probe_interval: '1s'
+
+# Route tree for alert routing
+route:
+  # Default grouping and timing
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default-receiver'
+
+  # Route tree for different alert types
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 5s
+      group_interval: 5s
+      repeat_interval: 30m
+      continue: true
+
+    # Infrastructure alerts
+    - match:
+        component: infrastructure
+      receiver: 'infrastructure-alerts'
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 2h
+
+    # Service health alerts
+    - match:
+        component: service_health
+      receiver: 'service-alerts'
+      group_wait: 15s
+      group_interval: 2m
+      repeat_interval: 1h
+
+    # Database alerts
+    - match_re:
+        component: '(postgresql|mongodb|redis|influxdb)'
+      receiver: 'database-alerts'
+      group_wait: 20s
+      group_interval: 3m
+      repeat_interval: 1h
+
+    # Security alerts
+    - match:
+        severity: security
+      receiver: 'security-alerts'
+      group_wait: 0s
+      group_interval: 0s
+      repeat_interval: 15m
+      continue: true
+
+    # Performance alerts
+    - match_re:
+        alertname: '(HighCPUUsage|HighMemoryUsage|HighDiskUsage)'
+      receiver: 'performance-alerts'
+      group_wait: 2m
+      group_interval: 10m
+      repeat_interval: 4h
+
+# Inhibition rules - prevent spam from related alerts
+inhibit_rules:
+  # Inhibit warning if critical is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+  # Inhibit service alerts if infrastructure is down
+  - source_match:
+      component: 'infrastructure'
+      severity: 'critical'
+    target_match_re:
+      component: '(service_health|database)'
+    equal: ['instance']
+
+# Receiver definitions
+receivers:
+  # Default receiver for unmatched alerts
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: '${DEFAULT_WEBHOOK_URL:-http://localhost:9093/webhook}'
+        send_resolved: true
+        max_alerts: 10
+        http_config:
+          bearer_token: '${WEBHOOK_BEARER_TOKEN:-}'
+
+  # Critical alerts - multiple channels
+  - name: 'critical-alerts'
+    email_configs:
+      - to: '${CRITICAL_EMAIL:-admin@bev.local}'
+        subject: '🚨 CRITICAL: {{ .GroupLabels.alertname }} on {{ .GroupLabels.instance }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+        headers:
+          Subject: '🚨 BEV Critical Alert'
+
+    slack_configs:
+      - api_url: '${SLACK_CRITICAL_WEBHOOK:-}'
+        channel: '#critical-alerts'
+        title: '🚨 Critical Alert on ORACLE1'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        send_resolved: true
+
+    webhook_configs:
+      - url: '${CRITICAL_WEBHOOK_URL:-http://localhost:9093/critical}'
+        send_resolved: true
+        max_alerts: 5
+
+  # Infrastructure alerts
+  - name: 'infrastructure-alerts'
+    email_configs:
+      - to: '${INFRA_EMAIL:-infra@bev.local}'
+        subject: '⚠️ Infrastructure Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Infrastructure Issue Detected:
+          {{ range .Alerts }}
+          - {{ .Annotations.summary }}
+          - Instance: {{ .Labels.instance }}
+          - Value: {{ .Annotations.description }}
+          {{ end }}
+
+    slack_configs:
+      - api_url: '${SLACK_INFRA_WEBHOOK:-}'
+        channel: '#infrastructure'
+        title: 'Infrastructure Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+  # Service health alerts
+  - name: 'service-alerts'
+    email_configs:
+      - to: '${SERVICE_EMAIL:-services@bev.local}'
+        subject: '📊 Service Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Service Health Issue:
+          {{ range .Alerts }}
+          - Service: {{ .Labels.job }}
+          - Instance: {{ .Labels.instance }}
+          - Status: {{ .Annotations.summary }}
+          {{ end }}
+
+  # Database alerts
+  - name: 'database-alerts'
+    email_configs:
+      - to: '${DB_EMAIL:-database@bev.local}'
+        subject: '🗃️ Database Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Database Issue Detected:
+          {{ range .Alerts }}
+          - Database: {{ .Labels.component }}
+          - Instance: {{ .Labels.instance }}
+          - Issue: {{ .Annotations.summary }}
+          {{ end }}
+
+    webhook_configs:
+      - url: '${DB_WEBHOOK_URL:-http://localhost:9093/database}'
+        send_resolved: true
+
+  # Security alerts - highest priority
+  - name: 'security-alerts'
+    email_configs:
+      - to: '${SECURITY_EMAIL:-security@bev.local}'
+        subject: '🛡️ SECURITY ALERT: {{ .GroupLabels.alertname }}'
+        body: |
+          SECURITY INCIDENT DETECTED:
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+
+          IMMEDIATE ACTION REQUIRED
+          {{ end }}
+        headers:
+          Priority: 'urgent'
+          X-Priority: '1'
+
+    slack_configs:
+      - api_url: '${SLACK_SECURITY_WEBHOOK:-}'
+        channel: '#security-incidents'
+        title: '🛡️ SECURITY ALERT'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        send_resolved: true
+
+    webhook_configs:
+      - url: '${SECURITY_WEBHOOK_URL:-http://localhost:9093/security}'
+        send_resolved: true
+        max_alerts: 1
+
+  # Performance alerts
+  - name: 'performance-alerts'
+    email_configs:
+      - to: '${PERF_EMAIL:-performance@bev.local}'
+        subject: '⚡ Performance Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Performance Issue:
+          {{ range .Alerts }}
+          - Metric: {{ .Labels.alertname }}
+          - Instance: {{ .Labels.instance }}
+          - Current Value: {{ .Annotations.description }}
+          {{ end }}
+
+# Templates for custom formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Time intervals for maintenance windows
+time_intervals:
+  - name: 'maintenance-window'
+    time_intervals:
+      - times:
+          - start_time: '02:00'
+            end_time: '04:00'
+        weekdays: ['sunday']
+
+  - name: 'business-hours'
+    time_intervals:
+      - times:
+          - start_time: '09:00'
+            end_time: '17:00'
+        weekdays: ['monday:friday']
+
+# Mute time intervals for specific scenarios
+mute_time_intervals:
+  - name: 'scheduled-maintenance'
+    time_intervals:
+      - times:
+          - start_time: '02:00'
+            end_time: '04:00'
+        weekdays: ['sunday']
+
+# Active time intervals for business hours only alerts
+active_time_intervals:
+  - name: 'business-hours-only'
+    time_intervals:
+      - times:
+          - start_time: '09:00'
+            end_time: '17:00'
+        weekdays: ['monday:friday']

@@ -1,0 +1,113 @@
+# ARM64-optimized Black Market Crawler Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="blackmarket-crawler"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="blackmarket_crawler"
+
+# Install ARM64-optimized system packages for dark web crawling
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    curl \
+    wget \
+    tor \
+    privoxy \
+    proxychains4 \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for dark web crawling
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        beautifulsoup4 \
+        lxml \
+        selenium \
+        scrapy \
+        tor-requests \
+        stem \
+        fake-useragent \
+        user-agent \
+        socks \
+        python-socks \
+        pysocks \
+        minio \
+        darkweb-crawler
+
+# Copy source code
+COPY src/alternative_market/ ./alternative_market/
+COPY src/infrastructure/ ./infrastructure/
+
+# Create main black market crawler entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from alternative_market.dm_crawler import DMCrawler\n\
+\n\
+async def main():\n\
+    # Get configuration from environment\n\
+    redis_host = os.environ.get("REDIS_HOST", "redis-arm")\n\
+    crawler_id = os.environ.get("CRAWLER_ID", "blackmarket_1")\n\
+    tor_proxy = os.environ.get("TOR_PROXY", "socks5://localhost:9050")\n\
+    minio_endpoint = os.environ.get("MINIO_ENDPOINT", "minio1:9000")\n\
+    \n\
+    # Create black market crawler\n\
+    dm_crawler = DMCrawler(\n\
+        redis_host=redis_host,\n\
+        crawler_id=crawler_id,\n\
+        tor_proxy=tor_proxy,\n\
+        minio_endpoint=minio_endpoint\n\
+    )\n\
+    \n\
+    print(f"Starting Black Market Crawler {crawler_id}...")\n\
+    print(f"Using Tor proxy: {tor_proxy}")\n\
+    \n\
+    await dm_crawler.start_crawling_service()\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Configure Tor for ARM64
+RUN echo "SocksPort 0.0.0.0:9050" >> /etc/tor/torrc && \
+    echo "ControlPort 0.0.0.0:9051" >> /etc/tor/torrc && \
+    echo "DataDirectory /var/lib/tor" >> /etc/tor/torrc && \
+    echo "ExitPolicy reject *:*" >> /etc/tor/torrc
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8010
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8010/health || exit 1
+
+# Run black market crawler
+CMD ["python", "main.py"]

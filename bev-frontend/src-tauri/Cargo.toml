@@ -1,7 +1,7 @@
 [package]
 name = "bev-frontend"
 version = "0.1.0"
-description = "BEV OSINT Framework - Security-First Intelligence Platform"
+description = "BEV OSINT Framework - Security-First Intelligence Platform with 3D Avatar"
 authors = ["BEV Team"]
 edition = "2021"
 
@@ -9,11 +9,11 @@ edition = "2021"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["shell-open", "window-all", "protocol-all"] }
+tauri = { version = "2", features = ["shell-open", "window-all", "protocol-all", "global-shortcut-all", "fs-all", "http-all"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["socks", "rustls-tls", "json"] }
+reqwest = { version = "0.12", features = ["socks", "rustls-tls", "json", "stream"] }
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
@@ -29,9 +29,29 @@ futures = "0.3"
 neo4rs = "0.8"
 uuid = { version = "1", features = ["v4", "serde"] }
 
+# GPU and 3D Avatar support
+wgpu = "0.20"
+pollster = "0.3"
+bytemuck = { version = "1.4", features = ["derive"] }
+image = "0.25"
+glam = "0.28"
+
+# WebSocket for avatar communication
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+url = "2.5"
+
+# Audio for voice synthesis
+cpal = "0.15"
+hound = "3.5"
+
+# Performance monitoring
+sysinfo = "0.30"
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-shell = "2"
 
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+gpu-acceleration = ["wgpu"]
+avatar-support = ["gpu-acceleration"]

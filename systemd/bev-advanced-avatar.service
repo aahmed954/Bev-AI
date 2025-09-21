@@ -1,0 +1,85 @@
+[Unit]
+Description=BEV Advanced Avatar System with RTX 4090 Optimization
+Documentation=file:///home/starlord/Projects/Bev/CLAUDE.md
+Wants=network-online.target
+After=network-online.target docker.service nvidia-persistenced.service redis.service
+Requires=docker.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=starlord
+Group=starlord
+WorkingDirectory=/home/starlord/Projects/Bev
+
+# Environment setup for RTX 4090 optimization
+Environment=CUDA_VISIBLE_DEVICES=0
+Environment=CUDA_HOME=/usr/local/cuda
+Environment=PATH=/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/x86_64-linux-gnu
+Environment=CUDA_DEVICE_ORDER=PCI_BUS_ID
+Environment=PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+Environment=CUDA_LAUNCH_BLOCKING=0
+Environment=CUDA_CACHE_DISABLE=0
+Environment=TF_FORCE_GPU_ALLOW_GROWTH=true
+Environment=NVIDIA_VISIBLE_DEVICES=0
+Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+Environment=GPU_MEMORY_FRACTION=0.6
+Environment=TORCH_CUDNN_V8_API_ENABLED=1
+
+# BEV specific environment
+Environment=BEV_AVATAR_CONFIG=/home/starlord/Projects/Bev/config/avatar.yaml
+Environment=BEV_REDIS_URL=redis://localhost:6379
+Environment=BEV_MCP_SERVER_URL=http://localhost:3010
+Environment=BEV_AVATAR_PORT=8080
+Environment=UVICORN_HOST=0.0.0.0
+Environment=UVICORN_PORT=8080
+Environment=UVICORN_LOG_LEVEL=info
+
+# Resource limits
+MemoryLimit=16G
+MemoryMax=24G
+CPUQuota=800%
+TasksMax=4096
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=false
+ReadWritePaths=/home/starlord/Projects/Bev/logs /home/starlord/Projects/Bev/data /tmp
+
+# Pre-start validation
+ExecStartPre=/home/starlord/Projects/Bev/systemd/scripts/pre-start-validation.sh
+ExecStartPre=/home/starlord/Projects/Bev/systemd/scripts/gpu-check.sh
+ExecStartPre=/home/starlord/Projects/Bev/systemd/scripts/dependencies-check.sh
+
+# Main service command
+ExecStart=/home/starlord/Projects/Bev/systemd/scripts/start-avatar.sh
+
+# Health monitoring
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/home/starlord/Projects/Bev/systemd/scripts/stop-avatar.sh
+
+# Post-stop cleanup
+ExecStopPost=/home/starlord/Projects/Bev/systemd/scripts/cleanup-gpu.sh
+
+# Restart policy
+Restart=always
+RestartSec=10
+TimeoutStartSec=120
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+FinalKillSignal=SIGKILL
+
+# Watchdog
+WatchdogSec=60
+NotifyAccess=main
+
+[Install]
+WantedBy=multi-user.target
+Alias=bev-avatar.service

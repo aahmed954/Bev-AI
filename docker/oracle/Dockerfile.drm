@@ -1,0 +1,117 @@
+# ARM64-optimized DRM Research Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="drm-researcher"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="drm_researcher"
+
+# Install ARM64-optimized system packages for DRM research
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    curl \
+    git \
+    ffmpeg \
+    libmagic1 \
+    file \
+    hexdump \
+    binutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for DRM research
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        numpy \
+        pandas \
+        scipy \
+        scikit-learn \
+        cryptography \
+        pycryptodome \
+        pillow \
+        opencv-python-headless \
+        mutagen \
+        exifread \
+        magic \
+        minio \
+        reverse-engineering
+
+# Copy source code
+COPY src/enhancement/ ./enhancement/
+COPY src/oracle/workers/ ./workers/
+COPY src/infrastructure/ ./infrastructure/
+
+# Create main DRM researcher entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from enhancement.drm_research import DRMResearch\n\
+from workers.drm_researcher import DRMResearcher\n\
+\n\
+async def main():\n\
+    # Get configuration from environment\n\
+    redis_host = os.environ.get("REDIS_HOST", "redis-arm")\n\
+    researcher_id = os.environ.get("RESEARCHER_ID", "drm_1")\n\
+    minio_endpoint = os.environ.get("MINIO_ENDPOINT", "minio1:9000")\n\
+    \n\
+    # Create DRM research services\n\
+    drm_research = DRMResearch(\n\
+        redis_host=redis_host,\n\
+        researcher_id=researcher_id\n\
+    )\n\
+    \n\
+    drm_researcher = DRMResearcher(\n\
+        redis_host=redis_host,\n\
+        researcher_id=researcher_id,\n\
+        minio_endpoint=minio_endpoint\n\
+    )\n\
+    \n\
+    print(f"Starting DRM Researcher {researcher_id}...")\n\
+    await asyncio.gather(\n\
+        drm_research.start_research_analysis(),\n\
+        drm_researcher.start_research_worker()\n\
+    )\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8007
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8007/health || exit 1
+
+# Run DRM researcher
+CMD ["python", "main.py"]

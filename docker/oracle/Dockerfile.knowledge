@@ -1,0 +1,117 @@
+# ARM64-optimized Knowledge Synthesis Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="knowledge-synthesis"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="knowledge_synthesis"
+
+# Install ARM64-optimized system packages including ML dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for NLP/knowledge processing
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        numpy \
+        pandas \
+        scipy \
+        scikit-learn \
+        nltk \
+        spacy \
+        transformers \
+        torch \
+        sentence-transformers \
+        faiss-cpu \
+        minio \
+        networkx \
+        knowledge-graph
+
+# Copy source code
+COPY src/pipeline/ ./pipeline/
+COPY src/agents/ ./agents/
+COPY src/infrastructure/ ./infrastructure/
+
+# Create main knowledge synthesis entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from pipeline.knowledge_synthesis_engine import KnowledgeSynthesisEngine\n\
+from agents.knowledge_synthesizer import KnowledgeSynthesizer\n\
+\n\
+async def main():\n\
+    # Get configuration from environment\n\
+    redis_host = os.environ.get("REDIS_HOST", "redis-arm")\n\
+    minio_endpoint = os.environ.get("MINIO_ENDPOINT", "minio1:9000")\n\
+    minio_access_key = os.environ.get("MINIO_ACCESS_KEY", "admin")\n\
+    minio_secret_key = os.environ.get("MINIO_SECRET_KEY", "admin123456")\n\
+    \n\
+    # Create knowledge synthesis services\n\
+    synthesis_engine = KnowledgeSynthesisEngine(\n\
+        redis_host=redis_host,\n\
+        minio_endpoint=minio_endpoint,\n\
+        minio_access_key=minio_access_key,\n\
+        minio_secret_key=minio_secret_key\n\
+    )\n\
+    \n\
+    knowledge_synthesizer = KnowledgeSynthesizer(\n\
+        redis_host=redis_host\n\
+    )\n\
+    \n\
+    print("Starting Knowledge Synthesis Engine...")\n\
+    await asyncio.gather(\n\
+        synthesis_engine.start_synthesis_service(),\n\
+        knowledge_synthesizer.start_synthesis_worker()\n\
+    )\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Download NLP models for knowledge synthesis
+RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('wordnet')" && \
+    python -c "import spacy; spacy.cli.download('en_core_web_sm')"
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8003
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8003/health || exit 1
+
+# Run knowledge synthesis
+CMD ["python", "main.py"]

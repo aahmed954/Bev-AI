@@ -1,0 +1,101 @@
+# ARM64-optimized ToolMaster Orchestration Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="toolmaster-orchestrator"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="toolmaster_orchestrator"
+
+# Install ARM64-optimized system packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    curl \
+    git \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for orchestration
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        fastapi \
+        uvicorn \
+        celery \
+        kubernetes \
+        docker \
+        orchestrator \
+        workflow-engine
+
+# Copy source code
+COPY src/pipeline/ ./pipeline/
+COPY src/agents/ ./agents/
+COPY src/infrastructure/ ./infrastructure/
+
+# Create main toolmaster orchestrator entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from pipeline.toolmaster_orchestrator import ToolmasterOrchestrator\n\
+from agents.tool_coordinator import ToolCoordinator\n\
+\n\
+async def main():\n\
+    # Get configuration from environment\n\
+    redis_host = os.environ.get("REDIS_HOST", "redis-arm")\n\
+    litellm_endpoint = os.environ.get("LITELLM_ENDPOINT", "http://request-multiplexer:8080")\n\
+    \n\
+    # Create toolmaster services\n\
+    toolmaster = ToolmasterOrchestrator(\n\
+        redis_host=redis_host,\n\
+        litellm_endpoint=litellm_endpoint\n\
+    )\n\
+    \n\
+    tool_coordinator = ToolCoordinator(\n\
+        redis_host=redis_host\n\
+    )\n\
+    \n\
+    print("Starting ToolMaster Orchestrator...")\n\
+    await asyncio.gather(\n\
+        toolmaster.start_orchestration_service(),\n\
+        tool_coordinator.start_coordination_worker()\n\
+    )\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8004
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8004/health || exit 1
+
+# Run toolmaster orchestrator
+CMD ["python", "main.py"]

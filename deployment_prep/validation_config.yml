@@ -1,0 +1,378 @@
+# BEV Pre-Deployment Validation Configuration
+# Version: 1.0.0
+
+validation_settings:
+  # Global validation behavior
+  strict_mode: false
+  fail_fast: false
+  parallel_validation: true
+  timeout_seconds: 300
+  retry_attempts: 3
+  retry_delay_seconds: 5
+
+# Infrastructure requirements and thresholds
+infrastructure:
+  memory:
+    minimum_gb: 16
+    recommended_gb: 32
+    warning_threshold: 0.85
+    critical_threshold: 0.95
+
+  cpu:
+    minimum_cores: 4
+    recommended_cores: 8
+    max_load_average: 2.0
+    warning_load: 1.5
+
+  storage:
+    minimum_free_gb: 500
+    recommended_free_gb: 1000
+    warning_threshold: 0.80
+    critical_threshold: 0.90
+    min_write_speed_mbps: 50
+
+  network:
+    min_bandwidth_mbps: 10
+    recommended_bandwidth_mbps: 100
+    max_latency_ms: 100
+    dns_timeout_seconds: 5
+
+  gpu:
+    required: false
+    min_memory_mb: 8192
+    min_cuda_version: "11.0"
+    supported_architectures: ["Tesla", "RTX", "GTX"]
+
+# Service-specific requirements
+services:
+  postgres:
+    memory_mb: 512
+    cpu_cores: 1.0
+    storage_gb: 10
+    port: 5432
+    health_check_timeout: 30
+    startup_timeout: 60
+
+  redis:
+    memory_mb: 256
+    cpu_cores: 0.5
+    storage_gb: 2
+    port: 6379
+    health_check_timeout: 15
+    startup_timeout: 30
+
+  elasticsearch:
+    memory_mb: 2048
+    cpu_cores: 2.0
+    storage_gb: 20
+    ports: [9200, 9300]
+    health_check_timeout: 60
+    startup_timeout: 120
+
+  neo4j:
+    memory_mb: 1024
+    cpu_cores: 1.0
+    storage_gb: 5
+    ports: [7474, 7687]
+    health_check_timeout: 45
+    startup_timeout: 90
+
+  intelowl_uwsgi:
+    memory_mb: 1024
+    cpu_cores: 2.0
+    storage_gb: 5
+    port: 8001
+    health_check_timeout: 60
+    startup_timeout: 120
+
+  intelowl_nginx:
+    memory_mb: 128
+    cpu_cores: 0.5
+    storage_gb: 1
+    ports: [80, 443]
+    health_check_timeout: 30
+    startup_timeout: 45
+
+  intelowl_celery_worker:
+    memory_mb: 2048
+    cpu_cores: 4.0
+    storage_gb: 10
+    gpu_memory_fraction: 0.5
+    health_check_timeout: 45
+    startup_timeout: 90
+
+  grafana:
+    memory_mb: 256
+    cpu_cores: 0.5
+    storage_gb: 2
+    port: 3000
+    health_check_timeout: 30
+    startup_timeout: 60
+
+  prometheus:
+    memory_mb: 1024
+    cpu_cores: 1.0
+    storage_gb: 30
+    port: 9090
+    health_check_timeout: 40
+    startup_timeout: 75
+
+  mcp_server:
+    memory_mb: 512
+    cpu_cores: 1.0
+    storage_gb: 2
+    port: 3010
+    health_check_timeout: 30
+    startup_timeout: 60
+
+# Port conflict resolution rules
+port_resolution:
+  # Processes safe to automatically terminate
+  safe_processes:
+    - "nginx"
+    - "apache2"
+    - "httpd"
+    - "docker-proxy"
+    - "python.*SimpleHTTPServer"
+    - "python.*http.server"
+    - "node.*express"
+    - "node.*http-server"
+    - "ruby.*webrick"
+    - "php.*built-in"
+
+  # Critical processes requiring manual intervention
+  critical_processes:
+    - "postgres"
+    - "mysql"
+    - "mongodb"
+    - "redis-server"
+    - "elasticsearch"
+    - "neo4j"
+    - "systemd"
+    - "ssh"
+    - "sshd"
+
+  # Grace period for process termination
+  termination:
+    sigterm_timeout: 30
+    sigkill_timeout: 10
+    port_release_timeout: 15
+
+# Configuration validation rules
+configuration:
+  required_env_vars:
+    - "POSTGRES_PASSWORD"
+    - "NEO4J_PASSWORD"
+    - "REDIS_PASSWORD"
+    - "ELASTICSEARCH_PASSWORD"
+    - "GRAFANA_ADMIN_PASSWORD"
+    - "INTELOWL_ADMIN_PASSWORD"
+    - "SECRET_KEY"
+
+  optional_env_vars:
+    - "DEHASHED_API_KEY"
+    - "SNUSBASE_API_KEY"
+    - "ALPHAHQ_API_KEY"
+    - "WELUAKINFO_API_KEY"
+    - "SHODAN_API_KEY"
+    - "VIRUSTOTAL_API_KEY"
+    - "HUNTER_API_KEY"
+    - "SPYSE_API_KEY"
+    - "BLOCKCHAIN_API_KEY"
+
+  password_requirements:
+    min_length: 12
+    require_complexity: true
+    check_common_passwords: true
+
+  api_key_validation:
+    check_format: true
+    test_connectivity: false  # Avoid rate limiting
+    timeout_seconds: 10
+
+  file_permissions:
+    env_files: "600"
+    config_files: "644"
+    script_files: "755"
+    credential_dirs: "700"
+
+# Dependency validation settings
+dependencies:
+  # Service startup order
+  startup_order:
+    - ["postgres", "redis", "elasticsearch", "neo4j"]
+    - ["rabbitmq", "vault", "tor"]
+    - ["intelowl_uwsgi"]
+    - ["intelowl_nginx", "intelowl_celery_beat", "intelowl_celery_worker"]
+    - ["grafana", "prometheus", "mcp_server"]
+
+  # Health check configuration
+  health_checks:
+    enable_parallel: true
+    max_concurrent: 5
+    default_timeout: 30
+    retry_intervals: [1, 2, 5, 10]
+
+  # Dependency resolution
+  circular_dependency_detection: true
+  dependency_timeout: 300
+  startup_delay_between_tiers: 10
+
+# Resource allocation validation
+resource_allocation:
+  # Memory allocation rules
+  memory:
+    reserve_system_mb: 2048
+    allow_overcommit: false
+    swap_usage_threshold: 0.5
+
+  # CPU allocation rules
+  cpu:
+    reserve_system_cores: 1.0
+    max_allocation_ratio: 0.9
+    priority_services: ["postgres", "elasticsearch", "intelowl_celery_worker"]
+
+  # Storage allocation rules
+  storage:
+    reserve_system_gb: 50
+    volume_size_multiplier: 1.2
+    backup_space_gb: 100
+
+  # GPU allocation rules
+  gpu:
+    enable_sharing: true
+    memory_fragmentation_threshold: 0.8
+    fallback_to_cpu: true
+
+# Backup and rollback settings
+backup:
+  retention_days: 30
+  max_backup_size_gb: 50
+  compression_enabled: true
+  verify_backup_integrity: true
+
+  # Components to backup
+  components:
+    docker_state: true
+    configurations: true
+    database_schemas: true
+    system_state: true
+    create_rollback_script: true
+
+  # Backup exclusions
+  exclude_patterns:
+    - "*.log"
+    - "*.tmp"
+    - "cache/*"
+    - "temp/*"
+    - "__pycache__/*"
+
+# Auto-fix behavior
+auto_fix:
+  # What can be automatically fixed
+  enable_port_resolution: true
+  enable_container_cleanup: true
+  enable_volume_cleanup: true
+  enable_network_cleanup: true
+  enable_permission_fixes: true
+  enable_env_generation: true
+
+  # Safety limits
+  max_processes_to_kill: 5
+  max_containers_to_stop: 10
+  max_volumes_to_remove: 20
+  require_confirmation_for_critical: true
+
+# Monitoring and alerting
+monitoring:
+  enable_progress_bars: true
+  log_level: "INFO"
+  detailed_errors: true
+  performance_metrics: true
+
+  # Notification settings
+  notifications:
+    enable_desktop: false
+    enable_email: false
+    webhook_url: ""
+
+# Multi-node configuration
+multi_node:
+  nodes:
+    THANOS:
+      ip: "192.168.1.100"
+      role: "primary"
+      services: ["postgres", "redis", "vault"]
+    ORACLE1:
+      ip: "192.168.1.101"
+      role: "compute"
+      services: ["elasticsearch", "neo4j", "intelowl_celery_worker"]
+    STARLORD:
+      ip: "192.168.1.102"
+      role: "frontend"
+      services: ["intelowl_nginx", "grafana", "prometheus"]
+
+  # Inter-node communication
+  communication:
+    ssh_timeout: 10
+    ping_timeout: 5
+    network_test_timeout: 15
+
+# Security validation
+security:
+  # Network security
+  firewall:
+    check_ufw: true
+    check_iptables: true
+    required_ports: [22, 80, 443]
+
+  # Access control
+  access_control:
+    check_file_permissions: true
+    check_user_groups: true
+    validate_ssh_keys: true
+
+  # Credential security
+  credentials:
+    check_default_passwords: true
+    validate_key_strength: true
+    scan_for_exposed_secrets: true
+
+# Performance benchmarks
+performance:
+  # Baseline requirements
+  disk_io:
+    min_read_mbps: 100
+    min_write_mbps: 50
+    max_latency_ms: 10
+
+  network_io:
+    min_throughput_mbps: 100
+    max_latency_ms: 50
+    packet_loss_threshold: 0.01
+
+  cpu_performance:
+    benchmark_duration: 10
+    min_operations_per_second: 1000000
+
+# Testing and validation
+testing:
+  # Integration tests
+  enable_integration_tests: false
+  test_timeout: 300
+  parallel_test_execution: true
+
+  # Smoke tests
+  enable_smoke_tests: true
+  critical_endpoints:
+    - "http://localhost"
+    - "http://localhost:3000"
+    - "http://localhost:9090"
+
+# Reporting
+reporting:
+  generate_html_report: true
+  include_system_info: true
+  include_performance_metrics: true
+  include_security_assessment: true
+  report_retention_days: 90

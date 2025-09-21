@@ -1,0 +1,93 @@
+# ARM64-optimized Proxy Management Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="proxy-manager"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="proxy_manager"
+
+# Install ARM64-optimized system packages including proxy tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    curl \
+    wget \
+    tor \
+    privoxy \
+    proxychains4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        socks \
+        python-socks \
+        pysocks \
+        stem \
+        fake-useragent
+
+# Copy source code
+COPY src/infrastructure/ ./infrastructure/
+COPY src/pipeline/ ./pipeline/
+
+# Create main proxy manager entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import sys\n\
+sys.path.append("/app")\n\
+from infrastructure.proxy_manager import ProxyManager\n\
+from infrastructure.tor_integration import TorIntegration\n\
+\n\
+async def main():\n\
+    proxy_manager = ProxyManager()\n\
+    tor_integration = TorIntegration()\n\
+    \n\
+    # Start proxy management services\n\
+    await asyncio.gather(\n\
+        proxy_manager.start(),\n\
+        tor_integration.start()\n\
+    )\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Configure Tor for ARM64
+RUN echo "SocksPort 0.0.0.0:9050" >> /etc/tor/torrc && \
+    echo "ControlPort 0.0.0.0:9051" >> /etc/tor/torrc && \
+    echo "DataDirectory /var/lib/tor" >> /etc/tor/torrc
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose proxy ports
+EXPOSE 8888 9050 9051
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8888/health || exit 1
+
+# Run proxy manager
+CMD ["python", "main.py"]

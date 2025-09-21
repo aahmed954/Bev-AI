@@ -1,0 +1,113 @@
+# Grafana Datasource Configuration for ORACLE1
+# BEV OSINT Framework - ARM-optimized data sources
+
+apiVersion: 1
+
+datasources:
+  # Local InfluxDB cluster - Primary
+  - name: InfluxDB-ORACLE1-Primary
+    type: influxdb
+    access: proxy
+    url: http://influxdb-primary:8086
+    database: oracle1_metrics
+    user: admin
+    secureJsonData:
+      password: ${INFLUXDB_PASSWORD}
+    jsonData:
+      version: Flux
+      organization: bev
+      defaultBucket: oracle1_metrics
+      httpMode: GET
+    isDefault: true
+    editable: false
+
+  # Local InfluxDB cluster - Replica
+  - name: InfluxDB-ORACLE1-Replica
+    type: influxdb
+    access: proxy
+    url: http://influxdb-replica:8086
+    database: oracle1_metrics_replica
+    user: admin
+    secureJsonData:
+      password: ${INFLUXDB_PASSWORD}
+    jsonData:
+      version: Flux
+      organization: bev
+      defaultBucket: oracle1_metrics_replica
+      httpMode: GET
+    editable: false
+
+  # THANOS Remote InfluxDB
+  - name: InfluxDB-THANOS-Remote
+    type: influxdb
+    access: proxy
+    url: http://100.122.12.54:8086
+    database: distributed_metrics
+    user: admin
+    secureJsonData:
+      password: ${THANOS_INFLUXDB_PASSWORD}
+    jsonData:
+      version: Flux
+      organization: bev
+      defaultBucket: distributed_metrics
+      httpMode: GET
+    editable: false
+
+  # Local Prometheus
+  - name: Prometheus-ORACLE1
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    jsonData:
+      timeInterval: 30s
+      queryTimeout: 60s
+      httpMethod: GET
+    editable: false
+
+  # THANOS Prometheus (Remote)
+  - name: Prometheus-THANOS
+    type: prometheus
+    access: proxy
+    url: http://100.122.12.54:9090
+    jsonData:
+      timeInterval: 30s
+      queryTimeout: 60s
+      httpMethod: GET
+    editable: false
+
+  # Redis ARM instance
+  - name: Redis-ORACLE1
+    type: redis-datasource
+    access: proxy
+    url: redis://redis-arm:6379
+    jsonData:
+      client: standalone
+      poolSize: 5
+      timeout: 30
+      pingInterval: 0
+    editable: false
+
+  # MinIO cluster metrics
+  - name: MinIO-ORACLE1
+    type: prometheus
+    access: proxy
+    url: http://minio1:9000/minio/v2/metrics/cluster
+    jsonData:
+      timeInterval: 60s
+      queryTimeout: 30s
+      httpMethod: GET
+      customQueryParameters: 'format=prometheus'
+    editable: false
+
+  # ARM System Logs
+  - name: Loki-ORACLE1
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: 'trace_id=(\w+)'
+          url: 'http://jaeger:16686/trace/${__value.raw}'
+    editable: false

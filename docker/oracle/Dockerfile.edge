@@ -1,0 +1,116 @@
+# ARM64-optimized Edge Computing Worker Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="edge-worker"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="edge_worker"
+
+# Install ARM64-optimized system packages for edge computing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    curl \
+    git \
+    htop \
+    iotop \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for edge computing
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        numpy \
+        pandas \
+        scipy \
+        scikit-learn \
+        celery \
+        edge-computing \
+        distributed-computing \
+        resource-monitor
+
+# Copy source code
+COPY src/pipeline/ ./pipeline/
+COPY src/edge/ ./edge/
+COPY src/infrastructure/ ./infrastructure/
+COPY src/agents/ ./agents/
+
+# Create main edge worker entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from pipeline.edge_computing_module import EdgeComputingModule\n\
+from edge.edge_node_manager import EdgeNodeManager\n\
+from edge.edge_integration import EdgeIntegration\n\
+\n\
+async def main():\n\
+    # Get configuration from environment\n\
+    redis_host = os.environ.get("REDIS_HOST", "redis-arm")\n\
+    worker_id = os.environ.get("WORKER_ID", "edge_1")\n\
+    thanos_endpoint = os.environ.get("THANOS_ENDPOINT", "http://100.122.12.54:8000")\n\
+    \n\
+    # Create edge computing services\n\
+    edge_module = EdgeComputingModule(\n\
+        redis_host=redis_host,\n\
+        worker_id=worker_id\n\
+    )\n\
+    \n\
+    edge_manager = EdgeNodeManager(\n\
+        worker_id=worker_id,\n\
+        thanos_endpoint=thanos_endpoint\n\
+    )\n\
+    \n\
+    edge_integration = EdgeIntegration(\n\
+        redis_host=redis_host,\n\
+        worker_id=worker_id\n\
+    )\n\
+    \n\
+    print(f"Starting Edge Worker {worker_id}...")\n\
+    await asyncio.gather(\n\
+        edge_module.start_edge_processing(),\n\
+        edge_manager.start_node_management(),\n\
+        edge_integration.start_integration_service()\n\
+    )\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8005
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8005/health || exit 1
+
+# Run edge worker
+CMD ["python", "main.py"]
