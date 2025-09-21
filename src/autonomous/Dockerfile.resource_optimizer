@@ -29,9 +29,9 @@ RUN pip install --no-cache-dir \
     pandas \
     scikit-learn
 
-# Copy source code
-COPY resource_optimizer.py ./
-COPY __init__.py* ./
+# Copy source code from correct path
+COPY src/autonomous/resource_optimizer.py ./
+COPY src/autonomous/__init__.py* ./
 
 # Create directories for data and config
 RUN mkdir -p /app/data /app/config /app/logs

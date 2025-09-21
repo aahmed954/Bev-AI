@@ -29,9 +29,9 @@ RUN pip install --no-cache-dir \
     plotly \
     prometheus_client
 
-# Copy source code
-COPY crypto_analyzer.py ./
-COPY __init__.py ./
+# Copy source code from correct path
+COPY src/alternative_market/crypto_analyzer.py ./
+COPY src/alternative_market/__init__.py ./
 
 # Create directories for data and config
 RUN mkdir -p /app/data /app/config /app/logs

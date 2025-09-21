@@ -27,9 +27,9 @@ RUN pip install --no-cache-dir \
     prometheus_client \
     uvloop
 
-# Copy source code
-COPY dm_crawler.py ./
-COPY __init__.py ./
+# Copy source code from correct path
+COPY src/alternative_market/dm_crawler.py ./
+COPY src/alternative_market/__init__.py ./
 
 # Create directories for data and config
 RUN mkdir -p /app/data /app/config /app/logs

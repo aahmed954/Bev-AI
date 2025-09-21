@@ -29,9 +29,9 @@ RUN pip install --no-cache-dir \
     taxii2-client \
     prometheus_client
 
-# Copy source code
-COPY tactical_intelligence.py ./
-COPY __init__.py* ./
+# Copy source code from correct path
+COPY src/security/tactical_intelligence.py ./
+COPY src/security/__init__.py* ./
 
 # Create directories for data and config
 RUN mkdir -p /app/data /app/config /app/logs

@@ -24,9 +24,9 @@ RUN pip install --no-cache-dir \
     netaddr \
     prometheus_client
 
-# Copy source code
-COPY defense_automation.py ./
-COPY __init__.py* ./
+# Copy source code from correct path
+COPY src/security/defense_automation.py ./
+COPY src/security/__init__.py* ./
 
 # Create directories for data and config
 RUN mkdir -p /app/data /app/config /app/logs

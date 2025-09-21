@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+LABEL maintainer="BEV DevOps"
+WORKDIR /app
+COPY src/autonomous/resource_optimizer.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONUNBUFFERED=1
+HEALTHCHECK CMD ["python", "resource_optimizer.py", "--healthcheck"]
+CMD ["python", "resource_optimizer.py"]
+EXPOSE 8103

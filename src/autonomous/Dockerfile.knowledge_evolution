@@ -33,9 +33,9 @@ RUN pip install --no-cache-dir \
     rdflib \
     prometheus_client
 
-# Copy source code
-COPY knowledge_evolution.py ./
-COPY __init__.py* ./
+# Copy source code from correct path
+COPY src/autonomous/knowledge_evolution.py ./
+COPY src/autonomous/__init__.py* ./
 
 # Create directories for data and config
 RUN mkdir -p /app/data /app/config /app/logs /app/models

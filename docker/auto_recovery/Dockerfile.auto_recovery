@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+LABEL maintainer="BEV DevOps"
+WORKDIR /app
+COPY src/infrastructure/auto-recovery/auto_recovery.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONUNBUFFERED=1
+HEALTHCHECK CMD ["python", "auto_recovery.py", "--healthcheck"]
+CMD ["python", "auto_recovery.py"]
+EXPOSE 8110

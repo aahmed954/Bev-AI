@@ -55,7 +55,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /home/starlord/Bev/logs
+      device: /home/starlord/Projects/Bev/logs
 
 services:
   # PostgreSQL with pgvector

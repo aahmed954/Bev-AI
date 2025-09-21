@@ -30,9 +30,9 @@ RUN pip install --no-cache-dir \
     joblib \
     prometheus_client
 
-# Copy source code
-COPY adaptive_learning.py ./
-COPY __init__.py* ./
+# Copy source code from correct path
+COPY src/autonomous/adaptive_learning.py ./
+COPY src/autonomous/__init__.py* ./
 
 # Create directories for data and config
 RUN mkdir -p /app/data /app/config /app/logs /app/models

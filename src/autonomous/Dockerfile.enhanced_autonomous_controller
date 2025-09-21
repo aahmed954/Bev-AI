@@ -30,9 +30,9 @@ RUN pip install --no-cache-dir \
     uvicorn \
     prometheus_client
 
-# Copy source code
-COPY enhanced_autonomous_controller.py ./
-COPY __init__.py* ./
+# Copy source code from correct path
+COPY src/autonomous/enhanced_autonomous_controller.py ./
+COPY src/autonomous/__init__.py* ./
 
 # Create directories for data and config
 RUN mkdir -p /app/data /app/config /app/logs /app/models

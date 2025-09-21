@@ -32,9 +32,9 @@ RUN pip install --no-cache-dir \
     alpha_vantage \
     prometheus_client
 
-# Copy source code
-COPY economics_processor.py ./
-COPY __init__.py ./
+# Copy source code from correct path
+COPY src/alternative_market/economics_processor.py ./
+COPY src/alternative_market/__init__.py ./
 
 # Create directories for data and config
 RUN mkdir -p /app/data /app/config /app/logs /app/models
