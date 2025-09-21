@@ -1,0 +1,362 @@
+version: '3.8'
+
+# MinIO Cluster with 3-Node Configuration
+# Provides S3-compatible distributed storage with erasure coding
+# ARM-compatible and production-ready setup
+
+networks:
+  minio-cluster:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  minio-data1:
+    driver: local
+  minio-data2:
+    driver: local
+  minio-data3:
+    driver: local
+  minio-config:
+    driver: local
+
+services:
+  # MinIO Node 1
+  minio1:
+    image: minio/minio:latest
+    hostname: minio1
+    container_name: oracle1_minio1
+    restart: unless-stopped
+    ports:
+      - "9001:9000"    # API port
+      - "9011:9001"    # Console port
+    environment:
+      # Cluster configuration
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-admin123456}
+      MINIO_SERVER_URL: http://minio1:9000
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9011
+
+      # Distributed mode configuration
+      MINIO_DISTRIBUTED_MODE_ENABLED: "yes"
+      MINIO_DISTRIBUTED_NODES: "minio1,minio2,minio3"
+
+      # Erasure coding and data protection
+      MINIO_ERASURE_SET_DRIVE_COUNT: 3
+      MINIO_STORAGE_CLASS_STANDARD: "EC:1"
+
+      # Performance tuning
+      MINIO_API_REQUESTS_MAX: 10000
+      MINIO_API_REQUESTS_DEADLINE: 10s
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+
+      # Security settings
+      MINIO_API_SECURE: "false"  # Set to true for HTTPS in production
+      MINIO_UPDATE: "off"
+
+      # Logging and monitoring
+      MINIO_LOGGER_WEBHOOK_ENABLE: "on"
+      MINIO_AUDIT_WEBHOOK_ENABLE: "on"
+
+      # Cache settings
+      MINIO_CACHE_DRIVES: "/tmp/cache"
+      MINIO_CACHE_EXCLUDE: "*.tmp"
+      MINIO_CACHE_QUOTA: 80
+
+      # Prometheus metrics
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+    command: >
+      server --console-address ":9001"
+      http://minio{1...3}/data
+    volumes:
+      - minio-data1:/data
+      - minio-config:/root/.minio
+      - /tmp/minio-cache1:/tmp/cache
+    networks:
+      minio-cluster:
+        ipv4_address: 172.20.0.11
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio1.rule=Host(`minio1.local`)"
+      - "traefik.http.services.minio1.loadbalancer.server.port=9000"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # MinIO Node 2
+  minio2:
+    image: minio/minio:latest
+    hostname: minio2
+    container_name: oracle1_minio2
+    restart: unless-stopped
+    ports:
+      - "9002:9000"    # API port
+      - "9012:9001"    # Console port
+    environment:
+      # Cluster configuration
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-admin123456}
+      MINIO_SERVER_URL: http://minio2:9000
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9012
+
+      # Distributed mode configuration
+      MINIO_DISTRIBUTED_MODE_ENABLED: "yes"
+      MINIO_DISTRIBUTED_NODES: "minio1,minio2,minio3"
+
+      # Erasure coding and data protection
+      MINIO_ERASURE_SET_DRIVE_COUNT: 3
+      MINIO_STORAGE_CLASS_STANDARD: "EC:1"
+
+      # Performance tuning
+      MINIO_API_REQUESTS_MAX: 10000
+      MINIO_API_REQUESTS_DEADLINE: 10s
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+
+      # Security settings
+      MINIO_API_SECURE: "false"  # Set to true for HTTPS in production
+      MINIO_UPDATE: "off"
+
+      # Logging and monitoring
+      MINIO_LOGGER_WEBHOOK_ENABLE: "on"
+      MINIO_AUDIT_WEBHOOK_ENABLE: "on"
+
+      # Cache settings
+      MINIO_CACHE_DRIVES: "/tmp/cache"
+      MINIO_CACHE_EXCLUDE: "*.tmp"
+      MINIO_CACHE_QUOTA: 80
+
+      # Prometheus metrics
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+    command: >
+      server --console-address ":9001"
+      http://minio{1...3}/data
+    volumes:
+      - minio-data2:/data
+      - minio-config:/root/.minio
+      - /tmp/minio-cache2:/tmp/cache
+    networks:
+      minio-cluster:
+        ipv4_address: 172.20.0.12
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio2.rule=Host(`minio2.local`)"
+      - "traefik.http.services.minio2.loadbalancer.server.port=9000"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # MinIO Node 3
+  minio3:
+    image: minio/minio:latest
+    hostname: minio3
+    container_name: oracle1_minio3
+    restart: unless-stopped
+    ports:
+      - "9003:9000"    # API port
+      - "9013:9001"    # Console port
+    environment:
+      # Cluster configuration
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-admin123456}
+      MINIO_SERVER_URL: http://minio3:9000
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9013
+
+      # Distributed mode configuration
+      MINIO_DISTRIBUTED_MODE_ENABLED: "yes"
+      MINIO_DISTRIBUTED_NODES: "minio1,minio2,minio3"
+
+      # Erasure coding and data protection
+      MINIO_ERASURE_SET_DRIVE_COUNT: 3
+      MINIO_STORAGE_CLASS_STANDARD: "EC:1"
+
+      # Performance tuning
+      MINIO_API_REQUESTS_MAX: 10000
+      MINIO_API_REQUESTS_DEADLINE: 10s
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+
+      # Security settings
+      MINIO_API_SECURE: "false"  # Set to true for HTTPS in production
+      MINIO_UPDATE: "off"
+
+      # Logging and monitoring
+      MINIO_LOGGER_WEBHOOK_ENABLE: "on"
+      MINIO_AUDIT_WEBHOOK_ENABLE: "on"
+
+      # Cache settings
+      MINIO_CACHE_DRIVES: "/tmp/cache"
+      MINIO_CACHE_EXCLUDE: "*.tmp"
+      MINIO_CACHE_QUOTA: 80
+
+      # Prometheus metrics
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+    command: >
+      server --console-address ":9001"
+      http://minio{1...3}/data
+    volumes:
+      - minio-data3:/data
+      - minio-config:/root/.minio
+      - /tmp/minio-cache3:/tmp/cache
+    networks:
+      minio-cluster:
+        ipv4_address: 172.20.0.13
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio3.rule=Host(`minio3.local`)"
+      - "traefik.http.services.minio3.loadbalancer.server.port=9000"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # MinIO Load Balancer
+  minio-lb:
+    image: nginx:alpine
+    hostname: minio-lb
+    container_name: oracle1_minio_lb
+    restart: unless-stopped
+    ports:
+      - "9000:80"      # Load balanced API endpoint
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      minio-cluster:
+        ipv4_address: 172.20.0.10
+    depends_on:
+      - minio1
+      - minio2
+      - minio3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio-api.rule=Host(`minio.local`)"
+      - "traefik.http.services.minio-api.loadbalancer.server.port=80"
+
+  # MinIO Client for testing and management
+  minio-client:
+    image: minio/mc:latest
+    container_name: oracle1_minio_client
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      /usr/bin/mc alias set minio1 http://minio1:9000 admin admin123456;
+      /usr/bin/mc alias set minio2 http://minio2:9000 admin admin123456;
+      /usr/bin/mc alias set minio3 http://minio3:9000 admin admin123456;
+      /usr/bin/mc alias set minio-cluster http://minio-lb admin admin123456;
+
+      # Create buckets
+      /usr/bin/mc mb minio-cluster/oracle1-documents --ignore-existing;
+      /usr/bin/mc mb minio-cluster/oracle1-models --ignore-existing;
+      /usr/bin/mc mb minio-cluster/oracle1-cache --ignore-existing;
+      /usr/bin/mc mb minio-cluster/oracle1-backups --ignore-existing;
+      /usr/bin/mc mb minio-cluster/oracle1-logs --ignore-existing;
+
+      # Set bucket policies
+      /usr/bin/mc policy set public minio-cluster/oracle1-documents;
+      /usr/bin/mc policy set private minio-cluster/oracle1-models;
+      /usr/bin/mc policy set private minio-cluster/oracle1-backups;
+
+      # Configure bucket versioning
+      /usr/bin/mc version enable minio-cluster/oracle1-documents;
+      /usr/bin/mc version enable minio-cluster/oracle1-models;
+      /usr/bin/mc version enable minio-cluster/oracle1-backups;
+
+      # Configure bucket lifecycle
+      echo '{\"Rules\":[{\"ID\":\"DeleteIncompleteUploads\",\"Status\":\"Enabled\",\"Filter\":{\"Prefix\":\"\"},\"AbortIncompleteMultipartUpload\":{\"DaysAfterInitiation\":7}}]}' > /tmp/lifecycle.json;
+      /usr/bin/mc ilm import minio-cluster/oracle1-documents < /tmp/lifecycle.json;
+
+      echo 'MinIO cluster setup complete';
+      sleep infinity;
+      "
+    networks:
+      - minio-cluster
+    depends_on:
+      - minio1
+      - minio2
+      - minio3
+
+  # Prometheus monitoring for MinIO
+  minio-prometheus:
+    image: prom/prometheus:latest
+    container_name: oracle1_minio_prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - minio-cluster
+    depends_on:
+      - minio1
+      - minio2
+      - minio3
+
+  # Grafana dashboard for MinIO monitoring
+  minio-grafana:
+    image: grafana/grafana:latest
+    container_name: oracle1_minio_grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+    networks:
+      - minio-cluster
+    depends_on:
+      - minio-prometheus
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

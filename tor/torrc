@@ -1,0 +1,38 @@
+# Tor configuration for BEV OSINT Framework
+# Basic anonymity and security settings
+
+# Basic settings
+DataDirectory /var/lib/tor
+RunAsDaemon 1
+User tor
+
+# Control port for management
+ControlPort 9051
+HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C
+
+# SOCKS proxy
+SocksPort 0.0.0.0:9050
+
+# Logging
+Log notice syslog
+Log notice file /var/log/tor/tor.log
+
+# Security settings
+CookieAuthentication 0
+CookieAuthFileGroupReadable 1
+
+# Disable IPv6 for stability
+ClientUseIPv6 0
+ClientPreferIPv6ORPort 0
+
+# Circuit timeout settings
+CircuitBuildTimeout 30
+LearnCircuitBuildTimeout 0
+
+# Exit policy
+ExitPolicy reject *:*
+ExitPolicyRejectPrivate 1
+
+# Client settings for OSINT research
+ClientOnly 1
+SafeLogging 1

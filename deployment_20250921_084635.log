@@ -1,0 +1,70 @@
+Starting BEV deployment at Sun Sep 21 08:46:35 AM EDT 2025
+[1m[0;35m🚀 BEV OSINT FRAMEWORK - FULL DEPLOYMENT[0m
+============================================
+[1m[0;35m🔍 SYSTEM REQUIREMENTS CHECK[0m
+============================================
+[0;34m[INFO][0m System Resources:
+[0;34m[INFO][0m   Memory: 60GB
+[0;34m[INFO][0m   Available Disk: 1444GB
+[0;32m[SUCCESS][0m System requirements check passed
+[0;34m[INFO][0m Creating emergency management scripts...
+[0;32m[SUCCESS][0m Emergency procedures created
+[1m[0;35m🚀 DEPLOYING THANOS NODE (Primary Compute)[0m
+============================================
+[0;34m[INFO][0m Starting THANOS node deployment...
+[0;34m[INFO][0m Starting THANOS node deployment...
+========================================
+[0;34m[INFO][0m Checking prerequisites for THANOS deployment...
+[0;32m[SUCCESS][0m Prerequisites check passed
+[0;34m[INFO][0m Validating Docker Compose configuration...
+[0;32m[SUCCESS][0m Docker Compose configuration is valid
+[0;34m[INFO][0m Cleaning up existing BEV containers...
+[0;32m[SUCCESS][0m Cleanup completed
+[0;34m[INFO][0m Phase 1: Infrastructure deployment
+[0;34m[INFO][0m Deploying core infrastructure services...
+[0;34m[INFO][0m Starting postgres...
+Creating network "bev_bev_osint" with driver "bridge"
+Creating volume "bev_postgres_data" with default driver
+Creating volume "bev_neo4j_data" with default driver
+Creating volume "bev_redis_data" with default driver
+Creating volume "bev_elasticsearch_data" with default driver
+Creating volume "bev_influxdb_data" with default driver
+Creating volume "bev_zookeeper_data" with default driver
+Creating volume "bev_tor_data" with default driver
+Creating volume "bev_intelowl_postgres_data" with default driver
+Creating volume "bev_intelowl_static_data" with default driver
+Creating volume "bev_prometheus_data" with default driver
+Creating volume "bev_grafana_data" with default driver
+Creating volume "bev_ocr_data" with default driver
+Creating volume "bev_document_analyzer_data" with default driver
+Creating volume "bev_swarm_data" with default driver
+Creating volume "bev_memory_data" with default driver
+Creating volume "bev_code_data" with default driver
+Creating volume "bev_tool_data" with default driver
+Creating volume "bev_vault_data" with default driver
+Creating volume "bev_guardian_data" with default driver
+Creating volume "bev_tor_nodes_data" with default driver
+Creating volume "bev_ids_data" with default driver
+Creating volume "bev_security_logs" with default driver
+Creating volume "bev_autonomous_data" with default driver
+Creating volume "bev_live2d_data" with default driver
+Creating volume "bev_avatar_assets" with default driver
+Creating volume "bev_logs" with local driver
+Creating bev_postgres ... 
+Creating bev_postgres ... done
+[0;32m[SUCCESS][0m postgres started
+[0;34m[INFO][0m Waiting for postgres to be healthy...
+[0;32m[SUCCESS][0m postgres is healthy
+[0;34m[INFO][0m Starting redis...
+Creating bev_redis_standalone ... 
+Host is already in use by another container
+Creating bev_redis_standalone ... error
+
+ERROR: for bev_redis_standalone  Cannot start service redis: failed to set up container networking: driver failed programming external connectivity on endpoint bev_redis_standalone (7bbf92f540cd999ffcfaabc5ef9e1530ddfaf229835f4c42651a1b78948a20be): Bind for :::6379 failed: port is already allocated
+
+ERROR: for redis  Cannot start service redis: failed to set up container networking: driver failed programming external connectivity on endpoint bev_redis_standalone (7bbf92f540cd999ffcfaabc5ef9e1530ddfaf229835f4c42651a1b78948a20be): Bind for :::6379 failed: port is already allocated
+Encountered errors while bringing up the project.
+[0;31m[ERROR][0m Failed to start redis
+[0;31m[ERROR][0m Infrastructure deployment failed
+[0;31m[ERROR][0m THANOS node deployment failed
+[0;31m[ERROR][0m THANOS deployment failed

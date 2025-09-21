@@ -1,0 +1,33 @@
+{
+  "name": "BEV Security Monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [{"mode": "everyMinute", "minute": 5}]
+        }
+      },
+      "name": "Schedule",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:9200/_cat/indices?format=json",
+        "authentication": "basicAuth"
+      },
+      "name": "Check Elasticsearch",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const logs = $input.all();\nconst threats = logs.filter(log => log.json.threat_level > 7);\nif(threats.length > 0) {\n  return threats;\n}\nreturn [];"
+      },
+      "name": "Detect Threats",
+      "type": "n8n-nodes-base.code",
+      "position": [650, 300]
+    }
+  ]
+}

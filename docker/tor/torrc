@@ -1,0 +1,32 @@
+## Configuration for Tor SOCKS proxy
+SocksPort 0.0.0.0:9050
+SocksPolicy accept *
+Log notice stdout
+DataDirectory /var/lib/tor
+RunAsDaemon 0
+
+## Control port configuration
+ControlPort 9051
+CookieAuthentication 1
+CookieAuthFileGroupReadable 1
+CookieAuthFile /var/lib/tor/control_auth_cookie
+
+## Performance and security settings
+CircuitBuildTimeout 10
+LearnCircuitBuildTimeout 0
+MaxCircuitDirtiness 10
+UseEntryGuards 0
+
+## Network settings
+ClientOnly 1
+ExcludeNodes {us}
+ExcludeExitNodes {us}
+StrictNodes 0
+
+## DNS settings
+AutomapHostsOnResolve 1
+VirtualAddrNetworkIPv4 10.192.0.0/10
+
+## Bandwidth settings
+RelayBandwidthRate 100 KB
+RelayBandwidthBurst 200 KB

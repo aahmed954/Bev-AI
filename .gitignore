@@ -1,0 +1,11 @@
+.env.secure
+.secrets.encrypted
+src_backup_*
+logs/tor.log
+rabbitmq/**/.erlang.cookie
+.git.backup/
+
+# Large files
+zookeeper/log/
+.git.backup/
+bevvt.zip

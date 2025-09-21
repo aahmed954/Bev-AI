@@ -1,0 +1,248 @@
+Sep 21 15:29:02.000 [notice] Tor 0.4.3.5 opening new log file.
+Sep 21 15:29:02.713 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:29:02.713 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:29:02.713 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:29:02.713 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:29:02.714 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:29:02.715 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:29:02.715 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:29:02.715 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:29:02.715 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:29:02.715 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:29:02.715 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:29:02.715 [warn] Fixing permissions on directory /var/lib/tor
+Sep 21 15:29:02.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:29:04.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:29:04.077 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:29:04.077 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:29:04.077 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:29:04.077 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:29:04.078 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:29:04.079 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:29:04.079 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:29:04.079 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:29:04.079 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:29:04.079 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:29:04.079 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:29:04.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:29:05.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:29:05.517 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:29:05.517 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:29:05.517 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:29:05.517 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:29:05.518 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:29:05.519 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:29:05.519 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:29:05.519 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:29:05.519 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:29:05.519 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:29:05.519 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:29:05.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:29:07.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:29:07.150 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:29:07.150 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:29:07.150 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:29:07.150 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:29:07.150 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:29:07.151 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:29:07.151 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:29:07.151 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:29:07.151 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:29:07.151 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:29:07.151 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:29:07.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:29:09.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:29:09.208 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:29:09.208 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:29:09.208 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:29:09.208 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:29:09.208 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:29:09.209 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:29:09.209 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:29:09.209 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:29:09.209 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:29:09.209 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:29:09.209 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:29:09.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:29:12.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:29:12.034 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:29:12.034 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:29:12.034 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:29:12.034 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:29:12.035 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:29:12.036 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:29:12.036 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:29:12.036 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:29:12.036 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:29:12.036 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:29:12.036 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:29:12.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:29:16.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:29:16.476 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:29:16.476 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:29:16.476 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:29:16.476 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:29:16.477 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:29:16.478 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:29:16.478 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:29:16.478 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:29:16.478 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:29:16.478 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:29:16.478 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:29:16.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:29:24.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:29:24.226 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:29:24.226 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:29:24.226 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:29:24.226 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:29:24.227 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:29:24.228 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:29:24.228 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:29:24.228 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:29:24.228 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:29:24.228 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:29:24.228 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:29:24.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:29:38.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:29:38.291 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:29:38.291 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:29:38.291 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:29:38.291 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:29:38.292 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:29:38.293 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:29:38.293 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:29:38.293 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:29:38.293 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:29:38.293 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:29:38.293 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:29:38.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:30:05.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:30:05.194 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:30:05.195 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:30:05.195 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:30:05.195 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:30:05.195 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:30:05.196 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:30:05.196 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:30:05.196 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:30:05.196 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:30:05.196 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:30:05.196 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:30:05.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:30:57.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:30:57.634 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:30:57.634 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:30:57.634 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:30:57.634 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:30:57.635 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:30:57.635 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:30:57.635 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:30:57.636 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:30:57.636 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:30:57.636 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:30:57.636 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:30:57.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:31:58.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:31:58.869 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:31:58.869 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:31:58.869 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:31:58.869 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:31:58.869 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:31:58.870 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:31:58.870 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:31:58.870 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:31:58.871 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:31:58.871 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:31:58.871 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:31:58.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:33:00.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:33:00.138 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:33:00.138 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:33:00.138 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:33:00.138 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:33:00.138 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:33:00.139 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:33:00.139 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:33:00.139 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:33:00.139 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:33:00.139 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:33:00.139 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:33:00.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:34:01.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:34:01.377 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:34:01.377 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:34:01.377 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:34:01.377 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:34:01.377 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:34:01.378 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:34:01.378 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:34:01.378 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:34:01.378 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:34:01.378 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:34:01.378 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:34:01.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:35:02.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:35:02.618 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:35:02.618 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:35:02.618 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:35:02.618 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:35:02.619 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:35:02.620 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:35:02.620 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:35:02.620 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:35:02.620 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:35:02.620 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:35:02.620 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:35:02.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:36:03.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:36:03.861 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:36:03.861 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:36:03.861 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:36:03.861 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:36:03.862 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:36:03.863 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:36:03.863 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:36:03.863 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:36:03.863 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:36:03.863 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:36:03.863 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:36:03.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:37:05.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:37:05.099 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:37:05.099 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:37:05.099 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:37:05.099 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:37:05.100 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:37:05.100 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:37:05.101 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:37:05.101 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:37:05.101 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:37:05.101 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:37:05.101 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:37:05.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:38:06.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:38:06.337 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:38:06.337 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:38:06.337 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:38:06.337 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:38:06.338 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:38:06.338 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:38:06.339 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:38:06.339 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:38:06.339 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:38:06.339 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:38:06.339 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:38:06.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.
+Sep 21 15:39:07.000 [notice] Tor 0.4.3.5 opening log file.
+Sep 21 15:39:07.565 [notice] Tor 0.4.3.5 running on Linux with Libevent 2.1.11-stable, OpenSSL 1.1.1g, Zlib 1.2.11, Liblzma 5.2.5, and Libzstd 1.4.5.
+Sep 21 15:39:07.565 [notice] Tor can't help you if you use it wrong! Learn how to be safe at https://www.torproject.org/download/download#warning
+Sep 21 15:39:07.565 [warn] Tor was compiled with zstd 1.4.4, but is running with zstd 1.4.5. For safety, we'll avoid using advanced zstd functionality.
+Sep 21 15:39:07.565 [notice] Read configuration file "/etc/tor/torrc".
+Sep 21 15:39:07.566 [warn] CookieAuthFileGroupReadable is set, but will have no effect: you must specify an explicit CookieAuthFile to have it group-readable.
+Sep 21 15:39:07.567 [notice] Wow!  I detected that you have 32 CPUs. I will not autodetect any more than 16, though.  If you want to configure more, set NumCPUs in your torrc
+Sep 21 15:39:07.567 [warn] You specified a public address '0.0.0.0:9050' for SocksPort. Other people on the Internet might find your computer and use it as an open proxy. Please don't allow this unless you have a good reason.
+Sep 21 15:39:07.567 [notice] Opening Socks listener on 0.0.0.0:9050
+Sep 21 15:39:07.567 [notice] Opened Socks listener on 0.0.0.0:9050
+Sep 21 15:39:07.567 [notice] Opening Control listener on 127.0.0.1:9051
+Sep 21 15:39:07.567 [notice] Opened Control listener on 127.0.0.1:9051
+Sep 21 15:39:07.000 [notice] Parsing GEOIP IPv4 file /usr/share/tor/geoip.

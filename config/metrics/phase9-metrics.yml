@@ -1,0 +1,436 @@
+# Phase 9 - Autonomous Enhancement Metrics Configuration
+# Defines custom metrics for Autonomous Coordinator, Adaptive Learning, Resource Manager, and Knowledge Evolution
+
+# =============================================================================
+# AUTONOMOUS COORDINATOR METRICS
+# =============================================================================
+autonomous_coordinator_metrics:
+  # Service Health Metrics
+  - name: autonomous_coordinator_health_status
+    type: gauge
+    help: "Health status of Autonomous Coordinator service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  - name: autonomous_coordinator_autonomy_level
+    type: gauge
+    help: "Current autonomy level (1-5)"
+
+  # Decision Making Metrics
+  - name: autonomous_coordinator_decisions_made_total
+    type: counter
+    help: "Total autonomous decisions made"
+    labels: ["decision_type", "confidence_level", "outcome"]
+
+  - name: autonomous_coordinator_decision_accuracy
+    type: gauge
+    help: "Accuracy of autonomous decisions (0-1)"
+    labels: ["decision_category", "time_window"]
+
+  - name: autonomous_coordinator_decision_duration_seconds
+    type: histogram
+    help: "Time taken to make autonomous decisions"
+    labels: ["decision_type", "complexity"]
+    buckets: [0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0]
+
+  # Operation Coordination Metrics
+  - name: autonomous_coordinator_operations_coordinated_total
+    type: counter
+    help: "Total operations coordinated"
+    labels: ["operation_type", "scope", "result"]
+
+  - name: autonomous_coordinator_operation_success_rate
+    type: gauge
+    help: "Success rate of coordinated operations (0-1)"
+    labels: ["operation_category"]
+
+  - name: autonomous_coordinator_operation_timeouts_total
+    type: counter
+    help: "Total operation timeouts"
+    labels: ["operation_type", "timeout_reason"]
+
+  # Safety and Constraints Metrics
+  - name: autonomous_coordinator_safety_violations_total
+    type: counter
+    help: "Total safety constraint violations"
+    labels: ["constraint_type", "severity"]
+
+  - name: autonomous_coordinator_safety_interventions_total
+    type: counter
+    help: "Total safety interventions triggered"
+    labels: ["intervention_type", "trigger_reason"]
+
+  - name: autonomous_coordinator_constraint_adherence_rate
+    type: gauge
+    help: "Rate of constraint adherence (0-1)"
+    labels: ["constraint_category"]
+
+  # Learning and Adaptation Metrics
+  - name: autonomous_coordinator_learning_iterations_total
+    type: counter
+    help: "Total learning iterations completed"
+    labels: ["learning_type", "data_source"]
+
+  - name: autonomous_coordinator_adaptation_events_total
+    type: counter
+    help: "Total adaptation events triggered"
+    labels: ["adaptation_type", "trigger"]
+
+  - name: autonomous_coordinator_performance_improvement
+    type: gauge
+    help: "Performance improvement over time (percentage)"
+    labels: ["metric_type"]
+
+# =============================================================================
+# ADAPTIVE LEARNING METRICS
+# =============================================================================
+adaptive_learning_metrics:
+  # Service Health Metrics
+  - name: adaptive_learning_health_status
+    type: gauge
+    help: "Health status of Adaptive Learning service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  # Model Training Metrics
+  - name: adaptive_learning_training_sessions_total
+    type: counter
+    help: "Total training sessions completed"
+    labels: ["model_type", "algorithm", "dataset"]
+
+  - name: adaptive_learning_training_duration_seconds
+    type: histogram
+    help: "Duration of training sessions"
+    labels: ["model_type", "dataset_size"]
+    buckets: [60, 300, 600, 1800, 3600, 7200, 14400, 28800]
+
+  - name: adaptive_learning_training_failures_total
+    type: counter
+    help: "Total training failures"
+    labels: ["model_type", "failure_reason", "algorithm"]
+
+  # Model Performance Metrics
+  - name: adaptive_learning_model_accuracy
+    type: gauge
+    help: "Current model accuracy (0-1)"
+    labels: ["model_id", "model_type", "validation_set"]
+
+  - name: adaptive_learning_model_performance
+    type: gauge
+    help: "Overall model performance score (0-1)"
+    labels: ["model_id", "metric_type"]
+
+  - name: adaptive_learning_model_drift_score
+    type: gauge
+    help: "Model drift detection score (0-1)"
+    labels: ["model_id", "drift_type"]
+
+  # Hyperparameter Optimization Metrics
+  - name: adaptive_learning_hyperparameter_trials_total
+    type: counter
+    help: "Total hyperparameter optimization trials"
+    labels: ["model_type", "optimization_algorithm"]
+
+  - name: adaptive_learning_best_performance_score
+    type: gauge
+    help: "Best performance score achieved"
+    labels: ["model_type", "metric"]
+
+  - name: adaptive_learning_optimization_convergence_time
+    type: histogram
+    help: "Time to optimization convergence"
+    labels: ["model_type"]
+    buckets: [300, 600, 1800, 3600, 7200, 14400]
+
+  # Data Management Metrics
+  - name: adaptive_learning_datasets_processed_total
+    type: counter
+    help: "Total datasets processed"
+    labels: ["dataset_type", "source", "quality"]
+
+  - name: adaptive_learning_data_quality_score
+    type: gauge
+    help: "Quality score of training data (0-1)"
+    labels: ["dataset_id", "quality_metric"]
+
+  - name: adaptive_learning_feature_importance
+    type: gauge
+    help: "Importance scores of features"
+    labels: ["model_id", "feature_name"]
+
+  # Online Learning Metrics
+  - name: adaptive_learning_online_updates_total
+    type: counter
+    help: "Total online model updates"
+    labels: ["model_id", "update_trigger"]
+
+  - name: adaptive_learning_prediction_accuracy
+    type: gauge
+    help: "Real-time prediction accuracy (0-1)"
+    labels: ["model_id", "prediction_type"]
+
+  - name: adaptive_learning_concept_drift_detections_total
+    type: counter
+    help: "Total concept drift detections"
+    labels: ["model_id", "drift_severity"]
+
+# =============================================================================
+# RESOURCE MANAGER METRICS
+# =============================================================================
+resource_manager_metrics:
+  # Service Health Metrics
+  - name: resource_manager_health_status
+    type: gauge
+    help: "Health status of Resource Manager service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  # Resource Utilization Metrics
+  - name: resource_manager_cpu_utilization
+    type: gauge
+    help: "Current CPU utilization across managed resources"
+    labels: ["resource_pool", "service"]
+
+  - name: resource_manager_memory_utilization
+    type: gauge
+    help: "Current memory utilization across managed resources"
+    labels: ["resource_pool", "service"]
+
+  - name: resource_manager_storage_utilization
+    type: gauge
+    help: "Current storage utilization"
+    labels: ["storage_type", "mount_point"]
+
+  # Optimization Metrics
+  - name: resource_manager_optimization_cycles_total
+    type: counter
+    help: "Total resource optimization cycles completed"
+    labels: ["optimization_type", "trigger"]
+
+  - name: resource_manager_optimization_efficiency
+    type: gauge
+    help: "Efficiency of resource optimization (0-1)"
+    labels: ["resource_type", "optimization_algorithm"]
+
+  - name: resource_manager_cost_savings_percentage
+    type: gauge
+    help: "Cost savings achieved through optimization"
+    labels: ["resource_category"]
+
+  # Scaling Metrics
+  - name: resource_manager_scaling_events_total
+    type: counter
+    help: "Total scaling events triggered"
+    labels: ["service", "scaling_direction", "trigger_metric"]
+
+  - name: resource_manager_scaling_duration_seconds
+    type: histogram
+    help: "Duration of scaling operations"
+    labels: ["service", "scaling_type"]
+    buckets: [10, 30, 60, 120, 300, 600]
+
+  - name: resource_manager_scaling_failures_total
+    type: counter
+    help: "Total scaling operation failures"
+    labels: ["service", "failure_reason", "scaling_direction"]
+
+  # Capacity Planning Metrics
+  - name: resource_manager_capacity_forecast
+    type: gauge
+    help: "Forecasted resource capacity requirements"
+    labels: ["resource_type", "forecast_horizon", "confidence"]
+
+  - name: resource_manager_capacity_utilization_trend
+    type: gauge
+    help: "Trend in capacity utilization"
+    labels: ["resource_type", "trend_direction"]
+
+  - name: resource_manager_bottleneck_predictions_total
+    type: counter
+    help: "Total bottleneck predictions made"
+    labels: ["resource_type", "prediction_horizon"]
+
+  # Cost Optimization Metrics
+  - name: resource_manager_cost_per_operation
+    type: gauge
+    help: "Cost per operation across services"
+    labels: ["service", "operation_type"]
+
+  - name: resource_manager_resource_waste_percentage
+    type: gauge
+    help: "Percentage of wasted resources"
+    labels: ["resource_type"]
+
+  - name: resource_manager_optimization_recommendations_total
+    type: counter
+    help: "Total optimization recommendations made"
+    labels: ["recommendation_type", "priority"]
+
+# =============================================================================
+# KNOWLEDGE EVOLUTION METRICS
+# =============================================================================
+knowledge_evolution_metrics:
+  # Service Health Metrics
+  - name: knowledge_evolution_health_status
+    type: gauge
+    help: "Health status of Knowledge Evolution service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  # Knowledge Graph Metrics
+  - name: knowledge_evolution_entities_total
+    type: gauge
+    help: "Total number of entities in knowledge graph"
+    labels: ["entity_type", "domain"]
+
+  - name: knowledge_evolution_relationships_total
+    type: gauge
+    help: "Total number of relationships in knowledge graph"
+    labels: ["relationship_type", "confidence_level"]
+
+  - name: knowledge_evolution_graph_density
+    type: gauge
+    help: "Density of the knowledge graph"
+    labels: ["subgraph"]
+
+  # Evolution and Learning Metrics
+  - name: knowledge_evolution_updates_total
+    type: counter
+    help: "Total knowledge updates processed"
+    labels: ["update_type", "source", "verification_status"]
+
+  - name: knowledge_evolution_update_delay_seconds
+    type: gauge
+    help: "Delay in processing knowledge updates"
+    labels: ["update_priority"]
+
+  - name: knowledge_evolution_learning_rate
+    type: gauge
+    help: "Current learning rate of the system"
+    labels: ["learning_algorithm"]
+
+  # Semantic Analysis Metrics
+  - name: knowledge_evolution_semantic_similarity
+    type: histogram
+    help: "Distribution of semantic similarity scores"
+    labels: ["concept_pair_type"]
+    buckets: [0.0, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0]
+
+  - name: knowledge_evolution_concept_drift_detections_total
+    type: counter
+    help: "Total concept drift detections"
+    labels: ["concept_category", "drift_severity"]
+
+  - name: knowledge_evolution_semantic_drift_score
+    type: gauge
+    help: "Current semantic drift score"
+    labels: ["domain", "time_window"]
+
+  # Ontology Management Metrics
+  - name: knowledge_evolution_ontology_updates_total
+    type: counter
+    help: "Total ontology updates"
+    labels: ["ontology_component", "update_reason"]
+
+  - name: knowledge_evolution_ontology_consistency_score
+    type: gauge
+    help: "Consistency score of the ontology (0-1)"
+    labels: ["ontology_section"]
+
+  - name: knowledge_evolution_concept_hierarchy_depth
+    type: gauge
+    help: "Depth of concept hierarchies"
+    labels: ["domain"]
+
+  # Knowledge Quality Metrics
+  - name: knowledge_evolution_knowledge_quality_score
+    type: gauge
+    help: "Overall knowledge quality score (0-1)"
+    labels: ["quality_dimension", "domain"]
+
+  - name: knowledge_evolution_fact_verification_rate
+    type: gauge
+    help: "Rate of fact verification (0-1)"
+    labels: ["verification_method"]
+
+  - name: knowledge_evolution_knowledge_conflicts_total
+    type: counter
+    help: "Total knowledge conflicts detected"
+    labels: ["conflict_type", "resolution_status"]
+
+  # Evolution Algorithm Metrics
+  - name: knowledge_evolution_algorithm_performance
+    type: gauge
+    help: "Performance of evolution algorithms (0-1)"
+    labels: ["algorithm_type", "performance_metric"]
+
+  - name: knowledge_evolution_convergence_time_seconds
+    type: histogram
+    help: "Time for knowledge evolution convergence"
+    labels: ["evolution_type"]
+    buckets: [60, 300, 600, 1800, 3600, 7200, 14400]
+
+  - name: knowledge_evolution_pruning_operations_total
+    type: counter
+    help: "Total knowledge pruning operations"
+    labels: ["pruning_criteria", "outcome"]
+
+# =============================================================================
+# COMMON METRICS ACROSS ALL PHASE 9 SERVICES
+# =============================================================================
+common_phase9_metrics:
+  # Autonomous System Coordination
+  - name: phase9_autonomous_operations_total
+    type: counter
+    help: "Total autonomous operations across all services"
+    labels: ["service", "operation_type", "autonomy_level"]
+
+  - name: phase9_human_interventions_total
+    type: counter
+    help: "Total human interventions required"
+    labels: ["service", "intervention_reason", "urgency"]
+
+  - name: phase9_system_autonomy_score
+    type: gauge
+    help: "Overall system autonomy score (0-1)"
+    labels: ["subsystem"]
+
+  # Learning and Adaptation Coordination
+  - name: phase9_cross_service_learning_events_total
+    type: counter
+    help: "Total learning events shared between services"
+    labels: ["source_service", "target_service", "learning_type"]
+
+  - name: phase9_adaptation_synchronization_events_total
+    type: counter
+    help: "Total adaptation synchronization events"
+    labels: ["adaptation_type", "sync_scope"]
+
+  # Performance Evolution Metrics
+  - name: phase9_system_performance_evolution
+    type: gauge
+    help: "Evolution of system performance over time"
+    labels: ["performance_metric", "service"]
+
+  - name: phase9_capability_emergence_events_total
+    type: counter
+    help: "Total emergent capability events"
+    labels: ["capability_type", "emergence_trigger"]
+
+  # Meta-Learning Metrics
+  - name: phase9_meta_learning_cycles_total
+    type: counter
+    help: "Total meta-learning cycles completed"
+    labels: ["learning_level", "scope"]
+
+  - name: phase9_knowledge_transfer_efficiency
+    type: gauge
+    help: "Efficiency of knowledge transfer between services (0-1)"
+    labels: ["source_service", "target_service"]
+
+  # System Evolution Metrics
+  - name: phase9_evolutionary_improvements_total
+    type: counter
+    help: "Total evolutionary improvements implemented"
+    labels: ["improvement_type", "impact_level"]
+
+  - name: phase9_system_complexity_score
+    type: gauge
+    help: "Current system complexity score"
+    labels: ["complexity_dimension"]

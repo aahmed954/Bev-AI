@@ -1,0 +1,201 @@
+version: '3.9'
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+networks:
+  bev_development:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.0.0/16
+
+volumes:
+  staging_postgres_data:
+  staging_redis_data:
+  staging_vault_data:
+  development_logs:
+
+services:
+  # Staging PostgreSQL
+  staging-postgres:
+    image: postgres:16
+    container_name: bev_staging_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bev_staging
+      POSTGRES_USER: dev_user
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "5433:5432"
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+      - ./docker/databases/init-scripts/postgres:/docker-entrypoint-initdb.d:ro
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.10
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user -d bev_staging"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Staging Redis
+  staging-redis:
+    image: redis:alpine
+    container_name: bev_staging_redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - staging_redis_data:/data
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.11
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Staging Vault
+  staging-vault:
+    image: vault:latest
+    container_name: bev_staging_vault
+    restart: unless-stopped
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: dev-root-token
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      VAULT_API_ADDR: http://0.0.0.0:8201
+    ports:
+      - "8201:8200"
+    volumes:
+      - staging_vault_data:/vault/data
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.12
+    cap_add:
+      - IPC_LOCK
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend Development Server (if needed for container deployment)
+  bev-frontend-dev:
+    build:
+      context: ./bev-frontend
+      dockerfile: Dockerfile.dev
+    container_name: bev_frontend_dev
+    environment:
+      VITE_HOST: 0.0.0.0
+      NODE_ENV: development
+      VITE_API_BASE_URL: http://0.0.0.0:3010
+      VITE_THANOS_URL: http://thanos
+      VITE_ORACLE1_URL: http://oracle1
+    ports:
+      - "5173:5173"
+      - "1420:1420"  # Tauri dev port
+    volumes:
+      - ./bev-frontend:/app
+      - /app/node_modules
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.13
+    logging: *default-logging
+    profiles:
+      - development
+
+  # MCP Development Stack
+  mcp-everything:
+    build:
+      context: ./mcp-servers/src/everything
+    container_name: bev_mcp_everything
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: development
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.20
+    logging: *default-logging
+
+  mcp-fetch:
+    build:
+      context: ./mcp-servers/src/fetch
+    container_name: bev_mcp_fetch
+    ports:
+      - "3002:3000"
+    environment:
+      PYTHON_ENV: development
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.21
+    logging: *default-logging
+
+  mcp-git:
+    build:
+      context: ./mcp-servers/src/git
+    container_name: bev_mcp_git
+    ports:
+      - "3003:3000"
+    volumes:
+      - .:/workspace:ro
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.22
+    logging: *default-logging
+
+  mcp-memory:
+    build:
+      context: ./mcp-servers/src/memory
+    container_name: bev_mcp_memory
+    ports:
+      - "3004:3000"
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.23
+    logging: *default-logging
+
+  mcp-sequential:
+    build:
+      context: ./mcp-servers/src/sequentialthinking
+    container_name: bev_mcp_sequential
+    ports:
+      - "3005:3000"
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.24
+    logging: *default-logging
+
+  mcp-time:
+    build:
+      context: ./mcp-servers/src/time
+    container_name: bev_mcp_time
+    ports:
+      - "3006:3000"
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.25
+    logging: *default-logging
+
+  # Development Documentation Server
+  docs-server:
+    image: nginx:alpine
+    container_name: bev_docs_server
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docs:/usr/share/nginx/html:ro
+    networks:
+      bev_development:
+        ipv4_address: 172.31.0.30
+    logging: *default-logging

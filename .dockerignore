@@ -1,0 +1,105 @@
+# BEV OSINT Framework - Production Docker Ignore
+
+# Development files
+.env.example
+.env.fixed
+.env.cross_node
+*.md
+!README.md
+!CLAUDE.md
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Python cache and artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+.tox/
+htmlcov/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Rust artifacts
+target/
+Cargo.lock
+
+# Backups
+backups/
+*.backup.*
+
+# Scripts (development only)
+fix-*.sh
+*-search-*.sh
+create-task-*.sh
+patch-*.py
+setup-sonnet-*.sh

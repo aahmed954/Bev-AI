@@ -1,0 +1,114 @@
+# ARM64-optimized Crypto Research Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="crypto-researcher"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="crypto_researcher"
+
+# Install ARM64-optimized system packages for crypto research
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for crypto research
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        numpy \
+        pandas \
+        scipy \
+        scikit-learn \
+        cryptography \
+        pycryptodome \
+        bitcoin \
+        ethereum \
+        web3 \
+        bitcoinlib \
+        ecdsa \
+        hashlib \
+        blockchain-analysis \
+        cryptocurrency \
+        wallet-analyzer
+
+# Copy source code
+COPY src/oracle/workers/ ./workers/
+COPY src/alternative_market/ ./alternative_market/
+COPY src/infrastructure/ ./infrastructure/
+
+# Create main crypto researcher entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from workers.crypto_researcher import CryptoResearcher\n\
+from alternative_market.crypto_analyzer import CryptoAnalyzer\n\
+\n\
+async def main():\n\
+    # Get configuration from environment\n\
+    redis_host = os.environ.get("REDIS_HOST", "redis-arm")\n\
+    researcher_id = os.environ.get("RESEARCHER_ID", "crypto_1")\n\
+    blockchain_endpoints = os.environ.get("BLOCKCHAIN_ENDPOINTS", "").split(",")\n\
+    \n\
+    # Create crypto research services\n\
+    crypto_researcher = CryptoResearcher(\n\
+        redis_host=redis_host,\n\
+        researcher_id=researcher_id,\n\
+        blockchain_endpoints=blockchain_endpoints\n\
+    )\n\
+    \n\
+    crypto_analyzer = CryptoAnalyzer(\n\
+        redis_host=redis_host,\n\
+        researcher_id=researcher_id\n\
+    )\n\
+    \n\
+    print(f"Starting Crypto Researcher {researcher_id}...")\n\
+    await asyncio.gather(\n\
+        crypto_researcher.start_crypto_research(),\n\
+        crypto_analyzer.start_crypto_analysis()\n\
+    )\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8009
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8009/health || exit 1
+
+# Run crypto researcher
+CMD ["python", "main.py"]

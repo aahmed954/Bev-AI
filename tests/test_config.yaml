@@ -1,0 +1,272 @@
+# BEV OSINT Framework Test Configuration
+
+# Test Suite Configuration
+test_suites:
+  integration:
+    enabled: true
+    timeout: 1800  # 30 minutes
+    parallel: false
+    markers: ["integration"]
+    description: "Basic service connectivity and API functionality tests"
+
+  performance:
+    enabled: true
+    timeout: 3600  # 60 minutes
+    parallel: false
+    markers: ["performance"]
+    description: "System performance and load testing"
+
+  chaos:
+    enabled: true
+    timeout: 2700  # 45 minutes
+    parallel: false
+    markers: ["chaos"]
+    description: "Chaos engineering and resilience testing"
+
+  end_to_end:
+    enabled: true
+    timeout: 2400  # 40 minutes
+    parallel: false
+    markers: ["end_to_end"]
+    description: "Complete workflow and pipeline testing"
+
+  vector_db:
+    enabled: true
+    timeout: 1200  # 20 minutes
+    parallel: true
+    markers: ["vector_db"]
+    description: "Vector database operations and performance"
+
+  cache:
+    enabled: true
+    timeout: 900  # 15 minutes
+    parallel: true
+    markers: ["cache"]
+    description: "Cache performance and predictive caching"
+
+# Performance Targets
+performance_targets:
+  concurrent_requests: 1000
+  max_latency_ms: 100
+  cache_hit_rate: 0.80
+  chaos_recovery_minutes: 5
+  availability_target: 0.999
+  vector_db_response_ms: 50
+  edge_computing_latency_ms: 25
+  throughput_rps: 500
+
+# Infrastructure Requirements
+infrastructure:
+  required_containers:
+    - bev_postgres
+    - bev_redis
+    - bev_neo4j
+    - bev_qdrant
+    - bev_weaviate
+    - bev_elasticsearch
+    - bev_prometheus
+    - bev_grafana
+    - bev_airflow
+
+  service_endpoints:
+    postgres: "localhost:5432"
+    redis: "localhost:6379"
+    neo4j: "localhost:7687"
+    qdrant: "localhost:6333"
+    weaviate: "localhost:8080"
+    elasticsearch: "localhost:9200"
+    prometheus: "localhost:9090"
+    grafana: "localhost:3000"
+    airflow: "localhost:8080"
+
+# Test Data Configuration
+test_data:
+  osint_targets:
+    domains:
+      - "example-target-1.com"
+      - "example-target-2.com"
+      - "test-domain.org"
+
+    ip_ranges:
+      - "192.168.1.0/24"
+      - "10.0.0.0/24"
+
+    sample_vectors:
+      size: 384
+      count: 1000
+
+  performance_test_data:
+    concurrent_users: [10, 50, 100, 500, 1000]
+    request_sizes: ["small", "medium", "large"]
+    test_duration: 300  # 5 minutes
+
+# Reporting Configuration
+reporting:
+  formats: ["json", "html", "junit"]
+  output_dir: "test_reports"
+  include_metrics: true
+  generate_dashboard: true
+
+  metrics_collection:
+    prometheus_url: "http://localhost:9090"
+    grafana_url: "http://localhost:3000"
+    collection_interval: 30  # seconds
+
+  report_templates:
+    html: "templates/test_report.html"
+    dashboard: "templates/performance_dashboard.html"
+
+# Notifications
+notifications:
+  enabled: false
+  channels:
+    webhook:
+      url: null
+      format: "json"
+
+    email:
+      smtp_server: "smtp.example.com"
+      smtp_port: 587
+      sender: "bev-tests@example.com"
+      recipients: []
+
+    slack:
+      webhook_url: null
+      channel: "#bev-alerts"
+
+# Environment-Specific Overrides
+environments:
+  development:
+    performance_targets:
+      concurrent_requests: 100
+      max_latency_ms: 200
+
+    test_suites:
+      chaos:
+        enabled: false
+
+  staging:
+    performance_targets:
+      concurrent_requests: 500
+      max_latency_ms: 150
+
+  production:
+    performance_targets:
+      concurrent_requests: 2000
+      max_latency_ms: 50
+      availability_target: 0.9999
+
+    notifications:
+      enabled: true
+
+# Chaos Engineering Configuration
+chaos_engineering:
+  scenarios:
+    service_failure:
+      enabled: true
+      target_services: ["bev_postgres", "bev_redis", "bev_neo4j"]
+      failure_duration: 60  # seconds
+
+    network_partition:
+      enabled: true
+      partition_duration: 120  # seconds
+      isolated_services: ["bev_qdrant", "bev_weaviate"]
+
+    resource_exhaustion:
+      enabled: true
+      scenarios:
+        - type: "cpu"
+          limit: "25%"
+          duration: 120
+        - type: "memory"
+          limit: "512m"
+          duration: 120
+
+  recovery_validation:
+    max_recovery_time: 300  # 5 minutes
+    health_check_interval: 10  # seconds
+    required_service_availability: 0.95
+
+# Security Testing
+security:
+  enabled: true
+  tests:
+    authentication:
+      test_invalid_credentials: true
+      test_session_management: true
+
+    authorization:
+      test_access_controls: true
+      test_privilege_escalation: false  # Disabled in test environment
+
+    data_protection:
+      test_encryption_at_rest: true
+      test_encryption_in_transit: true
+      test_data_anonymization: true
+
+# Monitoring Integration
+monitoring:
+  prometheus:
+    scrape_interval: "15s"
+    evaluation_interval: "15s"
+    retention: "30d"
+
+  grafana:
+    dashboard_update_interval: "30s"
+    alert_evaluation_interval: "10s"
+
+  custom_metrics:
+    - name: "bev_osint_requests_total"
+      type: "counter"
+      description: "Total OSINT requests processed"
+
+    - name: "bev_osint_request_duration_seconds"
+      type: "histogram"
+      description: "OSINT request processing duration"
+
+    - name: "bev_cache_hit_rate"
+      type: "gauge"
+      description: "Cache hit rate percentage"
+
+    - name: "bev_vector_search_latency"
+      type: "histogram"
+      description: "Vector database search latency"
+
+    - name: "bev_concurrent_requests"
+      type: "gauge"
+      description: "Current concurrent requests being processed"
+
+# Test Execution Options
+execution:
+  stop_on_first_failure: false
+  collect_logs: true
+  cleanup_after_tests: true
+
+  retry_policy:
+    max_retries: 3
+    retry_delay: 30  # seconds
+    retry_on_failures: ["timeout", "connection_error"]
+
+  resource_limits:
+    max_memory_usage_gb: 8
+    max_cpu_usage_percent: 80
+    max_disk_space_gb: 20
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  handlers:
+    file:
+      enabled: true
+      filename: "test_execution.log"
+      max_size_mb: 100
+      backup_count: 5
+
+    console:
+      enabled: true
+
+    syslog:
+      enabled: false
+      facility: "local0"

@@ -1,0 +1,224 @@
+# BEV OSINT Framework - Metrics Collector Configuration
+
+collection:
+  default_interval: 30  # seconds
+  batch_size: 1000
+  max_memory_metrics: 100000
+  aggregation_intervals: [60, 300, 900, 3600]  # 1m, 5m, 15m, 1h
+
+storage:
+  influxdb:
+    url: "http://influxdb:8086"
+    token: "${INFLUXDB_TOKEN}"
+    org: "bev-osint"
+    bucket: "metrics"
+    measurement: "bev_metrics"
+    batch_size: 100
+    flush_interval: 10  # seconds
+
+  redis:
+    url: "redis://redis:6379"
+    db: 13
+    ttl: 86400  # 24 hours
+    key_prefix: "metrics:"
+
+  postgres:
+    host: "postgres"
+    port: 5432
+    database: "osint"
+    table: "metrics_timeseries"
+    batch_size: 500
+    retention_days: 30
+
+# Data sources configuration
+sources:
+  docker_stats:
+    enabled: true
+    interval: 30
+    include_containers: ["bev_*"]
+    exclude_containers: ["bev_test_*"]
+
+  system_metrics:
+    enabled: true
+    interval: 60
+    include_host: true
+    include_network: true
+    include_disk: true
+
+  application_metrics:
+    enabled: true
+    interval: 30
+    services:
+      - name: "dm-crawler"
+        endpoint: "http://dm-crawler:8000/metrics"
+      - name: "crypto-intel"
+        endpoint: "http://crypto-intel:8000/metrics"
+      - name: "reputation-analyzer"
+        endpoint: "http://reputation-analyzer:8000/metrics"
+      - name: "economics-processor"
+        endpoint: "http://economics-processor:8000/metrics"
+      - name: "tactical-intel"
+        endpoint: "http://tactical-intel:8000/metrics"
+      - name: "defense-automation"
+        endpoint: "http://defense-automation:8000/metrics"
+      - name: "opsec-enforcer"
+        endpoint: "http://opsec-enforcer:8000/metrics"
+      - name: "intel-fusion"
+        endpoint: "http://intel-fusion:8000/metrics"
+      - name: "autonomous-coordinator"
+        endpoint: "http://autonomous-coordinator:8000/metrics"
+      - name: "adaptive-learning"
+        endpoint: "http://adaptive-learning:8000/metrics"
+      - name: "resource-manager"
+        endpoint: "http://resource-manager:8000/metrics"
+      - name: "knowledge-evolution"
+        endpoint: "http://knowledge-evolution:8000/metrics"
+
+  custom_endpoints:
+    enabled: true
+    endpoints:
+      - name: "postgres_exporter"
+        url: "http://postgres-exporter:9187/metrics"
+        interval: 30
+      - name: "redis_exporter"
+        url: "http://redis-exporter:9121/metrics"
+        interval: 30
+      - name: "elasticsearch_exporter"
+        url: "http://elasticsearch-exporter:9114/metrics"
+        interval: 30
+
+# Aggregation configuration
+aggregation:
+  percentiles: [50, 90, 95, 99]
+  enable_real_time: true
+  batch_aggregation: true
+  window_sizes: [300, 900, 3600, 86400]  # 5m, 15m, 1h, 1d
+
+# Performance tuning
+performance:
+  parallel_collection: true
+  max_concurrent_checks: 20
+  connection_pool_size: 10
+  request_timeout: 10
+  retry_attempts: 3
+  backoff_multiplier: 2
+
+# Metric definitions and configurations
+metrics:
+  # Performance metrics
+  performance:
+    - name: "service_response_time"
+      type: "histogram"
+      description: "Service response time in seconds"
+      unit: "seconds"
+      labels: ["service", "endpoint", "method"]
+      buckets: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
+
+    - name: "service_throughput"
+      type: "gauge"
+      description: "Service throughput in requests per second"
+      unit: "req/s"
+      labels: ["service"]
+
+    - name: "cpu_usage_percent"
+      type: "gauge"
+      description: "CPU usage percentage"
+      unit: "percent"
+      labels: ["service", "container"]
+
+    - name: "memory_usage_percent"
+      type: "gauge"
+      description: "Memory usage percentage"
+      unit: "percent"
+      labels: ["service", "container"]
+
+  # Availability metrics
+  availability:
+    - name: "service_up"
+      type: "gauge"
+      description: "Service availability (1=up, 0=down)"
+      unit: "boolean"
+      labels: ["service", "type"]
+
+    - name: "service_uptime"
+      type: "gauge"
+      description: "Service uptime in seconds"
+      unit: "seconds"
+      labels: ["service"]
+
+  # Reliability metrics
+  reliability:
+    - name: "error_rate"
+      type: "gauge"
+      description: "Error rate percentage"
+      unit: "percent"
+      labels: ["service", "error_type"]
+
+    - name: "request_errors"
+      type: "counter"
+      description: "Total request errors"
+      unit: "count"
+      labels: ["service", "status_code"]
+
+  # Business metrics
+  business:
+    - name: "active_users"
+      type: "gauge"
+      description: "Active user count"
+      unit: "count"
+      labels: ["service"]
+
+    - name: "api_requests"
+      type: "counter"
+      description: "Total API requests"
+      unit: "count"
+      labels: ["service", "endpoint"]
+
+    - name: "data_processed"
+      type: "counter"
+      description: "Data processed volume"
+      unit: "bytes"
+      labels: ["service", "data_type"]
+
+# Quality and filtering
+quality:
+  # Data validation
+  validation:
+    enabled: true
+    max_value_age: 300  # seconds
+    value_ranges:
+      cpu_usage: [0, 100]
+      memory_usage: [0, 100]
+      response_time: [0, 300]
+
+  # Data filtering
+  filtering:
+    enabled: true
+    outlier_detection: true
+    outlier_threshold: 3.0  # standard deviations
+
+  # Data enrichment
+  enrichment:
+    enabled: true
+    add_timestamps: true
+    add_service_tags: true
+    add_environment_tags: true
+
+# Monitoring and alerting for the collector itself
+self_monitoring:
+  enabled: true
+  metrics_port: 9092
+  health_port: 8000
+
+  alerts:
+    collection_failures:
+      threshold: 10  # failures per minute
+      severity: "warning"
+
+    high_memory_usage:
+      threshold: 80  # percentage
+      severity: "warning"
+
+    storage_failures:
+      threshold: 5  # failures per minute
+      severity: "critical"

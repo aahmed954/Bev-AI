@@ -1,0 +1,61 @@
+# Intrusion Detection System - ML-Based Network Security
+FROM python:3.11-slim
+
+LABEL maintainer="Bev Security Team"
+LABEL description="Machine Learning Intrusion Detection System"
+LABEL version="1.0.0"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libpcap-dev \
+    tcpdump \
+    nmap \
+    netcat-traditional \
+    iptables \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python ML and security libraries
+RUN pip install --no-cache-dir \
+    scapy==2.5.0 \
+    scikit-learn==1.2.2 \
+    numpy==1.24.3 \
+    pandas==2.0.1 \
+    tensorflow==2.12.0 \
+    keras==2.12.0 \
+    dpkt==1.9.8 \
+    pypcap==1.2.3 \
+    psutil==5.9.5 \
+    redis==4.5.4 \
+    influxdb-client==1.36.1 \
+    elasticsearch==8.7.0 \
+    loguru==0.7.0 \
+    pyyaml==6.0 \
+    joblib==1.2.0
+
+# Create IDS user
+RUN useradd -m -s /bin/bash ids_user
+
+# Create directories
+RUN mkdir -p /app/logs /app/models /app/data /app/config
+RUN chown -R ids_user:ids_user /app
+
+# Copy IDS system
+COPY intrusion_detection.py /app/
+COPY config/ /app/config/
+
+USER ids_user
+WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=60s --timeout=15s --start-period=10s --retries=3 \
+    CMD python -c "import psutil; exit(0 if any('intrusion_detection' in p.name() for p in psutil.process_iter()) else 1)"
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1
+ENV TF_CPP_MIN_LOG_LEVEL=2
+
+# Expose monitoring port
+EXPOSE 8081
+
+CMD ["python", "intrusion_detection.py"]

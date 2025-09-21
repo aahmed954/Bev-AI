@@ -1,0 +1,104 @@
+# Extended Reasoning Pipeline Configuration
+
+# Service Configuration
+service:
+  name: "Extended Reasoning Pipeline"
+  version: "1.0.0"
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  log_level: "INFO"
+
+# Processing Configuration
+processing:
+  max_tokens: 100000
+  chunk_size: 8000
+  overlap_ratio: 0.1
+  min_confidence: 0.6
+  max_processing_time: 600  # 10 minutes
+
+# Phase Configuration
+phases:
+  exploration:
+    timeout: 120
+    min_confidence: 0.4
+    breadth_factor: 0.8
+
+  deep_diving:
+    timeout: 180
+    min_confidence: 0.6
+    depth_factor: 0.9
+
+  cross_verification:
+    timeout: 150
+    min_confidence: 0.7
+    verification_threshold: 0.8
+
+  synthesis:
+    timeout: 120
+    min_confidence: 0.8
+    integration_threshold: 0.85
+
+  counterfactual:
+    timeout: 90
+    min_confidence: 0.6
+    hypothesis_count: 5
+
+# Research Workflow Configuration
+research_workflow:
+  entity_confidence_threshold: 0.6
+  relationship_confidence_threshold: 0.5
+  pattern_significance_threshold: 0.7
+
+# Counterfactual Analysis Configuration
+counterfactual:
+  max_hypotheses: 10
+  min_hypothesis_strength: 0.3
+  evidence_weight_threshold: 0.6
+  relationship_variation_factor: 0.8
+
+# Knowledge Synthesis Configuration
+synthesis:
+  min_cluster_size: 3
+  max_clusters: 10
+  centrality_threshold: 0.1
+  evidence_convergence_threshold: 0.7
+  min_causal_strength: 0.6
+
+# External Services
+services:
+  compression_endpoint: "http://172.30.0.43:8000"
+  vector_db_endpoint: "http://172.30.0.44:8000"
+  postgres:
+    host: "172.30.0.2"
+    port: 5432
+    database: "osint"
+    user: "${POSTGRES_USER}"
+    password: "${POSTGRES_PASSWORD}"
+  redis:
+    host: "172.30.0.5"
+    port: 6379
+    database: 3
+
+# Monitoring Configuration
+monitoring:
+  metrics_port: 9090
+  health_check_interval: 30
+  log_retention_days: 30
+
+# Security Configuration
+security:
+  api_key_required: true
+  rate_limit:
+    requests_per_minute: 60
+    burst_size: 10
+  cors:
+    enabled: true
+    origins: ["*"]
+
+# Performance Configuration
+performance:
+  memory_limit: "4GB"
+  cpu_limit: 3.0
+  cache_size: "1GB"
+  parallel_workers: 4

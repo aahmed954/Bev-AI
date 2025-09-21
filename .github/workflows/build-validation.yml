@@ -1,0 +1,497 @@
+name: "BEV Build Validation - Docker Matrix Testing"
+
+on:
+  push:
+    branches: ["main", "enterprise-completion"]
+    paths:
+      - "Dockerfile*"
+      - "docker-compose*.yml"
+      - "deployment/**"
+  pull_request:
+    paths:
+      - "Dockerfile*"
+      - "docker-compose*.yml"
+      - "deployment/**"
+  workflow_dispatch:
+    inputs:
+      force_all_builds:
+        description: "Force build all containers"
+        type: boolean
+        default: false
+      target_node:
+        description: "Target deployment node"
+        type: choice
+        default: "all"
+        options:
+          - "all"
+          - "thanos"
+          - "oracle1"
+          - "starlord"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DOCKER_BUILDKIT: 1
+  BUILDX_EXPERIMENTAL: 1
+
+jobs:
+  # ============================================================================
+  # Dockerfile Discovery and Validation
+  # ============================================================================
+  
+  dockerfile-discovery:
+    name: "🔍 Dockerfile Discovery & Validation"
+    runs-on: ubuntu-latest
+    outputs:
+      dockerfile_matrix: ${{ steps.discovery.outputs.dockerfile_matrix }}
+      compose_files: ${{ steps.discovery.outputs.compose_files }}
+      changed_dockerfiles: ${{ steps.changes.outputs.changed_dockerfiles }}
+      
+    steps:
+      - name: "📋 Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "🔍 Discover all Dockerfiles"
+        id: discovery
+        run: |
+          echo "🔍 Discovering Dockerfiles in BEV platform..."
+          
+          # Generate comprehensive Dockerfile matrix
+          dockerfiles=$(find . -name "Dockerfile*" -type f | head -50 | jq -R -s -c 'split("\n")[:-1] | map(select(length > 0))')
+          
+          # Create detailed matrix with metadata
+          echo "dockerfile_matrix<<EOF" >> $GITHUB_OUTPUT
+          echo "$dockerfiles" | jq -c 'map({
+            path: .,
+            name: (. | split("/")[-1] | sub("Dockerfile\\.?"; "") | if . == "" then "core" else . end),
+            context: (. | split("/")[:-1] | join("/") | if . == "" then "." else . end),
+            priority: (if . == "./Dockerfile" then 1 
+                      elif (. | contains("mcp_server")) then 2
+                      elif (. | contains("osint")) then 3
+                      else 4 end)
+          }) | sort_by(.priority)'  >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Discover compose files
+          compose_files=$(find . -name "docker-compose*.yml" -type f | jq -R -s -c 'split("\n")[:-1] | map(select(length > 0))')
+          echo "compose_files=$compose_files" >> $GITHUB_OUTPUT
+          
+          echo "📊 Found $(echo "$dockerfiles" | jq '. | length') Dockerfiles"
+          echo "📊 Found $(echo "$compose_files" | jq '. | length') compose files"
+
+      - name: "📁 Detect changed Dockerfiles"
+        id: changes
+        run: |
+          if [[ "${{ github.event.inputs.force_all_builds }}" == "true" ]]; then
+            echo "🔄 Force build enabled - all Dockerfiles marked as changed"
+            echo "changed_dockerfiles=all" >> $GITHUB_OUTPUT
+          else
+            # Get changed files
+            changed_files=$(git diff --name-only HEAD~1 HEAD | grep -E "(Dockerfile|docker-compose)" || echo "")
+            if [[ -n "$changed_files" ]]; then
+              echo "changed_dockerfiles=$changed_files" >> $GITHUB_OUTPUT
+            else
+              echo "changed_dockerfiles=none" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: "✅ Validate Dockerfile syntax"
+        run: |
+          echo "✅ Validating Dockerfile syntax..."
+          
+          # Install hadolint for Dockerfile linting
+          wget -O hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+          chmod +x hadolint
+          
+          failed_files=()
+          
+          while IFS= read -r dockerfile; do
+            if [[ -f "$dockerfile" ]]; then
+              echo "🔍 Validating $dockerfile..."
+              if ! ./hadolint "$dockerfile"; then
+                failed_files+=("$dockerfile")
+              fi
+            fi
+          done < <(echo '${{ steps.discovery.outputs.dockerfile_matrix }}' | jq -r '.[].path')
+          
+          if [[ ${#failed_files[@]} -gt 0 ]]; then
+            echo "❌ Dockerfile validation failed for: ${failed_files[*]}"
+            exit 1
+          fi
+          
+          echo "✅ All Dockerfiles passed syntax validation"
+
+  # ============================================================================
+  # Multi-Architecture Docker Builds
+  # ============================================================================
+
+  docker-build-validation:
+    name: "🐳 Docker Build - ${{ matrix.dockerfile.name }} (${{ matrix.platform }})"
+    runs-on: ubuntu-latest
+    needs: dockerfile-discovery
+    if: needs.dockerfile-discovery.outputs.changed_dockerfiles != 'none'
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        dockerfile: ${{ fromJson(needs.dockerfile-discovery.outputs.dockerfile_matrix) }}
+        platform: ["linux/amd64", "linux/arm64"]
+        
+    steps:
+      - name: "📋 Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Set up QEMU"
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: ${{ matrix.platform }}
+
+      - name: "🔧 Set up Docker Buildx"
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: ${{ matrix.platform }}
+          driver-opts: network=host
+
+      - name: "🏗️ Build ${{ matrix.dockerfile.name }} for ${{ matrix.platform }}"
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.dockerfile.context }}
+          file: ${{ matrix.dockerfile.path }}
+          platforms: ${{ matrix.platform }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.dockerfile.name }}-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.dockerfile.name }}-${{ matrix.platform }}
+          tags: |
+            bev/${{ matrix.dockerfile.name }}:${{ github.sha }}
+            bev/${{ matrix.dockerfile.name }}:latest
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ github.ref_name }}
+
+      - name: "🔍 Container structure test"
+        if: matrix.platform == 'linux/amd64'
+        run: |
+          echo "🔍 Testing container structure for ${{ matrix.dockerfile.name }}..."
+          
+          # Create structure test file
+          cat > container-structure-test.yaml << EOF
+          schemaVersion: 2.0.0
+          
+          commandTests:
+            - name: "Check container user"
+              command: "whoami"
+              expectedOutput: ["researcher", "root"]
+              
+          fileExistenceTests:
+            - name: "Check essential directories"
+              path: "/app"
+              shouldExist: true
+              
+          metadataTest:
+            env:
+              - key: "PATH"
+                value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          EOF
+          
+          # Install container structure test
+          curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64
+          chmod +x container-structure-test-linux-amd64
+          
+          # Run structure test
+          ./container-structure-test-linux-amd64 test --image bev/${{ matrix.dockerfile.name }}:${{ github.sha }} --config container-structure-test.yaml
+
+      - name: "🛡️ Security scan with Trivy"
+        if: matrix.platform == 'linux/amd64'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: bev/${{ matrix.dockerfile.name }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.dockerfile.name }}.sarif'
+
+      - name: "📊 Upload security scan results"
+        if: matrix.platform == 'linux/amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results-${{ matrix.dockerfile.name }}
+          path: trivy-results-${{ matrix.dockerfile.name }}.sarif
+
+  # ============================================================================
+  # Docker Compose Validation
+  # ============================================================================
+
+  compose-validation:
+    name: "📋 Docker Compose Validation"
+    runs-on: ubuntu-latest
+    needs: dockerfile-discovery
+    
+    strategy:
+      matrix:
+        compose_file: ${{ fromJson(needs.dockerfile-discovery.outputs.compose_files) }}
+        
+    steps:
+      - name: "📋 Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Setup Docker Compose"
+        run: |
+          # Ensure we have the latest Docker Compose
+          docker-compose version
+          
+      - name: "✅ Validate ${{ matrix.compose_file }} syntax"
+        run: |
+          echo "✅ Validating ${{ matrix.compose_file }}..."
+          docker-compose -f "${{ matrix.compose_file }}" config --quiet
+          
+      - name: "🔍 Check service definitions"
+        run: |
+          echo "🔍 Analyzing service definitions in ${{ matrix.compose_file }}..."
+          
+          # Extract service names
+          services=$(docker-compose -f "${{ matrix.compose_file }}" config --services)
+          service_count=$(echo "$services" | wc -l)
+          
+          echo "📊 Found $service_count services in ${{ matrix.compose_file }}:"
+          echo "$services"
+          
+          # Validate each service has required properties
+          for service in $services; do
+            echo "🔍 Validating service: $service"
+            
+            # Check if service has image or build context
+            if ! docker-compose -f "${{ matrix.compose_file }}" config | yq eval ".services.$service.image // .services.$service.build" - | grep -v "null" > /dev/null; then
+              echo "❌ Service $service missing image or build configuration"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All services validated successfully"
+
+      - name: "🚀 Test compose file startup (dry run)"
+        if: contains(matrix.compose_file, 'test') || contains(matrix.compose_file, 'basic')
+        run: |
+          echo "🚀 Testing startup for ${{ matrix.compose_file }}..."
+          
+          # Create minimal .env file
+          cat > .env.test << EOF
+          RESEARCHER_PASSWORD=test123
+          POSTGRES_PASSWORD=test123  
+          NEO4J_PASSWORD=test123
+          REDIS_PASSWORD=test123
+          EOF
+          
+          # Attempt to start and immediately stop
+          timeout 120s docker-compose -f "${{ matrix.compose_file }}" --env-file .env.test up -d || echo "Startup test completed"
+          docker-compose -f "${{ matrix.compose_file }}" --env-file .env.test down -v
+          
+          rm -f .env.test
+
+  # ============================================================================
+  # Multi-Node Deployment Matrix
+  # ============================================================================
+
+  multi-node-validation:
+    name: "🌐 Multi-Node Deployment Validation"
+    runs-on: ubuntu-latest
+    needs: [dockerfile-discovery, docker-build-validation]
+    if: contains(github.ref, 'main') || github.event.inputs.target_node != 'all'
+    
+    strategy:
+      matrix:
+        node: ["thanos", "oracle1", "starlord"]
+        
+    steps:
+      - name: "📋 Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🔍 Validate ${{ matrix.node }} node configuration"
+        run: |
+          echo "🔍 Validating ${{ matrix.node }} node configuration..."
+          
+          # Check for node-specific files
+          node_files=(
+            "docker-compose-${{ matrix.node }}-unified.yml"
+            ".env.${{ matrix.node }}"
+            "deployment/nodes/${{ matrix.node }}"
+          )
+          
+          for file in "${node_files[@]}"; do
+            if [[ -f "$file" ]] || [[ -d "$file" ]]; then
+              echo "✅ Found $file"
+            else
+              echo "⚠️ Missing $file (may be optional)"
+            fi
+          done
+          
+          # Validate node-specific compose file if exists
+          if [[ -f "docker-compose-${{ matrix.node }}-unified.yml" ]]; then
+            echo "📋 Validating ${{ matrix.node }} compose configuration..."
+            docker-compose -f "docker-compose-${{ matrix.node }}-unified.yml" config --quiet
+          fi
+
+      - name: "🔧 Test ${{ matrix.node }} resource requirements"
+        run: |
+          echo "🔧 Testing resource requirements for ${{ matrix.node }} node..."
+          
+          case "${{ matrix.node }}" in
+            "thanos")
+              echo "🧠 THANOS: AI/ML primary node - requires GPU, high memory"
+              required_memory="32GB"
+              required_disk="1TB"
+              gpu_required="true"
+              ;;
+            "oracle1")
+              echo "📊 ORACLE1: Data processing node - ARM64 support"
+              required_memory="16GB"
+              required_disk="500GB"
+              gpu_required="false"
+              ;;
+            "starlord")
+              echo "🎮 STARLORD: Control node - moderate resources"
+              required_memory="16GB"
+              required_disk="500GB" 
+              gpu_required="false"
+              ;;
+          esac
+          
+          echo "📊 Resource requirements:"
+          echo "  Memory: $required_memory"
+          echo "  Disk: $required_disk"
+          echo "  GPU: $gpu_required"
+
+  # ============================================================================
+  # Performance and Resource Testing
+  # ============================================================================
+
+  performance-validation:
+    name: "⚡ Performance & Resource Validation"
+    runs-on: ubuntu-latest
+    needs: [dockerfile-discovery, docker-build-validation]
+    if: contains(github.ref, 'main') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: "📋 Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🚀 Start minimal test stack"
+        run: |
+          echo "🚀 Starting minimal BEV test stack..."
+          
+          # Create minimal test environment
+          cat > .env.perf << EOF
+          RESEARCHER_PASSWORD=perftest123
+          POSTGRES_PASSWORD=perftest123
+          REDIS_PASSWORD=perftest123
+          NEO4J_PASSWORD=perftest123
+          EOF
+          
+          # Start core services only
+          if [[ -f "docker-compose.test-basic.yml" ]]; then
+            docker-compose -f docker-compose.test-basic.yml --env-file .env.perf up -d
+            sleep 30
+          else
+            echo "⚠️ No basic test compose file found"
+          fi
+
+      - name: "📊 Monitor resource usage"
+        run: |
+          echo "📊 Monitoring resource usage..."
+          
+          # Monitor for 60 seconds
+          for i in {1..12}; do
+            echo "📊 Resource check $i/12..."
+            docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}"
+            sleep 5
+          done
+
+      - name: "🧪 Basic functionality test"
+        run: |
+          echo "🧪 Testing basic functionality..."
+          
+          # Test endpoints if available
+          if docker ps | grep -q redis; then
+            echo "✅ Redis is running"
+            docker exec $(docker ps -q -f name=redis) redis-cli ping
+          fi
+          
+          if docker ps | grep -q postgres; then
+            echo "✅ PostgreSQL is running"
+            docker exec $(docker ps -q -f name=postgres) pg_isready
+          fi
+
+      - name: "🧹 Cleanup test environment"
+        if: always()
+        run: |
+          echo "🧹 Cleaning up test environment..."
+          if [[ -f "docker-compose.test-basic.yml" ]]; then
+            docker-compose -f docker-compose.test-basic.yml --env-file .env.perf down -v
+          fi
+          rm -f .env.perf
+
+  # ============================================================================
+  # Build Summary and Reporting
+  # ============================================================================
+
+  build-summary:
+    name: "📊 Build Validation Summary"
+    runs-on: ubuntu-latest
+    needs: [dockerfile-discovery, docker-build-validation, compose-validation, multi-node-validation, performance-validation]
+    if: always()
+    
+    steps:
+      - name: "📋 Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "📊 Generate build summary"
+        run: |
+          echo "# 🐳 BEV Docker Build Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Build matrix results
+          echo "## 🏗️ Build Matrix Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Dockerfile Discovery | ${{ needs.dockerfile-discovery.result }} | Found dockerfiles and compose files |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Builds | ${{ needs.docker-build-validation.result }} | Multi-architecture container builds |" >> $GITHUB_STEP_SUMMARY
+          echo "| Compose Validation | ${{ needs.compose-validation.result }} | Docker compose file validation |" >> $GITHUB_STEP_SUMMARY
+          echo "| Multi-Node Config | ${{ needs.multi-node-validation.result }} | THANOS/ORACLE1/STARLORD validation |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance Tests | ${{ needs.performance-validation.result }} | Resource usage and functionality |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Platform support
+          echo "## 🏗️ Platform Support" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **AMD64**: Full support for Intel/AMD processors" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **ARM64**: Support for Apple Silicon and ARM servers" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔧 **Multi-arch**: Unified container images for hybrid deployments" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Security summary
+          echo "## 🛡️ Security & Compliance" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔍 **Trivy Scanning**: Container vulnerability assessment" >> $GITHUB_STEP_SUMMARY
+          echo "- 📋 **Structure Tests**: Container configuration validation" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔧 **Hadolint**: Dockerfile best practices compliance" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Node configuration
+          echo "## 🌐 Multi-Node Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- 🧠 **THANOS**: AI/ML processing node (GPU required)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 **ORACLE1**: Data processing node (ARM64 optimized)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🎮 **STARLORD**: Control and coordination node" >> $GITHUB_STEP_SUMMARY
+
+      - name: "🎯 Determine overall build status"
+        run: |
+          # Check critical build failures
+          if [[ "${{ needs.docker-build-validation.result }}" == "failure" ]]; then
+            echo "❌ Docker build validation failed - critical issue"
+            exit 1
+          elif [[ "${{ needs.compose-validation.result }}" == "failure" ]]; then
+            echo "❌ Compose validation failed - configuration issue"
+            exit 1
+          else
+            echo "✅ Build validation completed successfully"
+            exit 0
+          fi

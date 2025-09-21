@@ -1,0 +1,718 @@
+# Prometheus Alert Rules for BEV Infrastructure
+# Comprehensive monitoring covering CPU, memory, disk, network, service health, and application metrics
+
+groups:
+  # =============================================================================
+  # INFRASTRUCTURE ALERTS
+  # =============================================================================
+  - name: infrastructure
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 5 minutes. Current value: {{ $value }}%"
+
+      # Critical CPU Usage
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 95% for more than 2 minutes. Current value: {{ $value }}%"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% for more than 5 minutes. Current value: {{ $value }}%"
+
+      # Critical Memory Usage
+      - alert: CriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 95% for more than 2 minutes. Current value: {{ $value }}%"
+
+      # High Disk Usage
+      - alert: HighDiskUsage
+        expr: (100 - ((node_filesystem_avail_bytes{mountpoint="/",fstype!="rootfs"} / node_filesystem_size_bytes{mountpoint="/",fstype!="rootfs"}) * 100)) > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 85% for more than 5 minutes. Current value: {{ $value }}%"
+
+      # Critical Disk Usage
+      - alert: CriticalDiskUsage
+        expr: (100 - ((node_filesystem_avail_bytes{mountpoint="/",fstype!="rootfs"} / node_filesystem_size_bytes{mountpoint="/",fstype!="rootfs"}) * 100)) > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 95% for more than 2 minutes. Current value: {{ $value }}%"
+
+      # High Network Traffic
+      - alert: HighNetworkTraffic
+        expr: rate(node_network_receive_bytes_total[5m]) + rate(node_network_transmit_bytes_total[5m]) > 100000000  # 100MB/s
+        for: 10m
+        labels:
+          severity: warning
+          component: network
+        annotations:
+          summary: "High network traffic on {{ $labels.instance }}"
+          description: "Network traffic is above 100MB/s for more than 10 minutes. Current value: {{ $value }} bytes/s"
+
+  # =============================================================================
+  # SERVICE HEALTH ALERTS
+  # =============================================================================
+  - name: service_health
+    rules:
+      # Service Down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: "{{ $labels.job }}"
+        annotations:
+          summary: "Service {{ $labels.job }} is down on {{ $labels.instance }}"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute"
+
+      # Thanos Components Health
+      - alert: ThanosComponentDown
+        expr: up{job=~"thanos-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: thanos
+        annotations:
+          summary: "Thanos component {{ $labels.job }} is down"
+          description: "Thanos component {{ $labels.job }} on {{ $labels.instance }} has been down for more than 2 minutes"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionIssues
+        expr: up{job=~"postgresql|mongodb|redis|elasticsearch"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database {{ $labels.job }} connection failed"
+          description: "Database {{ $labels.job }} on {{ $labels.instance }} is unreachable for more than 30 seconds"
+
+      # Airflow Services Health
+      - alert: AirflowServiceDown
+        expr: up{job=~"airflow-.*"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: airflow
+        annotations:
+          summary: "Airflow service {{ $labels.job }} is down"
+          description: "Airflow service {{ $labels.job }} on {{ $labels.instance }} has been down for more than 2 minutes"
+
+  # =============================================================================
+  # APPLICATION METRICS ALERTS
+  # =============================================================================
+  - name: application_metrics
+    rules:
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "High error rate on {{ $labels.instance }}"
+          description: "Error rate is above 5% for more than 5 minutes. Current value: {{ $value }}%"
+
+      # Critical Error Rate
+      - alert: CriticalErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.20
+        for: 2m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "Critical error rate on {{ $labels.instance }}"
+          description: "Error rate is above 20% for more than 2 minutes. Current value: {{ $value }}%"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "High response time on {{ $labels.instance }}"
+          description: "95th percentile response time is above 2 seconds for more than 10 minutes. Current value: {{ $value }}s"
+
+      # PostgreSQL Query Performance
+      - alert: PostgreSQLSlowQueries
+        expr: rate(pg_stat_activity_max_tx_duration[5m]) > 60
+        for: 5m
+        labels:
+          severity: warning
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL slow queries detected"
+          description: "PostgreSQL has queries running longer than 60 seconds. Current max duration: {{ $value }}s"
+
+      # Redis High Memory Usage
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is above 90%. Current usage: {{ $value }}%"
+
+  # =============================================================================
+  # CONTAINER AND ORCHESTRATION ALERTS
+  # =============================================================================
+  - name: containers
+    rules:
+      # Container High CPU Usage
+      - alert: ContainerHighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: containers
+        annotations:
+          summary: "Container high CPU usage"
+          description: "Container {{ $labels.name }} CPU usage is above 80%. Current value: {{ $value }}%"
+
+      # Container High Memory Usage
+      - alert: ContainerHighMemoryUsage
+        expr: container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: containers
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container {{ $labels.name }} memory usage is above 90%. Current value: {{ $value }}%"
+
+      # Container Restart Rate
+      - alert: ContainerRestartRate
+        expr: rate(container_start_time_seconds[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: containers
+        annotations:
+          summary: "Container frequent restarts"
+          description: "Container {{ $labels.name }} is restarting frequently. Rate: {{ $value }}/s"
+
+  # =============================================================================
+  # MONITORING SYSTEM ALERTS
+  # =============================================================================
+  - name: monitoring
+    rules:
+      # Prometheus Target Down
+      - alert: PrometheusTargetDown
+        expr: 100 * (count(up == 0) / count(up)) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: prometheus
+        annotations:
+          summary: "Prometheus has many targets down"
+          description: "More than 10% of Prometheus targets are down. Current percentage: {{ $value }}%"
+
+      # Prometheus Configuration Reload Failed
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful != 1
+        for: 1m
+        labels:
+          severity: critical
+          component: prometheus
+        annotations:
+          summary: "Prometheus configuration reload failed"
+          description: "Prometheus configuration reload has failed. Check configuration syntax."
+
+      # Prometheus TSDB Corruption
+      - alert: PrometheusTSDBCorruption
+        expr: prometheus_tsdb_compactions_failed_total > prometheus_tsdb_compactions_total * 0.01
+        for: 1m
+        labels:
+          severity: critical
+          component: prometheus
+        annotations:
+          summary: "Prometheus TSDB corruption detected"
+          description: "Prometheus TSDB compaction failure rate is above 1%. Failed: {{ $value }}"
+
+      # Grafana Dashboard Load Time
+      - alert: GrafanaDashboardSlowLoad
+        expr: grafana_api_dashboard_load_duration_seconds > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: grafana
+        annotations:
+          summary: "Grafana dashboard loading slowly"
+          description: "Grafana dashboard load time is above 5 seconds. Current time: {{ $value }}s"
+
+  # =============================================================================
+  # DATA PIPELINE ALERTS
+  # =============================================================================
+  - name: data_pipeline
+    rules:
+      # Airflow DAG Failure
+      - alert: AirflowDAGFailure
+        expr: airflow_dag_run_failed_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: airflow
+        annotations:
+          summary: "Airflow DAG failure detected"
+          description: "Airflow DAG {{ $labels.dag_id }} has failed runs. Failed count: {{ $value }}"
+
+      # Airflow Task Queue Length
+      - alert: AirflowTaskQueueLength
+        expr: airflow_scheduler_tasks_executable > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: airflow
+        annotations:
+          summary: "Airflow task queue growing"
+          description: "Airflow has a large number of executable tasks in queue. Current count: {{ $value }}"
+
+      # InfluxDB Write Errors
+      - alert: InfluxDBWriteErrors
+        expr: rate(influxdb_write_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: influxdb
+        annotations:
+          summary: "InfluxDB write errors detected"
+          description: "InfluxDB is experiencing write errors. Error rate: {{ $value }}/s"
+
+      # Elasticsearch Cluster Health
+      - alert: ElasticsearchClusterHealth
+        expr: elasticsearch_cluster_health_status{color="red"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          component: elasticsearch
+        annotations:
+          summary: "Elasticsearch cluster health is red"
+          description: "Elasticsearch cluster {{ $labels.cluster }} health status is red"
+
+  # =============================================================================
+  # SECURITY AND COMPLIANCE ALERTS
+  # =============================================================================
+  - name: security
+    rules:
+      # Certificate Expiry Warning
+      - alert: CertificateExpiryWarning
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 30
+        for: 1m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value }} days"
+
+      # Certificate Expiry Critical
+      - alert: CertificateExpiryCritical
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 7
+        for: 1m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "SSL certificate expiring very soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value }} days"
+
+      # Vault Seal Status
+      - alert: VaultSealed
+        expr: vault_core_sealed == 1
+        for: 1m
+        labels:
+          severity: critical
+          component: vault
+        annotations:
+          summary: "Vault is sealed"
+          description: "Vault instance {{ $labels.instance }} is sealed and unavailable"
+
+      # Failed Authentication Attempts
+      - alert: HighFailedAuthAttempts
+        expr: rate(auth_failed_attempts_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High number of failed authentication attempts"
+          description: "Failed authentication attempts rate is above 10/min. Current rate: {{ $value }}/s"
+
+  # =============================================================================
+  # PHASE 7 - ALTERNATIVE MARKET INTELLIGENCE ALERTS
+  # =============================================================================
+  - name: phase7_market_intelligence
+    rules:
+      # DM Crawler Service Health
+      - alert: DMCrawlerServiceDown
+        expr: up{job="dm-crawler"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: dm-crawler
+          phase: "7"
+        annotations:
+          summary: "DM Crawler service is down"
+          description: "DM Crawler service has been down for more than 2 minutes"
+
+      # DM Crawler High Queue Length
+      - alert: DMCrawlerHighQueueLength
+        expr: dm_crawler_queue_length > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: dm-crawler
+          phase: "7"
+        annotations:
+          summary: "DM Crawler queue length is high"
+          description: "DM Crawler queue has {{ $value }} items, indicating processing delays"
+
+      # DM Crawler Rate Limit Exceeded
+      - alert: DMCrawlerRateLimitExceeded
+        expr: rate(dm_crawler_rate_limit_exceeded_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: dm-crawler
+          phase: "7"
+        annotations:
+          summary: "DM Crawler hitting rate limits"
+          description: "DM Crawler is hitting rate limits at {{ $value }}/s, consider adjusting crawling rate"
+
+      # Crypto Intel Processing Delays
+      - alert: CryptoIntelProcessingDelay
+        expr: crypto_intel_processing_delay_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+          component: crypto-intel
+          phase: "7"
+        annotations:
+          summary: "Crypto Intel processing delays detected"
+          description: "Crypto Intel processing delay is {{ $value }} seconds, above 5 minute threshold"
+
+      # Crypto Intel API Failures
+      - alert: CryptoIntelAPIFailures
+        expr: rate(crypto_intel_api_failures_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: crypto-intel
+          phase: "7"
+        annotations:
+          summary: "Crypto Intel API failures detected"
+          description: "Crypto Intel API failure rate is {{ $value }}/s, check external API connectivity"
+
+      # Reputation Analyzer Model Accuracy
+      - alert: ReputationAnalyzerLowAccuracy
+        expr: reputation_analyzer_model_accuracy < 0.7
+        for: 10m
+        labels:
+          severity: warning
+          component: reputation-analyzer
+          phase: "7"
+        annotations:
+          summary: "Reputation Analyzer model accuracy is low"
+          description: "Reputation Analyzer model accuracy is {{ $value }}, below 70% threshold"
+
+      # Reputation Analyzer Processing Queue
+      - alert: ReputationAnalyzerQueueBacklog
+        expr: reputation_analyzer_processing_queue > 500
+        for: 15m
+        labels:
+          severity: warning
+          component: reputation-analyzer
+          phase: "7"
+        annotations:
+          summary: "Reputation Analyzer has processing backlog"
+          description: "Reputation Analyzer queue has {{ $value }} items, indicating processing delays"
+
+      # Economics Processor Prediction Accuracy
+      - alert: EconomicsProcessorPredictionAccuracy
+        expr: economics_processor_prediction_accuracy < 0.6
+        for: 30m
+        labels:
+          severity: warning
+          component: economics-processor
+          phase: "7"
+        annotations:
+          summary: "Economics Processor prediction accuracy is low"
+          description: "Economics Processor prediction accuracy is {{ $value }}, below 60% threshold"
+
+      # Economics Processor Model Training Failures
+      - alert: EconomicsProcessorTrainingFailures
+        expr: rate(economics_processor_training_failures_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: economics-processor
+          phase: "7"
+        annotations:
+          summary: "Economics Processor model training failures"
+          description: "Economics Processor has {{ $value }} training failures in the last hour"
+
+  # =============================================================================
+  # PHASE 8 - ADVANCED SECURITY OPERATIONS ALERTS
+  # =============================================================================
+  - name: phase8_security_operations
+    rules:
+      # Tactical Intel Service Health
+      - alert: TacticalIntelServiceDown
+        expr: up{job="tactical-intel"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: tactical-intel
+          phase: "8"
+        annotations:
+          summary: "Tactical Intel service is down"
+          description: "Tactical Intel service has been down for more than 1 minute"
+
+      # Tactical Intel High Threat Score
+      - alert: TacticalIntelHighThreatScore
+        expr: tactical_intel_threat_score > 0.8
+        for: 2m
+        labels:
+          severity: critical
+          component: tactical-intel
+          phase: "8"
+        annotations:
+          summary: "High threat score detected"
+          description: "Tactical Intel detected threat score of {{ $value }}, above 0.8 threshold"
+
+      # Tactical Intel Intelligence Confidence Low
+      - alert: TacticalIntelLowConfidence
+        expr: tactical_intel_confidence_score < 0.6
+        for: 10m
+        labels:
+          severity: warning
+          component: tactical-intel
+          phase: "8"
+        annotations:
+          summary: "Tactical Intel confidence is low"
+          description: "Tactical Intel confidence score is {{ $value }}, below 60% threshold"
+
+      # Defense Automation Response Time
+      - alert: DefenseAutomationSlowResponse
+        expr: defense_automation_response_time_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+          component: defense-automation
+          phase: "8"
+        annotations:
+          summary: "Defense Automation slow response time"
+          description: "Defense Automation response time is {{ $value }} seconds, above 30s threshold"
+
+      # Defense Automation Max Responses Reached
+      - alert: DefenseAutomationMaxResponsesReached
+        expr: defense_automation_responses_count >= 10
+        for: 1m
+        labels:
+          severity: critical
+          component: defense-automation
+          phase: "8"
+        annotations:
+          summary: "Defense Automation max responses reached"
+          description: "Defense Automation has reached maximum responses ({{ $value }}) for this period"
+
+      # OPSEC Enforcer Policy Violations
+      - alert: OPSECPolicyViolations
+        expr: rate(opsec_enforcer_violations_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          component: opsec-enforcer
+          phase: "8"
+        annotations:
+          summary: "OPSEC policy violations detected"
+          description: "OPSEC Enforcer detected {{ $value }}/s policy violations"
+
+      # OPSEC Enforcer Traffic Analysis Anomaly
+      - alert: OPSECTrafficAnomalyDetected
+        expr: opsec_enforcer_traffic_anomaly_score > 0.9
+        for: 2m
+        labels:
+          severity: critical
+          component: opsec-enforcer
+          phase: "8"
+        annotations:
+          summary: "OPSEC traffic anomaly detected"
+          description: "OPSEC Enforcer detected traffic anomaly with score {{ $value }}"
+
+      # Intel Fusion Correlation Delays
+      - alert: IntelFusionCorrelationDelay
+        expr: intel_fusion_correlation_delay_seconds > 600
+        for: 10m
+        labels:
+          severity: warning
+          component: intel-fusion
+          phase: "8"
+        annotations:
+          summary: "Intel Fusion correlation delays"
+          description: "Intel Fusion correlation delay is {{ $value }} seconds, above 10 minute threshold"
+
+      # Intel Fusion Low Confidence Correlation
+      - alert: IntelFusionLowConfidenceCorrelation
+        expr: intel_fusion_correlation_confidence < 0.8
+        for: 15m
+        labels:
+          severity: warning
+          component: intel-fusion
+          phase: "8"
+        annotations:
+          summary: "Intel Fusion low confidence correlations"
+          description: "Intel Fusion correlation confidence is {{ $value }}, below 80% threshold"
+
+  # =============================================================================
+  # PHASE 9 - AUTONOMOUS ENHANCEMENT ALERTS
+  # =============================================================================
+  - name: phase9_autonomous_systems
+    rules:
+      # Autonomous Coordinator Service Health
+      - alert: AutonomousCoordinatorServiceDown
+        expr: up{job="autonomous-coordinator"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: autonomous-coordinator
+          phase: "9"
+        annotations:
+          summary: "Autonomous Coordinator service is down"
+          description: "Autonomous Coordinator service has been down for more than 1 minute"
+
+      # Autonomous Coordinator Decision Accuracy
+      - alert: AutonomousCoordinatorLowAccuracy
+        expr: autonomous_coordinator_decision_accuracy < 0.8
+        for: 30m
+        labels:
+          severity: warning
+          component: autonomous-coordinator
+          phase: "9"
+        annotations:
+          summary: "Autonomous Coordinator decision accuracy is low"
+          description: "Autonomous Coordinator decision accuracy is {{ $value }}, below 80% threshold"
+
+      # Autonomous Coordinator Operation Timeout
+      - alert: AutonomousCoordinatorOperationTimeout
+        expr: rate(autonomous_coordinator_operation_timeouts_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: autonomous-coordinator
+          phase: "9"
+        annotations:
+          summary: "Autonomous Coordinator operation timeouts"
+          description: "Autonomous Coordinator operation timeout rate is {{ $value }}/s"
+
+      # Adaptive Learning Model Performance
+      - alert: AdaptiveLearningModelPerformance
+        expr: adaptive_learning_model_performance < 0.85
+        for: 60m
+        labels:
+          severity: warning
+          component: adaptive-learning
+          phase: "9"
+        annotations:
+          summary: "Adaptive Learning model performance degraded"
+          description: "Adaptive Learning model performance is {{ $value }}, below 85% threshold"
+
+      # Adaptive Learning Training Failures
+      - alert: AdaptiveLearningTrainingFailures
+        expr: rate(adaptive_learning_training_failures_total[1h]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          component: adaptive-learning
+          phase: "9"
+        annotations:
+          summary: "Adaptive Learning training failures"
+          description: "Adaptive Learning has {{ $value }}/s training failures in the last hour"
+
+      # Resource Manager Optimization Efficiency
+      - alert: ResourceManagerLowEfficiency
+        expr: resource_manager_optimization_efficiency < 0.7
+        for: 30m
+        labels:
+          severity: warning
+          component: resource-manager
+          phase: "9"
+        annotations:
+          summary: "Resource Manager optimization efficiency is low"
+          description: "Resource Manager optimization efficiency is {{ $value }}, below 70% threshold"
+
+      # Resource Manager Scaling Failures
+      - alert: ResourceManagerScalingFailures
+        expr: rate(resource_manager_scaling_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: resource-manager
+          phase: "9"
+        annotations:
+          summary: "Resource Manager scaling failures"
+          description: "Resource Manager scaling failure rate is {{ $value }}/s"
+
+      # Knowledge Evolution Update Delays
+      - alert: KnowledgeEvolutionUpdateDelay
+        expr: knowledge_evolution_update_delay_seconds > 7200
+        for: 15m
+        labels:
+          severity: warning
+          component: knowledge-evolution
+          phase: "9"
+        annotations:
+          summary: "Knowledge Evolution update delays"
+          description: "Knowledge Evolution update delay is {{ $value }} seconds, above 2 hour threshold"
+
+      # Knowledge Evolution Semantic Drift
+      - alert: KnowledgeEvolutionSemanticDrift
+        expr: knowledge_evolution_semantic_drift_score > 0.5
+        for: 30m
+        labels:
+          severity: warning
+          component: knowledge-evolution
+          phase: "9"
+        annotations:
+          summary: "Knowledge Evolution semantic drift detected"
+          description: "Knowledge Evolution semantic drift score is {{ $value }}, indicating concept drift"

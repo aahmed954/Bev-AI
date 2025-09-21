@@ -1,0 +1,293 @@
+# Grafana Data Sources Configuration for BEV Infrastructure
+# Configures Prometheus and InfluxDB data sources with proper authentication and settings
+
+apiVersion: 1
+
+datasources:
+  # =============================================================================
+  # PROMETHEUS DATA SOURCES
+  # =============================================================================
+
+  # Primary Prometheus instance
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: ${PROMETHEUS_URL:-http://prometheus:9090}
+    uid: prometheus_primary
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: 15s
+      queryTimeout: 60s
+      httpMethod: POST
+      manageAlerts: true
+      alertmanagerUid: alertmanager_primary
+      prometheusType: Prometheus
+      prometheusVersion: 2.40.0
+      cacheLevel: High
+      incrementalQuerying: true
+      incrementalQueryOverlapWindow: 10m
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger_primary
+          urlDisplayLabel: View Trace
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      httpHeaderValue1: 'Bearer ${PROMETHEUS_API_TOKEN:-}'
+
+  # Thanos Query for long-term storage
+  - name: Thanos
+    type: prometheus
+    access: proxy
+    url: ${THANOS_QUERY_URL:-http://thanos-query:19192}
+    uid: thanos_primary
+    editable: true
+    jsonData:
+      timeInterval: 30s
+      queryTimeout: 300s
+      httpMethod: POST
+      prometheusType: Thanos
+      prometheusVersion: 0.30.0
+      cacheLevel: High
+      incrementalQuerying: true
+      incrementalQueryOverlapWindow: 10m
+      customQueryParameters: 'max_source_resolution=auto'
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      httpHeaderValue1: 'Bearer ${THANOS_API_TOKEN:-}'
+
+  # AlertManager for alert management
+  - name: AlertManager
+    type: alertmanager
+    access: proxy
+    url: ${ALERTMANAGER_URL:-http://alertmanager:9093}
+    uid: alertmanager_primary
+    editable: true
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: true
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      httpHeaderValue1: 'Bearer ${ALERTMANAGER_API_TOKEN:-}'
+
+  # =============================================================================
+  # INFLUXDB DATA SOURCES
+  # =============================================================================
+
+  # Primary InfluxDB instance on ORACLE1
+  - name: InfluxDB-ORACLE1
+    type: influxdb
+    access: proxy
+    url: ${INFLUXDB_ORACLE1_URL:-http://oracle1:8086}
+    uid: influxdb_oracle1
+    editable: true
+    database: ${INFLUXDB_DATABASE:-bev_metrics}
+    user: ${INFLUXDB_USERNAME:-bev_user}
+    jsonData:
+      version: InfluxQL
+      timeInterval: 10s
+      maxSeries: 1000
+      httpMode: GET
+      keepCookies: []
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      password: ${INFLUXDB_PASSWORD:-}
+      httpHeaderValue1: 'Bearer ${INFLUXDB_API_TOKEN:-}'
+
+  # InfluxDB v2 instance for modern metrics
+  - name: InfluxDB-v2
+    type: influxdb
+    access: proxy
+    url: ${INFLUXDB_V2_URL:-http://influxdb:8086}
+    uid: influxdb_v2
+    editable: true
+    jsonData:
+      version: Flux
+      organization: ${INFLUXDB_ORG:-bev}
+      defaultBucket: ${INFLUXDB_BUCKET:-metrics}
+      maxSeries: 1000
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      token: ${INFLUXDB_V2_TOKEN:-}
+      httpHeaderValue1: 'Bearer ${INFLUXDB_V2_API_TOKEN:-}'
+
+  # =============================================================================
+  # LOGGING AND TRACING DATA SOURCES
+  # =============================================================================
+
+  # Loki for log aggregation
+  - name: Loki
+    type: loki
+    access: proxy
+    url: ${LOKI_URL:-http://loki:3100}
+    uid: loki_primary
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: "trace_id=(\\w+)"
+          url: "$${__value.raw}"
+          datasourceUid: jaeger_primary
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      httpHeaderValue1: 'Bearer ${LOKI_API_TOKEN:-}'
+
+  # Jaeger for distributed tracing
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: ${JAEGER_URL:-http://jaeger:16686}
+    uid: jaeger_primary
+    editable: true
+    jsonData:
+      tracesToLogs:
+        datasourceUid: loki_primary
+        tags:
+          - service
+          - pod
+        mappedTags:
+          - key: service_name
+            value: service
+        mapTagNamesEnabled: true
+        filterByTraceID: true
+        filterBySpanID: true
+      tracesToMetrics:
+        datasourceUid: prometheus_primary
+        tags:
+          - service
+          - operation
+        queries:
+          - name: Sample query
+            query: 'sum(rate(traces_spanmetrics_latency_bucket{$$__tags}[5m]))'
+      serviceMap:
+        datasourceUid: prometheus_primary
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      httpHeaderValue1: 'Bearer ${JAEGER_API_TOKEN:-}'
+
+  # Tempo for distributed tracing (alternative)
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: ${TEMPO_URL:-http://tempo:3200}
+    uid: tempo_primary
+    editable: true
+    jsonData:
+      tracesToLogs:
+        datasourceUid: loki_primary
+        tags:
+          - service_name
+          - pod
+        mappedTags:
+          - key: service_name
+            value: service
+        mapTagNamesEnabled: true
+        filterByTraceID: true
+        filterBySpanID: true
+      tracesToMetrics:
+        datasourceUid: prometheus_primary
+        tags:
+          - service_name
+          - operation
+        queries:
+          - name: Sample query
+            query: 'sum(rate(tempo_spanmetrics_latency_bucket{$$__tags}[5m]))'
+      serviceMap:
+        datasourceUid: prometheus_primary
+      search:
+        hide: false
+      nodeGraph:
+        enabled: true
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      httpHeaderValue1: 'Bearer ${TEMPO_API_TOKEN:-}'
+
+  # =============================================================================
+  # DATABASE SPECIFIC DATA SOURCES
+  # =============================================================================
+
+  # PostgreSQL for direct database queries
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: ${POSTGRESQL_HOST:-postgresql}:${POSTGRESQL_PORT:-5432}
+    uid: postgresql_primary
+    editable: true
+    database: ${POSTGRESQL_DATABASE:-bev}
+    user: ${POSTGRESQL_USERNAME:-bev_user}
+    jsonData:
+      sslmode: ${POSTGRESQL_SSL_MODE:-prefer}
+      maxOpenConns: 100
+      maxIdleConns: 100
+      maxIdleConnsAuto: true
+      connMaxLifetime: 14400
+      postgresVersion: 1400
+      timescaledb: false
+    secureJsonData:
+      password: ${POSTGRESQL_PASSWORD:-}
+
+  # ClickHouse for analytics queries
+  - name: ClickHouse
+    type: vertamedia-clickhouse-datasource
+    access: proxy
+    url: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+    uid: clickhouse_primary
+    editable: true
+    database: ${CLICKHOUSE_DATABASE:-bev}
+    user: ${CLICKHOUSE_USERNAME:-bev_user}
+    jsonData:
+      defaultDatabase: ${CLICKHOUSE_DATABASE:-bev}
+      port: ${CLICKHOUSE_PORT:-8123}
+      server: ${CLICKHOUSE_HOST:-clickhouse}
+      username: ${CLICKHOUSE_USERNAME:-bev_user}
+      useTLS: false
+      skipTLSVerify: true
+      useYandexCloudAuthorization: false
+      xHeaderUser: ${CLICKHOUSE_X_HEADER_USER:-}
+      xHeaderKey: ${CLICKHOUSE_X_HEADER_KEY:-}
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      password: ${CLICKHOUSE_PASSWORD:-}
+      httpHeaderValue1: 'Bearer ${CLICKHOUSE_API_TOKEN:-}'
+
+  # =============================================================================
+  # ELASTICSEARCH DATA SOURCE
+  # =============================================================================
+
+  # Elasticsearch for log search and analytics
+  - name: Elasticsearch
+    type: elasticsearch
+    access: proxy
+    url: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+    uid: elasticsearch_primary
+    editable: true
+    database: ${ELASTICSEARCH_INDEX:-bev-logs-*}
+    jsonData:
+      index: ${ELASTICSEARCH_INDEX:-bev-logs-*}
+      timeField: "@timestamp"
+      esVersion: "8.0.0"
+      maxConcurrentShardRequests: 5
+      logMessageField: message
+      logLevelField: level
+      includeFrozen: false
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      httpHeaderValue1: 'Bearer ${ELASTICSEARCH_API_TOKEN:-}'
+
+  # =============================================================================
+  # MIXED DATA SOURCES FOR CORRELATIONS
+  # =============================================================================
+
+  # Mixed data source for correlating metrics and logs
+  - name: Mixed
+    type: mixed
+    uid: mixed_primary
+    editable: false
+
+  # TestData for dashboard development and testing
+  - name: TestData
+    type: testdata
+    uid: testdata_primary
+    editable: false
+    isDefault: false

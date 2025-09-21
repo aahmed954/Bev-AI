@@ -1,0 +1,309 @@
+# Phase 7 - Alternative Market Intelligence Metrics Configuration
+# Defines custom metrics for DM Crawler, Crypto Intel, Reputation Analyzer, and Economics Processor
+
+# =============================================================================
+# DM CRAWLER METRICS
+# =============================================================================
+dm_crawler_metrics:
+  # Service Health Metrics
+  - name: dm_crawler_health_status
+    type: gauge
+    help: "Health status of DM Crawler service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  - name: dm_crawler_uptime_seconds
+    type: counter
+    help: "Total uptime of DM Crawler service in seconds"
+
+  # Crawling Performance Metrics
+  - name: dm_crawler_pages_crawled_total
+    type: counter
+    help: "Total number of pages crawled"
+    labels: ["site", "status"]
+
+  - name: dm_crawler_crawl_duration_seconds
+    type: histogram
+    help: "Duration of crawling operations"
+    labels: ["site", "page_type"]
+    buckets: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0]
+
+  - name: dm_crawler_queue_length
+    type: gauge
+    help: "Current number of URLs in crawling queue"
+    labels: ["priority"]
+
+  - name: dm_crawler_rate_limit_exceeded_total
+    type: counter
+    help: "Number of times rate limit was exceeded"
+    labels: ["site", "limit_type"]
+
+  # Data Quality Metrics
+  - name: dm_crawler_extraction_success_rate
+    type: gauge
+    help: "Success rate of data extraction (0-1)"
+    labels: ["site", "data_type"]
+
+  - name: dm_crawler_data_quality_score
+    type: gauge
+    help: "Quality score of extracted data (0-1)"
+    labels: ["site", "metric_type"]
+
+  # Resource Usage Metrics
+  - name: dm_crawler_worker_utilization
+    type: gauge
+    help: "Current worker utilization percentage"
+
+  - name: dm_crawler_memory_usage_bytes
+    type: gauge
+    help: "Memory usage in bytes"
+
+# =============================================================================
+# CRYPTO INTEL METRICS
+# =============================================================================
+crypto_intel_metrics:
+  # Service Health Metrics
+  - name: crypto_intel_health_status
+    type: gauge
+    help: "Health status of Crypto Intel service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  - name: crypto_intel_api_status
+    type: gauge
+    help: "External API connection status (1=connected, 0=disconnected)"
+    labels: ["api_provider", "endpoint"]
+
+  # Transaction Analysis Metrics
+  - name: crypto_intel_transactions_analyzed_total
+    type: counter
+    help: "Total number of transactions analyzed"
+    labels: ["blockchain", "transaction_type"]
+
+  - name: crypto_intel_processing_delay_seconds
+    type: gauge
+    help: "Current processing delay in seconds"
+    labels: ["blockchain"]
+
+  - name: crypto_intel_analysis_duration_seconds
+    type: histogram
+    help: "Duration of transaction analysis"
+    labels: ["blockchain", "complexity"]
+    buckets: [0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0, 300.0]
+
+  # API Integration Metrics
+  - name: crypto_intel_api_requests_total
+    type: counter
+    help: "Total API requests made to external services"
+    labels: ["provider", "endpoint", "status"]
+
+  - name: crypto_intel_api_failures_total
+    type: counter
+    help: "Total API request failures"
+    labels: ["provider", "error_type"]
+
+  - name: crypto_intel_api_rate_limit_remaining
+    type: gauge
+    help: "Remaining API rate limit quota"
+    labels: ["provider"]
+
+  # Intelligence Metrics
+  - name: crypto_intel_suspicious_transactions
+    type: counter
+    help: "Number of suspicious transactions detected"
+    labels: ["blockchain", "suspicion_type", "confidence"]
+
+  - name: crypto_intel_risk_score
+    type: histogram
+    help: "Distribution of transaction risk scores"
+    labels: ["blockchain"]
+    buckets: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+# =============================================================================
+# REPUTATION ANALYZER METRICS
+# =============================================================================
+reputation_analyzer_metrics:
+  # Service Health Metrics
+  - name: reputation_analyzer_health_status
+    type: gauge
+    help: "Health status of Reputation Analyzer service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  # Model Performance Metrics
+  - name: reputation_analyzer_model_accuracy
+    type: gauge
+    help: "Current model accuracy score (0-1)"
+    labels: ["model_version", "data_source"]
+
+  - name: reputation_analyzer_model_precision
+    type: gauge
+    help: "Current model precision score (0-1)"
+    labels: ["model_version", "category"]
+
+  - name: reputation_analyzer_model_recall
+    type: gauge
+    help: "Current model recall score (0-1)"
+    labels: ["model_version", "category"]
+
+  # Processing Metrics
+  - name: reputation_analyzer_entities_processed_total
+    type: counter
+    help: "Total number of entities processed"
+    labels: ["entity_type", "source"]
+
+  - name: reputation_analyzer_processing_queue
+    type: gauge
+    help: "Current number of entities in processing queue"
+    labels: ["priority"]
+
+  - name: reputation_analyzer_processing_duration_seconds
+    type: histogram
+    help: "Duration of reputation analysis"
+    labels: ["entity_type", "complexity"]
+    buckets: [0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0]
+
+  # Sentiment Analysis Metrics
+  - name: reputation_analyzer_sentiment_score
+    type: histogram
+    help: "Distribution of sentiment scores"
+    labels: ["entity_type", "source"]
+    buckets: [-1.0, -0.5, -0.2, 0.0, 0.2, 0.5, 1.0]
+
+  - name: reputation_analyzer_reputation_score
+    type: histogram
+    help: "Distribution of reputation scores"
+    labels: ["entity_type"]
+    buckets: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+
+  # Data Source Metrics
+  - name: reputation_analyzer_data_sources_active
+    type: gauge
+    help: "Number of active data sources"
+
+  - name: reputation_analyzer_data_freshness_hours
+    type: gauge
+    help: "Age of most recent data in hours"
+    labels: ["source"]
+
+# =============================================================================
+# ECONOMICS PROCESSOR METRICS
+# =============================================================================
+economics_processor_metrics:
+  # Service Health Metrics
+  - name: economics_processor_health_status
+    type: gauge
+    help: "Health status of Economics Processor service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  # Model Training Metrics
+  - name: economics_processor_model_training_duration_seconds
+    type: histogram
+    help: "Duration of model training sessions"
+    labels: ["model_type", "dataset_size"]
+    buckets: [60, 300, 600, 1800, 3600, 7200, 14400]
+
+  - name: economics_processor_training_failures_total
+    type: counter
+    help: "Total number of training failures"
+    labels: ["model_type", "failure_reason"]
+
+  - name: economics_processor_model_accuracy
+    type: gauge
+    help: "Current model accuracy (0-1)"
+    labels: ["model_type", "validation_set"]
+
+  # Prediction Metrics
+  - name: economics_processor_predictions_generated_total
+    type: counter
+    help: "Total number of predictions generated"
+    labels: ["prediction_type", "horizon"]
+
+  - name: economics_processor_prediction_accuracy
+    type: gauge
+    help: "Accuracy of recent predictions (0-1)"
+    labels: ["prediction_type", "time_horizon"]
+
+  - name: economics_processor_prediction_confidence
+    type: gauge
+    help: "Confidence level of predictions (0-1)"
+    labels: ["prediction_type"]
+
+  # Economic Indicators Metrics
+  - name: economics_processor_indicators_processed_total
+    type: counter
+    help: "Total number of economic indicators processed"
+    labels: ["indicator_type", "source"]
+
+  - name: economics_processor_market_volatility
+    type: gauge
+    help: "Current market volatility index"
+    labels: ["market"]
+
+  - name: economics_processor_trend_strength
+    type: gauge
+    help: "Strength of detected trends (0-1)"
+    labels: ["trend_type", "market"]
+
+  # Data Pipeline Metrics
+  - name: economics_processor_data_lag_seconds
+    type: gauge
+    help: "Lag between data availability and processing"
+    labels: ["data_source"]
+
+  - name: economics_processor_pipeline_throughput
+    type: gauge
+    help: "Data processing throughput (records/second)"
+    labels: ["pipeline_stage"]
+
+# =============================================================================
+# COMMON METRICS ACROSS ALL PHASE 7 SERVICES
+# =============================================================================
+common_phase7_metrics:
+  # HTTP API Metrics
+  - name: phase7_http_requests_total
+    type: counter
+    help: "Total HTTP requests received"
+    labels: ["service", "method", "endpoint", "status"]
+
+  - name: phase7_http_request_duration_seconds
+    type: histogram
+    help: "Duration of HTTP requests"
+    labels: ["service", "method", "endpoint"]
+    buckets: [0.001, 0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+
+  # Database Metrics
+  - name: phase7_database_connections_active
+    type: gauge
+    help: "Number of active database connections"
+    labels: ["service", "database"]
+
+  - name: phase7_database_query_duration_seconds
+    type: histogram
+    help: "Duration of database queries"
+    labels: ["service", "database", "query_type"]
+    buckets: [0.001, 0.01, 0.1, 0.5, 1.0, 5.0, 10.0]
+
+  # Cache Metrics
+  - name: phase7_cache_hit_rate
+    type: gauge
+    help: "Cache hit rate (0-1)"
+    labels: ["service", "cache_type"]
+
+  - name: phase7_cache_size_bytes
+    type: gauge
+    help: "Current cache size in bytes"
+    labels: ["service", "cache_type"]
+
+  # Message Queue Metrics
+  - name: phase7_kafka_messages_produced_total
+    type: counter
+    help: "Total messages produced to Kafka"
+    labels: ["service", "topic"]
+
+  - name: phase7_kafka_messages_consumed_total
+    type: counter
+    help: "Total messages consumed from Kafka"
+    labels: ["service", "topic"]
+
+  - name: phase7_kafka_consumer_lag
+    type: gauge
+    help: "Consumer lag in number of messages"
+    labels: ["service", "topic", "partition"]

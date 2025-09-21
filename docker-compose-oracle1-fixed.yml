@@ -1,0 +1,337 @@
+version: '3.9'
+
+# Oracle1 Node - ARM/Edge Services
+# This compose file deploys lightweight and monitoring services on Oracle1
+
+x-vault-env: &vault-env
+  VAULT_ADDR: ${VAULT_ADDR}
+  VAULT_TOKEN: ${VAULT_TOKEN}
+  SECRETS_BACKEND: vault
+  NODE_NAME: oracle1
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+networks:
+  bev_network:
+    driver: bridge
+    name: bev_network
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  tor_data:
+  consul_data:
+  analyzer_data:
+
+services:
+  # Redis for caching and lightweight operations
+  redis:
+    image: redis:7-alpine
+    platform: linux/arm64
+    container_name: bev_redis
+    restart: unless-stopped
+    command: >
+      sh -c "
+        apk add --no-cache curl jq &&
+        export REDIS_PASS=$$(curl -s -H \"X-Vault-Token: $$VAULT_TOKEN\" \
+          $$VAULT_ADDR/v1/bev/data/services | jq -r '.data.data.redis_password') &&
+        redis-server --requirepass $$REDIS_PASS --maxmemory 2gb --maxmemory-policy allkeys-lru
+      "
+    environment:
+      <<: *vault-env
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.10
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    platform: linux/arm64
+    container_name: bev_prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    environment:
+      <<: *vault-env
+    volumes:
+      - prometheus_data:/prometheus
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus-alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.11
+    logging: *default-logging
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    platform: linux/arm64
+    container_name: bev_grafana
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      GF_SECURITY_ADMIN_USER: admin
+      GF_INSTALL_PLUGINS: redis-datasource,redis-app,redis-explorer
+      GF_SERVER_ROOT_URL: http://${NODE_IP}:3000
+    command: >
+      sh -c "
+        apk add --no-cache curl jq &&
+        export GF_SECURITY_ADMIN_PASSWORD=$$(curl -s -H \"X-Vault-Token: $$VAULT_TOKEN\" \
+          $$VAULT_ADDR/v1/bev/data/services | jq -r '.data.data.grafana_password' || echo 'admin') &&
+        /run.sh
+      "
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3000:3000"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.12
+    logging: *default-logging
+    depends_on:
+      - prometheus
+
+  # Consul Service Discovery
+  consul:
+    image: hashicorp/consul:latest
+    platform: linux/arm64
+    container_name: bev_consul
+    restart: unless-stopped
+    command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0
+    environment:
+      <<: *vault-env
+      CONSUL_BIND_INTERFACE: eth0
+    volumes:
+      - consul_data:/consul/data
+      - ./config/consul:/consul/config:ro
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.13
+    logging: *default-logging
+
+  # Tor Proxy
+  tor:
+    image: dperson/torproxy:latest
+    platform: linux/arm64
+    container_name: bev_tor
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      LOCATION: US
+      EXITNODE: 1
+    command: >
+      sh -c "
+        apk add --no-cache curl jq &&
+        export TOR_PASS=$$(curl -s -H \"X-Vault-Token: $$VAULT_TOKEN\" \
+          $$VAULT_ADDR/v1/bev/data/services | jq -r '.data.data.tor_password' || echo '') &&
+        /usr/bin/torproxy.sh -p $$TOR_PASS
+      "
+    volumes:
+      - tor_data:/var/lib/tor
+    ports:
+      - "9050:9050"
+      - "9051:9051"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.14
+    logging: *default-logging
+
+  # Nginx Proxy Manager
+  proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    platform: linux/arm64
+    container_name: bev_proxy_manager
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      DB_SQLITE_FILE: "/data/database.sqlite"
+      DISABLE_IPV6: "true"
+    volumes:
+      - ./proxy/data:/data
+      - ./proxy/letsencrypt:/etc/letsencrypt
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.15
+    logging: *default-logging
+
+  # Breach Database Analyzer (ARM-optimized)
+  breach-analyzer:
+    build:
+      context: ./intelowl/custom_analyzers/BreachDatabaseAnalyzer
+      dockerfile: Dockerfile.arm
+    platform: linux/arm64
+    container_name: bev_breach_analyzer
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      REDIS_HOST: redis
+      POSTGRES_HOST: ${THANOS_IP}
+    volumes:
+      - analyzer_data:/data
+    ports:
+      - "8020:8020"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.20
+    logging: *default-logging
+    depends_on:
+      - redis
+
+  # Crypto Tracker Analyzer (ARM-optimized)
+  crypto-analyzer:
+    build:
+      context: ./intelowl/custom_analyzers/CryptoTrackerAnalyzer
+      dockerfile: Dockerfile.arm
+    platform: linux/arm64
+    container_name: bev_crypto_analyzer
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      REDIS_HOST: redis
+      POSTGRES_HOST: ${THANOS_IP}
+    volumes:
+      - analyzer_data:/data
+    ports:
+      - "8021:8021"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.21
+    logging: *default-logging
+    depends_on:
+      - redis
+
+  # Social Media Analyzer (ARM-optimized)
+  social-analyzer:
+    build:
+      context: ./intelowl/custom_analyzers/SocialMediaAnalyzer
+      dockerfile: Dockerfile.arm
+    platform: linux/arm64
+    container_name: bev_social_analyzer
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      REDIS_HOST: redis
+      POSTGRES_HOST: ${THANOS_IP}
+    volumes:
+      - analyzer_data:/data
+    ports:
+      - "8022:8022"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.22
+    logging: *default-logging
+    depends_on:
+      - redis
+
+  # Health Monitor
+  health-monitor:
+    build:
+      context: ./src/monitoring
+      dockerfile: Dockerfile.arm
+    platform: linux/arm64
+    container_name: bev_health_monitor
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      PROMETHEUS_URL: http://prometheus:9090
+      GRAFANA_URL: http://grafana:3000
+    ports:
+      - "8030:8030"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.30
+    logging: *default-logging
+    depends_on:
+      - prometheus
+      - grafana
+
+  # Metrics Collector
+  metrics-collector:
+    image: telegraf:latest
+    platform: linux/arm64
+    container_name: bev_metrics_collector
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      HOST_PROC: /host/proc
+      HOST_SYS: /host/sys
+      HOST_ETC: /host/etc
+    volumes:
+      - ./config/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc:/host/etc:ro
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.31
+    logging: *default-logging
+
+  # Alert Manager
+  alert-system:
+    image: prom/alertmanager:latest
+    platform: linux/arm64
+    container_name: bev_alert_system
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./config/alertmanager.yml:/etc/alertmanager/config.yml:ro
+      - ./alertmanager:/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.32
+    logging: *default-logging
+    depends_on:
+      - prometheus
+
+  # Vault Proxy (for cross-node Vault access)
+  vault-proxy:
+    image: nginx:alpine
+    platform: linux/arm64
+    container_name: bev_vault_proxy
+    restart: unless-stopped
+    volumes:
+      - ./config/vault-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8200:8200"
+    networks:
+      bev_network:
+        ipv4_address: 172.21.0.40
+    logging: *default-logging

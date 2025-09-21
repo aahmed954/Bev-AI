@@ -1,0 +1,80 @@
+2025-09-21 15:23:44.173+0000 INFO  Logging config in use: File '/var/lib/neo4j/conf/user-logs.xml'
+2025-09-21 15:23:44.179+0000 INFO  The license agreement was accepted with environment variable NEO4J_ACCEPT_LICENSE_AGREEMENT=yes when the Software was started.
+
+
+2025-09-21 15:23:44.209+0000 WARN  Use of deprecated setting 'dbms.connector.http.listen_address'. It is replaced by 'server.http.listen_address'.
+2025-09-21 15:23:44.209+0000 WARN  Use of deprecated setting 'dbms.connector.https.listen_address'. It is replaced by 'server.https.listen_address'.
+2025-09-21 15:23:44.209+0000 WARN  Use of deprecated setting 'dbms.connector.bolt.listen_address'. It is replaced by 'server.bolt.listen_address'.
+2025-09-21 15:23:44.214+0000 INFO  Starting...
+2025-09-21 15:23:45.499+0000 INFO  ======== Neo4j 5.14.0 ========
+2025-09-21 15:23:45.512+0000 INFO  This instance is ServerId{b6b5f259} (b6b5f259-9db1-4e25-acd3-375a937d3752)
+2025-09-21 15:23:45.534+0000 INFO  Progress tracking: enabled
+2025-09-21 15:23:45.534+0000 INFO  Memory usage guard: minimum estimate
+2025-09-21 15:23:45.535+0000 INFO  GDS license file: null
+2025-09-21 15:23:45.535+0000 INFO  GDS license state: unlicensed
+2025-09-21 15:23:45.535+0000 INFO  Arrow write back: disabled
+2025-09-21 15:23:45.537+0000 INFO  Register GraphDataScience...
+2025-09-21 15:23:45.543+0000 INFO  GraphDataScience registered.
+2025-09-21 15:23:45.543+0000 INFO  Register GraphDataScienceExtras...
+2025-09-21 15:23:45.544+0000 INFO  GraphDataScienceExtras registered.
+2025-09-21 15:23:45.544+0000 INFO  Register MetricsFacade...
+2025-09-21 15:23:45.544+0000 INFO  MetricsFacade registered.
+2025-09-21 15:23:45.544+0000 INFO  Register legacy Task Store/ Registry...
+2025-09-21 15:23:45.545+0000 INFO  Task Store/ Registry registered.
+2025-09-21 15:23:45.545+0000 INFO  Register legacy User Log Registry...
+2025-09-21 15:23:45.545+0000 INFO  User Log Registry registered.
+2025-09-21 15:23:45.653+0000 INFO  GDS compatibility: for Neo4j Settings 5.x -- available, for Neo4j Settings 4.4 -- not available, selected: Neo4j Settings 5.x
+2025-09-21 15:23:45.653+0000 INFO  GDS compatibility: for Neo4j 4.4 -- not available, for Neo4j 5.6 -- not available, for Neo4j 5.7 -- not available, for Neo4j 5.8 -- not available, for Neo4j 5.9 -- not available, for Neo4j 5.10 -- not available, for Neo4j 5.11 -- not available, for Neo4j 5.12 -- not available, for Neo4j 5.13 -- not available, for Neo4j 5.14 -- available, selected: Neo4j 5.14
+2025-09-21 15:23:47.917+0000 INFO  Default database 'neo4j' is created
+2025-09-21 15:23:54.850+0000 INFO  Sending metrics to CSV file at /var/lib/neo4j/metrics
+2025-09-21 15:23:54.867+0000 INFO  Bolt enabled on 0.0.0.0:7687.
+2025-09-21 15:23:54.868+0000 INFO  Bolt (Routing) enabled on 0.0.0.0:7688.
+2025-09-21 15:23:55.265+0000 INFO  HTTP enabled on 0.0.0.0:7474.
+2025-09-21 15:23:55.265+0000 INFO  Remote interface available at http://localhost:7474/
+2025-09-21 15:23:55.267+0000 INFO  id: 5F9A7AA017A1965F635B1E034D927DFC9C5111D9CB2990DF9E254B074CF285C5
+2025-09-21 15:23:55.267+0000 INFO  name: system
+2025-09-21 15:23:55.267+0000 INFO  creationDate: 2025-09-21T15:23:46.573Z
+2025-09-21 15:23:55.267+0000 INFO  Started.
+2025-09-21 15:25:43.504+0000 INFO  Neo4j Server shutdown initiated by request
+2025-09-21 15:25:43.504+0000 INFO  Stopping...
+2025-09-21 15:25:51.111+0000 INFO  Stopped.
+2025-09-21 15:26:05.544+0000 INFO  Logging config in use: File '/var/lib/neo4j/conf/user-logs.xml'
+2025-09-21 15:26:05.549+0000 INFO  The license agreement was accepted with environment variable NEO4J_ACCEPT_LICENSE_AGREEMENT=yes when the Software was started.
+
+
+2025-09-21 15:26:05.578+0000 WARN  Use of deprecated setting 'dbms.connector.http.listen_address'. It is replaced by 'server.http.listen_address'.
+2025-09-21 15:26:05.578+0000 WARN  Use of deprecated setting 'dbms.connector.https.listen_address'. It is replaced by 'server.https.listen_address'.
+2025-09-21 15:26:05.578+0000 WARN  Use of deprecated setting 'dbms.connector.bolt.listen_address'. It is replaced by 'server.bolt.listen_address'.
+2025-09-21 15:26:05.582+0000 INFO  Starting...
+2025-09-21 15:26:06.855+0000 INFO  ======== Neo4j 5.14.0 ========
+2025-09-21 15:26:06.868+0000 INFO  This instance is ServerId{e0edac8e} (e0edac8e-0767-46c2-b50a-8d5ef59a0576)
+2025-09-21 15:26:06.892+0000 INFO  Progress tracking: enabled
+2025-09-21 15:26:06.892+0000 INFO  Memory usage guard: minimum estimate
+2025-09-21 15:26:06.893+0000 INFO  GDS license file: null
+2025-09-21 15:26:06.893+0000 INFO  GDS license state: unlicensed
+2025-09-21 15:26:06.893+0000 INFO  Arrow write back: disabled
+2025-09-21 15:26:06.895+0000 INFO  Register GraphDataScience...
+2025-09-21 15:26:06.903+0000 INFO  GraphDataScience registered.
+2025-09-21 15:26:06.903+0000 INFO  Register GraphDataScienceExtras...
+2025-09-21 15:26:06.903+0000 INFO  GraphDataScienceExtras registered.
+2025-09-21 15:26:06.903+0000 INFO  Register MetricsFacade...
+2025-09-21 15:26:06.904+0000 INFO  MetricsFacade registered.
+2025-09-21 15:26:06.904+0000 INFO  Register legacy Task Store/ Registry...
+2025-09-21 15:26:06.905+0000 INFO  Task Store/ Registry registered.
+2025-09-21 15:26:06.905+0000 INFO  Register legacy User Log Registry...
+2025-09-21 15:26:06.905+0000 INFO  User Log Registry registered.
+2025-09-21 15:26:07.012+0000 INFO  GDS compatibility: for Neo4j Settings 5.x -- available, for Neo4j Settings 4.4 -- not available, selected: Neo4j Settings 5.x
+2025-09-21 15:26:07.012+0000 INFO  GDS compatibility: for Neo4j 4.4 -- not available, for Neo4j 5.6 -- not available, for Neo4j 5.7 -- not available, for Neo4j 5.8 -- not available, for Neo4j 5.9 -- not available, for Neo4j 5.10 -- not available, for Neo4j 5.11 -- not available, for Neo4j 5.12 -- not available, for Neo4j 5.13 -- not available, for Neo4j 5.14 -- available, selected: Neo4j 5.14
+2025-09-21 15:26:09.459+0000 INFO  Default database 'neo4j' is created
+2025-09-21 15:26:16.180+0000 INFO  Sending metrics to CSV file at /var/lib/neo4j/metrics
+2025-09-21 15:26:16.194+0000 INFO  Bolt enabled on 0.0.0.0:7687.
+2025-09-21 15:26:16.195+0000 INFO  Bolt (Routing) enabled on 0.0.0.0:7688.
+2025-09-21 15:26:16.542+0000 INFO  HTTP enabled on 0.0.0.0:7474.
+2025-09-21 15:26:16.542+0000 INFO  Remote interface available at http://localhost:7474/
+2025-09-21 15:26:16.544+0000 INFO  id: D97AD03B18256E9A9AA15F3F989139AFFAF20BD0A8CC2C01AD3215943B653358
+2025-09-21 15:26:16.544+0000 INFO  name: system
+2025-09-21 15:26:16.544+0000 INFO  creationDate: 2025-09-21T15:26:08.081Z
+2025-09-21 15:26:16.544+0000 INFO  Started.
+2025-09-21 17:04:23.507+0000 INFO  Neo4j Server shutdown initiated by request
+2025-09-21 17:04:23.507+0000 INFO  Stopping...
+2025-09-21 17:04:30.764+0000 INFO  Stopped.

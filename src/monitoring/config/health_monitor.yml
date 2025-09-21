@@ -1,0 +1,256 @@
+# BEV OSINT Framework - Health Monitor Configuration
+
+global:
+  check_interval: 30  # seconds
+  alert_evaluation_interval: 15  # seconds
+  prometheus_port: 9091
+  api_port: 8000
+
+# Service discovery and monitoring configuration
+services:
+  # Core infrastructure
+  postgres:
+    type: database
+    port: 5432
+    health_endpoint: null
+    expected_response_time: 1.0
+    priority: critical
+
+  neo4j:
+    type: database
+    port: 7474
+    health_endpoint: "/"
+    expected_response_time: 2.0
+    priority: critical
+
+  redis:
+    type: cache
+    port: 6379
+    health_endpoint: null
+    expected_response_time: 0.5
+    priority: critical
+
+  elasticsearch:
+    type: search
+    port: 9200
+    health_endpoint: "/_cluster/health"
+    expected_response_time: 2.0
+    priority: critical
+
+  influxdb:
+    type: timeseries
+    port: 8086
+    health_endpoint: "/health"
+    expected_response_time: 1.0
+    priority: critical
+
+  # Message queues
+  kafka-1:
+    type: queue
+    port: 19092
+    health_endpoint: null
+    expected_response_time: 2.0
+    priority: high
+
+  kafka-2:
+    type: queue
+    port: 29092
+    health_endpoint: null
+    expected_response_time: 2.0
+    priority: high
+
+  kafka-3:
+    type: queue
+    port: 39092
+    health_endpoint: null
+    expected_response_time: 2.0
+    priority: high
+
+  rabbitmq-1:
+    type: queue
+    port: 15672
+    health_endpoint: "/api/health/checks/alarms"
+    expected_response_time: 1.0
+    priority: high
+
+  rabbitmq-2:
+    type: queue
+    port: 15673
+    health_endpoint: "/api/health/checks/alarms"
+    expected_response_time: 1.0
+    priority: high
+
+  rabbitmq-3:
+    type: queue
+    port: 15674
+    health_endpoint: "/api/health/checks/alarms"
+    expected_response_time: 1.0
+    priority: high
+
+  # IntelOwl stack
+  intelowl-django:
+    type: application
+    port: 8000
+    health_endpoint: "/api/health"
+    expected_response_time: 3.0
+    priority: medium
+
+  intelowl-nginx:
+    type: proxy
+    port: 80
+    health_endpoint: "/"
+    expected_response_time: 1.0
+    priority: medium
+
+  cytoscape-server:
+    type: application
+    port: 3000
+    health_endpoint: "/health"
+    expected_response_time: 2.0
+    priority: medium
+
+  # Phase 7 services - Alternative Market Intelligence
+  dm-crawler:
+    type: intelligence
+    port: 8001
+    health_endpoint: "/health"
+    expected_response_time: 2.0
+    priority: medium
+
+  crypto-intel:
+    type: intelligence
+    port: 8002
+    health_endpoint: "/health"
+    expected_response_time: 2.0
+    priority: medium
+
+  reputation-analyzer:
+    type: intelligence
+    port: 8003
+    health_endpoint: "/health"
+    expected_response_time: 3.0
+    priority: medium
+
+  economics-processor:
+    type: intelligence
+    port: 8004
+    health_endpoint: "/health"
+    expected_response_time: 5.0
+    priority: medium
+
+  # Phase 8 services - Advanced Security Operations
+  tactical-intel:
+    type: security
+    port: 8005
+    health_endpoint: "/health"
+    expected_response_time: 2.0
+    priority: high
+
+  defense-automation:
+    type: security
+    port: 8006
+    health_endpoint: "/health"
+    expected_response_time: 1.0
+    priority: high
+
+  opsec-enforcer:
+    type: security
+    port: 8007
+    health_endpoint: "/health"
+    expected_response_time: 1.0
+    priority: critical
+
+  intel-fusion:
+    type: security
+    port: 8008
+    health_endpoint: "/health"
+    expected_response_time: 3.0
+    priority: high
+
+  # Phase 9 services - Autonomous Enhancement
+  autonomous-coordinator:
+    type: autonomous
+    port: 8009
+    health_endpoint: "/health"
+    expected_response_time: 2.0
+    priority: medium
+
+  adaptive-learning:
+    type: autonomous
+    port: 8010
+    health_endpoint: "/health"
+    expected_response_time: 5.0
+    priority: medium
+
+  resource-manager:
+    type: autonomous
+    port: 8011
+    health_endpoint: "/health"
+    expected_response_time: 1.0
+    priority: high
+
+  knowledge-evolution:
+    type: autonomous
+    port: 8012
+    health_endpoint: "/health"
+    expected_response_time: 3.0
+    priority: medium
+
+  # Vector databases
+  qdrant-primary:
+    type: vector_db
+    port: 6333
+    health_endpoint: "/health"
+    expected_response_time: 1.0
+    priority: critical
+
+  qdrant-replica:
+    type: vector_db
+    port: 6336
+    health_endpoint: "/health"
+    expected_response_time: 1.0
+    priority: high
+
+  weaviate:
+    type: vector_db
+    port: 8080
+    health_endpoint: "/v1/.well-known/ready"
+    expected_response_time: 2.0
+    priority: critical
+
+  # Proxy infrastructure
+  proxy-manager:
+    type: proxy
+    port: 8013
+    health_endpoint: "/health"
+    expected_response_time: 1.0
+    priority: medium
+
+# Alert thresholds
+alerts:
+  response_time_threshold: 5.0  # seconds
+  cpu_threshold: 85.0           # percentage
+  memory_threshold: 90.0        # percentage
+  error_rate_threshold: 5.0     # percentage
+  disk_threshold: 85.0          # percentage
+
+  # Severity escalation
+  critical_thresholds:
+    response_time: 10.0
+    cpu: 95.0
+    memory: 95.0
+    error_rate: 15.0
+    disk: 95.0
+
+# Data retention
+retention:
+  metrics_hours: 24
+  alerts_days: 30
+  logs_days: 7
+
+# Performance tuning
+performance:
+  max_concurrent_checks: 50
+  timeout_seconds: 10
+  retry_attempts: 3
+  batch_size: 10

@@ -1,0 +1,513 @@
+# Prometheus Configuration for BEV Infrastructure
+# Monitors all 54 services from THANOS unified deployment
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'bev-production'
+    replica: '${PROMETHEUS_REPLICA:-1}'
+
+rule_files:
+  - "/etc/prometheus/prometheus-alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - "${ALERTMANAGER_HOST:-alertmanager}:${ALERTMANAGER_PORT:-9093}"
+
+remote_write:
+  - url: "http://thanos-receiver:19291/api/v1/receive"
+    remote_timeout: 30s
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 200
+
+scrape_configs:
+  # =============================================================================
+  # PROMETHEUS ECOSYSTEM
+  # =============================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['${ALERTMANAGER_HOST:-alertmanager}:${ALERTMANAGER_PORT:-9093}']
+
+  # =============================================================================
+  # THANOS COMPONENTS (9 services)
+  # =============================================================================
+  - job_name: 'thanos-sidecar'
+    static_configs:
+      - targets:
+          - '${THANOS_SIDECAR_HOST:-thanos-sidecar}:${THANOS_SIDECAR_PORT:-19191}'
+    scrape_interval: 15s
+
+  - job_name: 'thanos-query'
+    static_configs:
+      - targets:
+          - '${THANOS_QUERY_HOST:-thanos-query}:${THANOS_QUERY_PORT:-19192}'
+
+  - job_name: 'thanos-query-frontend'
+    static_configs:
+      - targets:
+          - '${THANOS_QUERY_FRONTEND_HOST:-thanos-query-frontend}:${THANOS_QUERY_FRONTEND_PORT:-19090}'
+
+  - job_name: 'thanos-store'
+    static_configs:
+      - targets:
+          - '${THANOS_STORE_HOST:-thanos-store}:${THANOS_STORE_PORT:-19191}'
+
+  - job_name: 'thanos-compactor'
+    static_configs:
+      - targets:
+          - '${THANOS_COMPACTOR_HOST:-thanos-compactor}:${THANOS_COMPACTOR_PORT:-19191}'
+
+  - job_name: 'thanos-receiver'
+    static_configs:
+      - targets:
+          - '${THANOS_RECEIVER_HOST:-thanos-receiver}:${THANOS_RECEIVER_PORT:-19291}'
+
+  - job_name: 'thanos-ruler'
+    static_configs:
+      - targets:
+          - '${THANOS_RULER_HOST:-thanos-ruler}:${THANOS_RULER_PORT:-19192}'
+
+  - job_name: 'thanos-bucket-web'
+    static_configs:
+      - targets:
+          - '${THANOS_BUCKET_WEB_HOST:-thanos-bucket-web}:${THANOS_BUCKET_WEB_PORT:-19193}'
+
+  - job_name: 'thanos-bucket-replicate'
+    static_configs:
+      - targets:
+          - '${THANOS_BUCKET_REPLICATE_HOST:-thanos-bucket-replicate}:${THANOS_BUCKET_REPLICATE_PORT:-19194}'
+
+  # =============================================================================
+  # GRAFANA ECOSYSTEM (5 services)
+  # =============================================================================
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['${GRAFANA_HOST:-grafana}:${GRAFANA_PORT:-3000}']
+    metrics_path: /metrics
+
+  - job_name: 'grafana-image-renderer'
+    static_configs:
+      - targets: ['${GRAFANA_RENDERER_HOST:-grafana-image-renderer}:${GRAFANA_RENDERER_PORT:-8081}']
+
+  - job_name: 'grafana-oncall'
+    static_configs:
+      - targets: ['${GRAFANA_ONCALL_HOST:-grafana-oncall}:${GRAFANA_ONCALL_PORT:-8080}']
+
+  - job_name: 'grafana-loki'
+    static_configs:
+      - targets: ['${LOKI_HOST:-loki}:${LOKI_PORT:-3100}']
+
+  - job_name: 'grafana-tempo'
+    static_configs:
+      - targets: ['${TEMPO_HOST:-tempo}:${TEMPO_PORT:-3200}']
+
+  # =============================================================================
+  # AIRFLOW ECOSYSTEM (8 services)
+  # =============================================================================
+  - job_name: 'airflow-webserver'
+    static_configs:
+      - targets: ['${AIRFLOW_WEBSERVER_HOST:-airflow-webserver}:${AIRFLOW_WEBSERVER_PORT:-8080}']
+    metrics_path: /admin/metrics
+
+  - job_name: 'airflow-scheduler'
+    static_configs:
+      - targets: ['${AIRFLOW_SCHEDULER_HOST:-airflow-scheduler}:${AIRFLOW_SCHEDULER_PORT:-8793}']
+
+  - job_name: 'airflow-worker'
+    static_configs:
+      - targets: ['${AIRFLOW_WORKER_HOST:-airflow-worker}:${AIRFLOW_WORKER_PORT:-8793}']
+
+  - job_name: 'airflow-flower'
+    static_configs:
+      - targets: ['${AIRFLOW_FLOWER_HOST:-airflow-flower}:${AIRFLOW_FLOWER_PORT:-5555}']
+
+  - job_name: 'airflow-triggerer'
+    static_configs:
+      - targets: ['${AIRFLOW_TRIGGERER_HOST:-airflow-triggerer}:${AIRFLOW_TRIGGERER_PORT:-8794}']
+
+  - job_name: 'airflow-redis'
+    static_configs:
+      - targets: ['${AIRFLOW_REDIS_HOST:-airflow-redis}:${AIRFLOW_REDIS_PORT:-6379}']
+    metrics_path: /metrics
+
+  - job_name: 'airflow-postgres'
+    static_configs:
+      - targets: ['${AIRFLOW_POSTGRES_HOST:-airflow-postgres}:${AIRFLOW_POSTGRES_PORT:-5432}']
+
+  - job_name: 'airflow-celery-exporter'
+    static_configs:
+      - targets: ['${CELERY_EXPORTER_HOST:-celery-exporter}:${CELERY_EXPORTER_PORT:-9540}']
+
+  # =============================================================================
+  # ELASTICSEARCH ECOSYSTEM (7 services)
+  # =============================================================================
+  - job_name: 'elasticsearch'
+    static_configs:
+      - targets:
+          - '${ELASTICSEARCH_HOST:-elasticsearch}:${ELASTICSEARCH_PORT:-9200}'
+    metrics_path: /_prometheus/metrics
+
+  - job_name: 'elasticsearch-exporter'
+    static_configs:
+      - targets: ['${ELASTICSEARCH_EXPORTER_HOST:-elasticsearch-exporter}:${ELASTICSEARCH_EXPORTER_PORT:-9114}']
+
+  - job_name: 'kibana'
+    static_configs:
+      - targets: ['${KIBANA_HOST:-kibana}:${KIBANA_PORT:-5601}']
+
+  - job_name: 'logstash'
+    static_configs:
+      - targets: ['${LOGSTASH_HOST:-logstash}:${LOGSTASH_PORT:-9600}']
+
+  - job_name: 'filebeat'
+    static_configs:
+      - targets: ['${FILEBEAT_HOST:-filebeat}:${FILEBEAT_PORT:-5066}']
+
+  - job_name: 'metricbeat'
+    static_configs:
+      - targets: ['${METRICBEAT_HOST:-metricbeat}:${METRICBEAT_PORT:-5067}']
+
+  - job_name: 'apm-server'
+    static_configs:
+      - targets: ['${APM_SERVER_HOST:-apm-server}:${APM_SERVER_PORT:-8200}']
+
+  # =============================================================================
+  # DATA SERVICES (10 services)
+  # =============================================================================
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['${POSTGRESQL_HOST:-postgresql}:${POSTGRESQL_EXPORTER_PORT:-9187}']
+
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['${MONGODB_EXPORTER_HOST:-mongodb-exporter}:${MONGODB_EXPORTER_PORT:-9216}']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['${REDIS_EXPORTER_HOST:-redis-exporter}:${REDIS_EXPORTER_PORT:-9121}']
+
+  - job_name: 'influxdb'
+    static_configs:
+      - targets: ['${INFLUXDB_HOST:-influxdb}:${INFLUXDB_PORT:-8086}']
+    metrics_path: /metrics
+
+  - job_name: 'telegraf'
+    static_configs:
+      - targets: ['${TELEGRAF_HOST:-telegraf}:${TELEGRAF_PORT:-9273}']
+
+  - job_name: 'clickhouse'
+    static_configs:
+      - targets: ['${CLICKHOUSE_HOST:-clickhouse}:${CLICKHOUSE_PORT:-9363}']
+
+  - job_name: 'cassandra'
+    static_configs:
+      - targets: ['${CASSANDRA_EXPORTER_HOST:-cassandra-exporter}:${CASSANDRA_EXPORTER_PORT:-9180}']
+
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['${KAFKA_EXPORTER_HOST:-kafka-exporter}:${KAFKA_EXPORTER_PORT:-9308}']
+
+  - job_name: 'zookeeper'
+    static_configs:
+      - targets: ['${ZOOKEEPER_HOST:-zookeeper}:${ZOOKEEPER_PORT:-2181}']
+
+  - job_name: 'schema-registry'
+    static_configs:
+      - targets: ['${SCHEMA_REGISTRY_HOST:-schema-registry}:${SCHEMA_REGISTRY_PORT:-8081}']
+
+  # =============================================================================
+  # CONTAINER ORCHESTRATION (7 services)
+  # =============================================================================
+  - job_name: 'docker-daemon'
+    static_configs:
+      - targets: ['${DOCKER_HOST:-localhost}:${DOCKER_PORT:-9323}']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['${CADVISOR_HOST:-cadvisor}:${CADVISOR_PORT:-8080}']
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['${NODE_EXPORTER_HOST:-node-exporter}:${NODE_EXPORTER_PORT:-9100}']
+
+  - job_name: 'process-exporter'
+    static_configs:
+      - targets: ['${PROCESS_EXPORTER_HOST:-process-exporter}:${PROCESS_EXPORTER_PORT:-9256}']
+
+  - job_name: 'blackbox-exporter'
+    static_configs:
+      - targets: ['${BLACKBOX_EXPORTER_HOST:-blackbox-exporter}:${BLACKBOX_EXPORTER_PORT:-9115}']
+
+  - job_name: 'snmp-exporter'
+    static_configs:
+      - targets: ['${SNMP_EXPORTER_HOST:-snmp-exporter}:${SNMP_EXPORTER_PORT:-9116}']
+
+  - job_name: 'pushgateway'
+    static_configs:
+      - targets: ['${PUSHGATEWAY_HOST:-pushgateway}:${PUSHGATEWAY_PORT:-9091}']
+
+  # =============================================================================
+  # APPLICATION SERVICES (8 services)
+  # =============================================================================
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['${NGINX_EXPORTER_HOST:-nginx-exporter}:${NGINX_EXPORTER_PORT:-9113}']
+
+  - job_name: 'haproxy'
+    static_configs:
+      - targets: ['${HAPROXY_EXPORTER_HOST:-haproxy-exporter}:${HAPROXY_EXPORTER_PORT:-9101}']
+
+  - job_name: 'consul'
+    static_configs:
+      - targets: ['${CONSUL_HOST:-consul}:${CONSUL_PORT:-8500}']
+    metrics_path: /v1/agent/metrics
+
+  - job_name: 'vault'
+    static_configs:
+      - targets: ['${VAULT_HOST:-vault}:${VAULT_PORT:-8200}']
+    metrics_path: /v1/sys/metrics
+
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['${JAEGER_HOST:-jaeger}:${JAEGER_PORT:-14269}']
+
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['${MINIO_HOST:-minio}:${MINIO_PORT:-9000}']
+
+  - job_name: 'traefik'
+    static_configs:
+      - targets: ['${TRAEFIK_HOST:-traefik}:${TRAEFIK_PORT:-8080}']
+
+  - job_name: 'certbot'
+    static_configs:
+      - targets: ['${CERTBOT_EXPORTER_HOST:-certbot-exporter}:${CERTBOT_EXPORTER_PORT:-9117}']
+
+  # =============================================================================
+  # PHASE 7 - ALTERNATIVE MARKET INTELLIGENCE (4 services)
+  # =============================================================================
+  - job_name: 'dm-crawler'
+    static_configs:
+      - targets: ['${DM_CRAWLER_HOST:-dm-crawler}:${DM_CRAWLER_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'crypto-intel'
+    static_configs:
+      - targets: ['${CRYPTO_INTEL_HOST:-crypto-intel}:${CRYPTO_INTEL_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'reputation-analyzer'
+    static_configs:
+      - targets: ['${REPUTATION_ANALYZER_HOST:-reputation-analyzer}:${REPUTATION_ANALYZER_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'economics-processor'
+    static_configs:
+      - targets: ['${ECONOMICS_PROCESSOR_HOST:-economics-processor}:${ECONOMICS_PROCESSOR_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # =============================================================================
+  # PHASE 8 - ADVANCED SECURITY OPERATIONS (4 services)
+  # =============================================================================
+  - job_name: 'tactical-intel'
+    static_configs:
+      - targets: ['${TACTICAL_INTEL_HOST:-tactical-intel}:${TACTICAL_INTEL_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'defense-automation'
+    static_configs:
+      - targets: ['${DEFENSE_AUTOMATION_HOST:-defense-automation}:${DEFENSE_AUTOMATION_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'opsec-enforcer'
+    static_configs:
+      - targets: ['${OPSEC_ENFORCER_HOST:-opsec-enforcer}:${OPSEC_ENFORCER_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'intel-fusion'
+    static_configs:
+      - targets: ['${INTEL_FUSION_HOST:-intel-fusion}:${INTEL_FUSION_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # =============================================================================
+  # PHASE 9 - AUTONOMOUS ENHANCEMENT (4 services)
+  # =============================================================================
+  - job_name: 'autonomous-coordinator'
+    static_configs:
+      - targets: ['${AUTONOMOUS_COORDINATOR_HOST:-autonomous-coordinator}:${AUTONOMOUS_COORDINATOR_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'adaptive-learning'
+    static_configs:
+      - targets: ['${ADAPTIVE_LEARNING_HOST:-adaptive-learning}:${ADAPTIVE_LEARNING_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'resource-manager'
+    static_configs:
+      - targets: ['${RESOURCE_MANAGER_HOST:-resource-manager}:${RESOURCE_MANAGER_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'knowledge-evolution'
+    static_configs:
+      - targets: ['${KNOWLEDGE_EVOLUTION_HOST:-knowledge-evolution}:${KNOWLEDGE_EVOLUTION_PORT:-8000}']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # =============================================================================
+  # HEALTH MONITORING SYSTEM (GAP 6) - 3 services
+  # =============================================================================
+  - job_name: 'health-monitor'
+    static_configs:
+      - targets: ['${HEALTH_MONITOR_HOST:-health-monitor}:${HEALTH_MONITOR_PORT:-9091}']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+  - job_name: 'metrics-collector'
+    static_configs:
+      - targets: ['${METRICS_COLLECTOR_HOST:-metrics-collector}:${METRICS_COLLECTOR_PORT:-9092}']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+  - job_name: 'alert-system'
+    static_configs:
+      - targets: ['${ALERT_SYSTEM_HOST:-alert-system}:${ALERT_SYSTEM_PORT:-9093}']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+  # =============================================================================
+  # VECTOR DATABASE INFRASTRUCTURE (4 services)
+  # =============================================================================
+  - job_name: 'qdrant-primary'
+    static_configs:
+      - targets: ['${QDRANT_PRIMARY_HOST:-172.30.0.36}:${QDRANT_PRIMARY_PORT:-6333}']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+  - job_name: 'qdrant-replica'
+    static_configs:
+      - targets: ['${QDRANT_REPLICA_HOST:-172.30.0.37}:${QDRANT_REPLICA_PORT:-6336}']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+  - job_name: 'weaviate'
+    static_configs:
+      - targets: ['${WEAVIATE_HOST:-172.30.0.38}:${WEAVIATE_PORT:-8080}']
+    metrics_path: /v1/metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+    basic_auth:
+      username: 'bev-osint@admin'
+      password: '${WEAVIATE_API_KEY:-default-key}'
+
+  - job_name: 'vector-database-manager'
+    static_configs:
+      - targets: ['${VECTOR_DB_MANAGER_HOST:-localhost}:${VECTOR_DB_MANAGER_PORT:-8080}']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+  - job_name: 'embedding-pipeline'
+    static_configs:
+      - targets: ['${EMBEDDING_PIPELINE_HOST:-localhost}:${EMBEDDING_PIPELINE_PORT:-8081}']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+  # =============================================================================
+  # BLACKBOX PROBES
+  # =============================================================================
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - ${BEV_API_ENDPOINT:-http://api.bev.local}
+          - ${BEV_FRONTEND_ENDPOINT:-http://frontend.bev.local}
+          - ${GRAFANA_ENDPOINT:-http://grafana.bev.local}
+          - ${KIBANA_ENDPOINT:-http://kibana.bev.local}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: ${BLACKBOX_EXPORTER_HOST:-blackbox-exporter}:${BLACKBOX_EXPORTER_PORT:-9115}
+
+  - job_name: 'blackbox-tcp'
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - ${POSTGRESQL_HOST:-postgresql}:${POSTGRESQL_PORT:-5432}
+          - ${MONGODB_HOST:-mongodb}:${MONGODB_PORT:-27017}
+          - ${REDIS_HOST:-redis}:${REDIS_PORT:-6379}
+          - ${ELASTICSEARCH_HOST:-elasticsearch}:${ELASTICSEARCH_PORT:-9200}
+          - ${QDRANT_PRIMARY_HOST:-172.30.0.36}:${QDRANT_PRIMARY_PORT:-6333}
+          - ${QDRANT_REPLICA_HOST:-172.30.0.37}:${QDRANT_REPLICA_PORT:-6336}
+          - ${WEAVIATE_HOST:-172.30.0.38}:${WEAVIATE_PORT:-8080}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: ${BLACKBOX_EXPORTER_HOST:-blackbox-exporter}:${BLACKBOX_EXPORTER_PORT:-9115}
+
+  - job_name: 'blackbox-vector-db-health'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://${QDRANT_PRIMARY_HOST:-172.30.0.36}:${QDRANT_PRIMARY_PORT:-6333}/health
+          - http://${QDRANT_REPLICA_HOST:-172.30.0.37}:${QDRANT_REPLICA_PORT:-6336}/health
+          - http://${WEAVIATE_HOST:-172.30.0.38}:${WEAVIATE_PORT:-8080}/v1/.well-known/ready
+          - http://${HEALTH_MONITOR_HOST:-health-monitor}:${HEALTH_MONITOR_API_PORT:-8000}/health
+          - http://${METRICS_COLLECTOR_HOST:-metrics-collector}:${METRICS_COLLECTOR_API_PORT:-8000}/health
+          - http://${ALERT_SYSTEM_HOST:-alert-system}:${ALERT_SYSTEM_API_PORT:-8000}/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: ${BLACKBOX_EXPORTER_HOST:-blackbox-exporter}:${BLACKBOX_EXPORTER_PORT:-9115}
+    scrape_interval: 30s
+
+# Global metric relabeling is applied after all scrape_configs

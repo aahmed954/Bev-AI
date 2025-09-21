@@ -1,0 +1,58 @@
+# Prometheus configuration for BEV OSINT MCP Server monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'bev-osint-mcp'
+
+rule_files:
+  # Add alert rules here if needed
+
+scrape_configs:
+  # MCP Server metrics
+  - job_name: 'mcp-server'
+    static_configs:
+      - targets: ['mcp-server:3010']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    scheme: http
+    
+  # Redis metrics (if redis_exporter is used)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-cache:6379']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    
+  # PostgreSQL metrics (if postgres_exporter is used)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-db:5432']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+  # Node exporter for system metrics (if deployed)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+# Alerting configuration (optional)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Recording rules for aggregations
+rule_files:
+  - "recording_rules.yml"
+  - "alert_rules.yml"

@@ -1,0 +1,493 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "BEV OSINT - Health Monitoring Dashboard",
+    "tags": ["bev", "health", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "schemaVersion": 30,
+    "version": 1,
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Health Overview",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "count(bev_service_up == 1)",
+            "legendFormat": "Healthy Services",
+            "refId": "A"
+          },
+          {
+            "expr": "count(bev_service_up == 0)",
+            "legendFormat": "Unhealthy Services",
+            "refId": "B"
+          },
+          {
+            "expr": "count(bev_service_up)",
+            "legendFormat": "Total Services",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 40},
+                {"color": "red", "value": 50}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          },
+          "orientation": "auto",
+          "textMode": "auto",
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Active Alerts",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(bev_active_alerts)",
+            "legendFormat": "Total Active Alerts",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(bev_active_alerts{severity=\"critical\"})",
+            "legendFormat": "Critical Alerts",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(bev_active_alerts{severity=\"warning\"})",
+            "legendFormat": "Warning Alerts",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 5},
+                {"color": "red", "value": 10}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          },
+          "orientation": "auto",
+          "textMode": "auto",
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 3,
+        "title": "Service Availability",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "bev_service_up",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {"text": "Down", "color": "red"},
+                  "1": {"text": "Up", "color": "green"}
+                },
+                "type": "value"
+              }
+            ]
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Value"},
+              "properties": [
+                {"id": "displayName", "value": "Status"},
+                {"id": "custom.displayMode", "value": "color-background"}
+              ]
+            }
+          ]
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+        "options": {
+          "showHeader": true
+        },
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "__name__": true,
+                "Time": true,
+                "job": true,
+                "instance": true
+              },
+              "indexByName": {
+                "service": 0,
+                "type": 1,
+                "Value": 2
+              },
+              "renameByName": {
+                "service": "Service",
+                "type": "Type",
+                "Value": "Status"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Response Time by Service",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "bev_service_response_time_seconds",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 2},
+                {"color": "red", "value": 5}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "options": {
+          "tooltip": {"mode": "multi", "sort": "none"},
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        }
+      },
+      {
+        "id": 5,
+        "title": "CPU Usage by Service",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "bev_service_cpu_usage_percent",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 85}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "options": {
+          "tooltip": {"mode": "multi", "sort": "none"},
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        }
+      },
+      {
+        "id": 6,
+        "title": "Memory Usage by Service",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "bev_service_memory_usage_percent",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 80},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "options": {
+          "tooltip": {"mode": "multi", "sort": "none"},
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        }
+      },
+      {
+        "id": 7,
+        "title": "Error Rate by Service",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(bev_service_errors_total[5m]) * 100",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 5}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "options": {
+          "tooltip": {"mode": "multi", "sort": "none"},
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        }
+      },
+      {
+        "id": 8,
+        "title": "Health Check Duration",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "bev_health_check_duration_seconds",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 2}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+        "options": {
+          "tooltip": {"mode": "multi", "sort": "none"},
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        }
+      },
+      {
+        "id": 9,
+        "title": "Alert Timeline",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "bev_alerts_total",
+            "legendFormat": "{{service}} - {{severity}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "min": 0
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 40},
+        "options": {
+          "tooltip": {"mode": "multi", "sort": "none"},
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        }
+      },
+      {
+        "id": 10,
+        "title": "Notification Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(bev_notifications_sent_total[5m]))",
+            "legendFormat": "Notifications Sent/min",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(bev_notification_failures_total[5m]))",
+            "legendFormat": "Failed Notifications/min",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 10},
+                {"color": "red", "value": 50}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 48},
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          },
+          "orientation": "auto",
+          "textMode": "auto",
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 11,
+        "title": "System Resource Usage",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "bev_service_cpu_usage_percent{service=\"system\"}",
+            "legendFormat": "System CPU",
+            "refId": "A"
+          },
+          {
+            "expr": "bev_service_memory_usage_percent{service=\"system\"}",
+            "legendFormat": "System Memory",
+            "refId": "B"
+          },
+          {
+            "expr": "bev_disk_usage_percent{service=\"system\"}",
+            "legendFormat": "System Disk",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 85}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 48},
+        "options": {
+          "tooltip": {"mode": "multi", "sort": "none"},
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "service",
+          "type": "query",
+          "query": "label_values(bev_service_up, service)",
+          "current": {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          "options": [],
+          "includeAll": true,
+          "allValue": ".*",
+          "multi": true,
+          "refresh": 1
+        },
+        {
+          "name": "severity",
+          "type": "query",
+          "query": "label_values(bev_active_alerts, severity)",
+          "current": {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          "options": [],
+          "includeAll": true,
+          "allValue": ".*",
+          "multi": true,
+          "refresh": 1
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Critical Alerts",
+          "enable": true,
+          "iconColor": "red",
+          "query": "ALERTS{alertstate=\"firing\", severity=\"critical\"}",
+          "textFormat": "{{alertname}}: {{summary}}",
+          "titleFormat": "Critical Alert"
+        },
+        {
+          "name": "Service Deployments",
+          "enable": true,
+          "iconColor": "blue",
+          "query": "changes(bev_service_up[1m]) > 0",
+          "textFormat": "Service {{service}} state changed",
+          "titleFormat": "Service Change"
+        }
+      ]
+    }
+  }
+}

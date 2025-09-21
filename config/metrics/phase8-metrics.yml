@@ -1,0 +1,362 @@
+# Phase 8 - Advanced Security Operations Metrics Configuration
+# Defines custom metrics for Tactical Intel, Defense Automation, OPSEC Enforcer, and Intel Fusion
+
+# =============================================================================
+# TACTICAL INTEL METRICS
+# =============================================================================
+tactical_intel_metrics:
+  # Service Health Metrics
+  - name: tactical_intel_health_status
+    type: gauge
+    help: "Health status of Tactical Intel service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  - name: tactical_intel_feed_status
+    type: gauge
+    help: "Status of threat intelligence feeds (1=active, 0=inactive)"
+    labels: ["feed_source", "feed_type"]
+
+  # Threat Detection Metrics
+  - name: tactical_intel_threats_detected_total
+    type: counter
+    help: "Total number of threats detected"
+    labels: ["threat_type", "severity", "source"]
+
+  - name: tactical_intel_threat_score
+    type: gauge
+    help: "Current highest threat score (0-1)"
+    labels: ["threat_category"]
+
+  - name: tactical_intel_false_positives_total
+    type: counter
+    help: "Total number of false positive detections"
+    labels: ["detection_rule", "threat_type"]
+
+  # Intelligence Processing Metrics
+  - name: tactical_intel_indicators_processed_total
+    type: counter
+    help: "Total number of threat indicators processed"
+    labels: ["indicator_type", "source"]
+
+  - name: tactical_intel_processing_duration_seconds
+    type: histogram
+    help: "Duration of threat intelligence processing"
+    labels: ["analysis_type", "complexity"]
+    buckets: [0.1, 1.0, 5.0, 10.0, 30.0, 60.0, 300.0]
+
+  - name: tactical_intel_confidence_score
+    type: gauge
+    help: "Confidence level of intelligence analysis (0-1)"
+    labels: ["analysis_type", "data_source"]
+
+  # MITRE ATT&CK Integration
+  - name: tactical_intel_attack_techniques_mapped_total
+    type: counter
+    help: "Total MITRE ATT&CK techniques mapped"
+    labels: ["tactic", "technique"]
+
+  - name: tactical_intel_attack_campaigns_identified
+    type: counter
+    help: "Number of attack campaigns identified"
+    labels: ["threat_actor", "campaign_type"]
+
+  # Feed Integration Metrics
+  - name: tactical_intel_feed_updates_total
+    type: counter
+    help: "Total feed updates processed"
+    labels: ["feed_source", "update_type"]
+
+  - name: tactical_intel_feed_latency_seconds
+    type: gauge
+    help: "Latency between feed publication and processing"
+    labels: ["feed_source"]
+
+# =============================================================================
+# DEFENSE AUTOMATION METRICS
+# =============================================================================
+defense_automation_metrics:
+  # Service Health Metrics
+  - name: defense_automation_health_status
+    type: gauge
+    help: "Health status of Defense Automation service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  # Response Automation Metrics
+  - name: defense_automation_responses_triggered_total
+    type: counter
+    help: "Total automated responses triggered"
+    labels: ["response_type", "trigger_source", "severity"]
+
+  - name: defense_automation_response_time_seconds
+    type: histogram
+    help: "Time taken to execute automated responses"
+    labels: ["response_type", "complexity"]
+    buckets: [1.0, 5.0, 10.0, 30.0, 60.0, 300.0]
+
+  - name: defense_automation_response_success_rate
+    type: gauge
+    help: "Success rate of automated responses (0-1)"
+    labels: ["response_type"]
+
+  # Response Limiting Metrics
+  - name: defense_automation_responses_count
+    type: gauge
+    help: "Current number of responses in the period"
+    labels: ["response_type"]
+
+  - name: defense_automation_cooldown_remaining_seconds
+    type: gauge
+    help: "Remaining cooldown time for response types"
+    labels: ["response_type"]
+
+  - name: defense_automation_rate_limit_violations_total
+    type: counter
+    help: "Number of times rate limits were hit"
+    labels: ["response_type"]
+
+  # Rule Engine Metrics
+  - name: defense_automation_rules_evaluated_total
+    type: counter
+    help: "Total number of defense rules evaluated"
+    labels: ["rule_category", "evaluation_result"]
+
+  - name: defense_automation_rule_match_rate
+    type: gauge
+    help: "Rate of rule matches (0-1)"
+    labels: ["rule_category"]
+
+  - name: defense_automation_rule_effectiveness
+    type: gauge
+    help: "Effectiveness score of defense rules (0-1)"
+    labels: ["rule_id", "rule_type"]
+
+  # Notification Metrics
+  - name: defense_automation_notifications_sent_total
+    type: counter
+    help: "Total notifications sent"
+    labels: ["notification_type", "channel", "status"]
+
+  - name: defense_automation_escalations_total
+    type: counter
+    help: "Total escalations triggered"
+    labels: ["escalation_level", "reason"]
+
+# =============================================================================
+# OPSEC ENFORCER METRICS
+# =============================================================================
+opsec_enforcer_metrics:
+  # Service Health Metrics
+  - name: opsec_enforcer_health_status
+    type: gauge
+    help: "Health status of OPSEC Enforcer service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  - name: opsec_enforcer_privacy_level
+    type: gauge
+    help: "Current operational privacy level (1-5)"
+
+  # Policy Enforcement Metrics
+  - name: opsec_enforcer_policies_enforced_total
+    type: counter
+    help: "Total OPSEC policies enforced"
+    labels: ["policy_type", "enforcement_action"]
+
+  - name: opsec_enforcer_violations_total
+    type: counter
+    help: "Total OPSEC policy violations detected"
+    labels: ["violation_type", "severity", "source"]
+
+  - name: opsec_enforcer_violation_prevention_rate
+    type: gauge
+    help: "Rate of violations prevented (0-1)"
+    labels: ["policy_category"]
+
+  # Traffic Analysis Metrics
+  - name: opsec_enforcer_traffic_analyzed_bytes_total
+    type: counter
+    help: "Total bytes of traffic analyzed"
+    labels: ["traffic_type", "direction"]
+
+  - name: opsec_enforcer_traffic_anomaly_score
+    type: gauge
+    help: "Current traffic anomaly score (0-1)"
+    labels: ["traffic_type"]
+
+  - name: opsec_enforcer_pattern_matches_total
+    type: counter
+    help: "Total suspicious patterns matched"
+    labels: ["pattern_type", "confidence_level"]
+
+  # Operational Security Metrics
+  - name: opsec_enforcer_compartments_active
+    type: gauge
+    help: "Number of active operational compartments"
+
+  - name: opsec_enforcer_vpn_rotations_total
+    type: counter
+    help: "Total VPN rotations performed"
+    labels: ["rotation_trigger", "success"]
+
+  - name: opsec_enforcer_metadata_stripped_total
+    type: counter
+    help: "Total metadata stripping operations"
+    labels: ["data_type", "strip_level"]
+
+  # Anonymity Metrics
+  - name: opsec_enforcer_anonymity_score
+    type: gauge
+    help: "Current operational anonymity score (0-1)"
+    labels: ["metric_type"]
+
+  - name: opsec_enforcer_fingerprint_entropy
+    type: gauge
+    help: "Digital fingerprint entropy level"
+
+  - name: opsec_enforcer_attribution_risk
+    type: gauge
+    help: "Current attribution risk level (0-1)"
+    labels: ["risk_category"]
+
+# =============================================================================
+# INTEL FUSION METRICS
+# =============================================================================
+intel_fusion_metrics:
+  # Service Health Metrics
+  - name: intel_fusion_health_status
+    type: gauge
+    help: "Health status of Intel Fusion service (1=healthy, 0=unhealthy)"
+    labels: ["service", "version"]
+
+  # Correlation Engine Metrics
+  - name: intel_fusion_correlations_processed_total
+    type: counter
+    help: "Total number of correlations processed"
+    labels: ["correlation_type", "source_count"]
+
+  - name: intel_fusion_correlation_delay_seconds
+    type: gauge
+    help: "Current correlation processing delay"
+    labels: ["priority_level"]
+
+  - name: intel_fusion_correlation_accuracy
+    type: gauge
+    help: "Accuracy of correlation results (0-1)"
+    labels: ["correlation_algorithm"]
+
+  # Multi-Source Integration Metrics
+  - name: intel_fusion_sources_integrated
+    type: gauge
+    help: "Number of intelligence sources currently integrated"
+    labels: ["source_type"]
+
+  - name: intel_fusion_source_reliability
+    type: gauge
+    help: "Reliability score of intelligence sources (0-1)"
+    labels: ["source_id", "source_type"]
+
+  - name: intel_fusion_data_conflicts_total
+    type: counter
+    help: "Total data conflicts detected between sources"
+    labels: ["conflict_type", "source_pair"]
+
+  # Fusion Processing Metrics
+  - name: intel_fusion_processing_duration_seconds
+    type: histogram
+    help: "Duration of intelligence fusion processing"
+    labels: ["fusion_type", "data_volume"]
+    buckets: [1.0, 5.0, 10.0, 30.0, 60.0, 300.0, 600.0]
+
+  - name: intel_fusion_correlation_confidence
+    type: gauge
+    help: "Confidence level of fusion correlations (0-1)"
+    labels: ["correlation_type"]
+
+  - name: intel_fusion_fusion_completeness
+    type: gauge
+    help: "Completeness of fusion analysis (0-1)"
+    labels: ["analysis_type"]
+
+  # Pattern Recognition Metrics
+  - name: intel_fusion_patterns_identified_total
+    type: counter
+    help: "Total patterns identified across sources"
+    labels: ["pattern_type", "complexity"]
+
+  - name: intel_fusion_pattern_confidence
+    type: gauge
+    help: "Confidence in identified patterns (0-1)"
+    labels: ["pattern_category"]
+
+  - name: intel_fusion_temporal_correlations_total
+    type: counter
+    help: "Total temporal correlations found"
+    labels: ["time_window", "correlation_strength"]
+
+  # Output Quality Metrics
+  - name: intel_fusion_reports_generated_total
+    type: counter
+    help: "Total fusion reports generated"
+    labels: ["report_type", "confidence_level"]
+
+  - name: intel_fusion_actionable_intelligence_rate
+    type: gauge
+    help: "Rate of actionable intelligence produced (0-1)"
+
+# =============================================================================
+# COMMON METRICS ACROSS ALL PHASE 8 SERVICES
+# =============================================================================
+common_phase8_metrics:
+  # Security Event Metrics
+  - name: phase8_security_events_total
+    type: counter
+    help: "Total security events processed"
+    labels: ["service", "event_type", "severity"]
+
+  - name: phase8_security_incidents_total
+    type: counter
+    help: "Total security incidents detected"
+    labels: ["service", "incident_type", "classification"]
+
+  # Threat Intelligence Metrics
+  - name: phase8_threat_indicators_shared_total
+    type: counter
+    help: "Total threat indicators shared between services"
+    labels: ["source_service", "target_service", "indicator_type"]
+
+  - name: phase8_threat_hunting_sessions_total
+    type: counter
+    help: "Total threat hunting sessions conducted"
+    labels: ["service", "hunt_type", "outcome"]
+
+  # Response Coordination Metrics
+  - name: phase8_coordinated_responses_total
+    type: counter
+    help: "Total coordinated responses across services"
+    labels: ["response_type", "coordination_level"]
+
+  - name: phase8_response_effectiveness
+    type: gauge
+    help: "Effectiveness of security responses (0-1)"
+    labels: ["service", "response_category"]
+
+  # Compliance and Audit Metrics
+  - name: phase8_compliance_checks_total
+    type: counter
+    help: "Total compliance checks performed"
+    labels: ["service", "compliance_framework", "result"]
+
+  - name: phase8_audit_events_total
+    type: counter
+    help: "Total audit events generated"
+    labels: ["service", "event_category", "classification"]
+
+  # Inter-Service Communication
+  - name: phase8_service_communications_total
+    type: counter
+    help: "Total communications between Phase 8 services"
+    labels: ["source_service", "target_service", "message_type"]
+
+  - name: phase8_data_sharing_volume_bytes
+    type: counter
+    help: "Volume of data shared between services"
+    labels: ["source_service", "target_service", "data_type"]

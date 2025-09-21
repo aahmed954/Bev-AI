@@ -1,0 +1,1262 @@
+name: Disaster Recovery & Emergency Response
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Recovery Action'
+        required: true
+        type: choice
+        default: 'backup'
+        options:
+          - backup
+          - restore
+          - emergency-stop
+          - emergency-restore
+          - health-restore
+          - data-recovery
+          - system-rebuild
+      backup_type:
+        description: 'Backup Type'
+        required: false
+        type: choice
+        default: 'incremental'
+        options:
+          - full
+          - incremental
+          - differential
+          - configuration-only
+          - data-only
+      restore_point:
+        description: 'Restore Point (timestamp or backup ID)'
+        required: false
+        type: string
+      emergency_level:
+        description: 'Emergency Level'
+        required: false
+        type: choice
+        default: 'moderate'
+        options:
+          - low
+          - moderate
+          - high
+          - critical
+  schedule:
+    - cron: '0 2 * * *'     # Daily full backup at 2 AM
+    - cron: '0 */6 * * *'   # Incremental backup every 6 hours
+  repository_dispatch:
+    types: [disaster-event, emergency-response]
+
+env:
+  BACKUP_RETENTION_DAYS: 30
+  EMERGENCY_BACKUP_RETENTION: 90
+  BACKUP_STORAGE_PATH: "/opt/bev-backups"
+  VAULT_BACKUP_PATH: "/opt/vault-backups"
+  THANOS_HOST: "100.96.197.84"
+  ORACLE1_HOST: "100.96.197.84"
+  STARLORD_HOST: "100.122.12.54"
+
+jobs:
+  emergency-assessment:
+    name: Emergency Assessment & Triage
+    runs-on: self-hosted
+    outputs:
+      emergency-level: ${{ steps.assessment.outputs.level }}
+      affected-services: ${{ steps.assessment.outputs.services }}
+      recovery-strategy: ${{ steps.assessment.outputs.strategy }}
+      estimated-rto: ${{ steps.assessment.outputs.rto }}
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Assess System Status
+        id: assessment
+        run: |
+          echo "🚨 Conducting emergency system assessment..."
+          
+          # Create emergency assessment script
+          python3 - << 'EOF' > emergency_assessment.py
+          import subprocess
+          import json
+          import time
+          import psutil
+          import requests
+          from datetime import datetime
+          from typing import Dict, List, Any
+          
+          class EmergencyAssessment:
+              def __init__(self):
+                  self.critical_services = [
+                      'bev_postgres',
+                      'bev_redis', 
+                      'bev_neo4j',
+                      'bev_prometheus',
+                      'bev_grafana'
+                  ]
+                  self.endpoints = [
+                      'http://localhost:80',
+                      'http://localhost:3000',
+                      'http://localhost:9090',
+                      'http://localhost:7474'
+                  ]
+                  self.assessment_data = {}
+              
+              def assess_docker_services(self) -> Dict[str, Any]:
+                  """Assess Docker service health"""
+                  try:
+                      result = subprocess.run(['docker', 'ps', '--format', 'json'], 
+                                            capture_output=True, text=True, timeout=10)
+                      
+                      if result.returncode != 0:
+                          return {'status': 'docker_unavailable', 'services': []}
+                      
+                      services = []
+                      for line in result.stdout.strip().split('\n'):
+                          if line.strip():
+                              try:
+                                  service_data = json.loads(line)
+                                  services.append({
+                                      'name': service_data.get('Names', ''),
+                                      'status': service_data.get('State', ''),
+                                      'health': service_data.get('Status', '')
+                                  })
+                              except json.JSONDecodeError:
+                                  continue
+                      
+                      # Check critical services
+                      critical_down = []
+                      for critical in self.critical_services:
+                          found = any(critical in s['name'] for s in services)
+                          if not found:
+                              critical_down.append(critical)
+                      
+                      status = 'healthy' if not critical_down else 'critical' if len(critical_down) > 2 else 'degraded'
+                      
+                      return {
+                          'status': status,
+                          'total_services': len(services),
+                          'running_services': len([s for s in services if s['status'] == 'running']),
+                          'critical_services_down': critical_down,
+                          'services': services
+                      }
+                  
+                  except Exception as e:
+                      return {'status': 'assessment_failed', 'error': str(e)}
+              
+              def assess_endpoint_health(self) -> Dict[str, Any]:
+                  """Assess endpoint responsiveness"""
+                  endpoint_status = {}
+                  total_healthy = 0
+                  
+                  for endpoint in self.endpoints:
+                      try:
+                          response = requests.get(f"{endpoint}/health", timeout=5)
+                          if response.status_code == 200:
+                              endpoint_status[endpoint] = 'healthy'
+                              total_healthy += 1
+                          else:
+                              endpoint_status[endpoint] = f'unhealthy_http_{response.status_code}'
+                      except requests.exceptions.RequestException:
+                          try:
+                              # Try base endpoint
+                              response = requests.get(endpoint, timeout=5)
+                              if response.status_code < 500:
+                                  endpoint_status[endpoint] = 'partial'
+                                  total_healthy += 0.5
+                              else:
+                                  endpoint_status[endpoint] = 'unreachable'
+                          except:
+                              endpoint_status[endpoint] = 'unreachable'
+                  
+                  health_percentage = (total_healthy / len(self.endpoints)) * 100
+                  
+                  return {
+                      'endpoint_health_percentage': health_percentage,
+                      'endpoints': endpoint_status,
+                      'total_endpoints': len(self.endpoints),
+                      'healthy_endpoints': total_healthy
+                  }
+              
+              def assess_system_resources(self) -> Dict[str, Any]:
+                  """Assess system resource status"""
+                  try:
+                      # CPU and Memory
+                      cpu_percent = psutil.cpu_percent(interval=1)
+                      memory = psutil.virtual_memory()
+                      disk = psutil.disk_usage('/')
+                      
+                      # Network connectivity
+                      network_status = 'unknown'
+                      try:
+                          response = requests.get('http://8.8.8.8', timeout=3)
+                          network_status = 'connected'
+                      except:
+                          network_status = 'disconnected'
+                      
+                      # Resource pressure assessment
+                      resource_pressure = 'low'
+                      if cpu_percent > 90 or memory.percent > 95 or disk.percent > 95:
+                          resource_pressure = 'critical'
+                      elif cpu_percent > 80 or memory.percent > 85 or disk.percent > 85:
+                          resource_pressure = 'high'
+                      elif cpu_percent > 60 or memory.percent > 70 or disk.percent > 70:
+                          resource_pressure = 'moderate'
+                      
+                      return {
+                          'cpu_percent': cpu_percent,
+                          'memory_percent': memory.percent,
+                          'disk_percent': disk.percent,
+                          'available_memory_gb': memory.available / (1024**3),
+                          'available_disk_gb': disk.free / (1024**3),
+                          'network_status': network_status,
+                          'resource_pressure': resource_pressure
+                      }
+                  
+                  except Exception as e:
+                      return {'status': 'resource_assessment_failed', 'error': str(e)}
+              
+              def assess_data_integrity(self) -> Dict[str, Any]:
+                  """Assess data integrity and availability"""
+                  data_status = {}
+                  
+                  # Check critical data directories
+                  critical_paths = [
+                      '/var/lib/docker/volumes',
+                      '/opt/bev-backups',
+                      '/var/lib/postgresql',
+                      '/var/lib/redis'
+                  ]
+                  
+                  for path in critical_paths:
+                      try:
+                          if subprocess.run(['ls', path], capture_output=True).returncode == 0:
+                              data_status[path] = 'accessible'
+                          else:
+                              data_status[path] = 'inaccessible'
+                      except:
+                          data_status[path] = 'unknown'
+                  
+                  # Database connectivity tests
+                  db_status = {}
+                  
+                  # PostgreSQL
+                  try:
+                      result = subprocess.run(['docker', 'exec', 'bev_postgres', 'pg_isready'], 
+                                            capture_output=True, timeout=10)
+                      db_status['postgresql'] = 'healthy' if result.returncode == 0 else 'unhealthy'
+                  except:
+                      db_status['postgresql'] = 'unreachable'
+                  
+                  # Redis
+                  try:
+                      result = subprocess.run(['docker', 'exec', 'bev_redis', 'redis-cli', 'ping'], 
+                                            capture_output=True, timeout=10)
+                      db_status['redis'] = 'healthy' if result.returncode == 0 else 'unhealthy'
+                  except:
+                      db_status['redis'] = 'unreachable'
+                  
+                  return {
+                      'data_paths': data_status,
+                      'databases': db_status,
+                      'data_integrity_score': len([v for v in data_status.values() if v == 'accessible']) / len(data_status) * 100
+                  }
+              
+              def determine_emergency_level(self) -> str:
+                  """Determine overall emergency level"""
+                  docker_status = self.assessment_data.get('docker_services', {}).get('status', 'unknown')
+                  endpoint_health = self.assessment_data.get('endpoint_health', {}).get('endpoint_health_percentage', 0)
+                  resource_pressure = self.assessment_data.get('system_resources', {}).get('resource_pressure', 'unknown')
+                  data_integrity = self.assessment_data.get('data_integrity', {}).get('data_integrity_score', 0)
+                  
+                  # Critical conditions
+                  if (docker_status == 'critical' or 
+                      endpoint_health < 25 or 
+                      resource_pressure == 'critical' or 
+                      data_integrity < 50):
+                      return 'critical'
+                  
+                  # High priority conditions
+                  elif (docker_status == 'degraded' or 
+                        endpoint_health < 50 or 
+                        resource_pressure == 'high' or 
+                        data_integrity < 75):
+                      return 'high'
+                  
+                  # Moderate conditions
+                  elif (endpoint_health < 75 or 
+                        resource_pressure == 'moderate' or 
+                        data_integrity < 90):
+                      return 'moderate'
+                  
+                  else:
+                      return 'low'
+              
+              def determine_recovery_strategy(self, emergency_level: str) -> str:
+                  """Determine appropriate recovery strategy"""
+                  strategy_map = {
+                      'critical': 'emergency_rebuild',
+                      'high': 'full_restore',
+                      'moderate': 'selective_restore',
+                      'low': 'health_check_and_optimize'
+                  }
+                  return strategy_map.get(emergency_level, 'assessment_required')
+              
+              def estimate_recovery_time(self, emergency_level: str, strategy: str) -> int:
+                  """Estimate recovery time objective (RTO) in minutes"""
+                  rto_map = {
+                      'emergency_rebuild': 120,    # 2 hours
+                      'full_restore': 60,          # 1 hour
+                      'selective_restore': 30,     # 30 minutes
+                      'health_check_and_optimize': 15  # 15 minutes
+                  }
+                  return rto_map.get(strategy, 60)
+              
+              def run_assessment(self) -> Dict[str, Any]:
+                  """Run comprehensive emergency assessment"""
+                  print("🔍 Running emergency system assessment...")
+                  
+                  # Collect assessment data
+                  self.assessment_data['docker_services'] = self.assess_docker_services()
+                  self.assessment_data['endpoint_health'] = self.assess_endpoint_health()
+                  self.assessment_data['system_resources'] = self.assess_system_resources()
+                  self.assessment_data['data_integrity'] = self.assess_data_integrity()
+                  
+                  # Determine emergency response
+                  emergency_level = self.determine_emergency_level()
+                  recovery_strategy = self.determine_recovery_strategy(emergency_level)
+                  rto_minutes = self.estimate_recovery_time(emergency_level, recovery_strategy)
+                  
+                  # Identify affected services
+                  affected_services = []
+                  docker_data = self.assessment_data.get('docker_services', {})
+                  if 'critical_services_down' in docker_data:
+                      affected_services.extend(docker_data['critical_services_down'])
+                  
+                  endpoint_data = self.assessment_data.get('endpoint_health', {})
+                  for endpoint, status in endpoint_data.get('endpoints', {}).items():
+                      if status != 'healthy':
+                          affected_services.append(f"endpoint_{endpoint}")
+                  
+                  # Compile final assessment
+                  assessment_result = {
+                      'timestamp': datetime.utcnow().isoformat(),
+                      'emergency_level': emergency_level,
+                      'recovery_strategy': recovery_strategy,
+                      'estimated_rto_minutes': rto_minutes,
+                      'affected_services': affected_services,
+                      'assessment_data': self.assessment_data,
+                      'recommendations': self.generate_recommendations(emergency_level, recovery_strategy)
+                  }
+                  
+                  # Save assessment
+                  with open('emergency_assessment.json', 'w') as f:
+                      json.dump(assessment_result, f, indent=2)
+                  
+                  # Print summary
+                  print(f"\n🚨 Emergency Assessment Results:")
+                  print(f"  Emergency Level: {emergency_level}")
+                  print(f"  Recovery Strategy: {recovery_strategy}")
+                  print(f"  Estimated RTO: {rto_minutes} minutes")
+                  print(f"  Affected Services: {len(affected_services)}")
+                  
+                  if emergency_level in ['critical', 'high']:
+                      print(f"🔥 IMMEDIATE ACTION REQUIRED!")
+                  
+                  return assessment_result
+              
+              def generate_recommendations(self, level: str, strategy: str) -> List[str]:
+                  """Generate emergency response recommendations"""
+                  recommendations = []
+                  
+                  if level == 'critical':
+                      recommendations.extend([
+                          "Initiate emergency response procedures immediately",
+                          "Alert on-call team and stakeholders",
+                          "Begin emergency backup if data integrity is at risk",
+                          "Consider emergency shutdown to prevent data corruption"
+                      ])
+                  elif level == 'high':
+                      recommendations.extend([
+                          "Begin recovery procedures within 30 minutes",
+                          "Notify technical team of service degradation",
+                          "Monitor system resources closely",
+                          "Prepare for potential service downtime"
+                      ])
+                  elif level == 'moderate':
+                      recommendations.extend([
+                          "Schedule maintenance window for recovery",
+                          "Monitor system for further degradation",
+                          "Review recent changes for potential causes",
+                          "Update monitoring thresholds if needed"
+                      ])
+                  else:
+                      recommendations.extend([
+                          "Continue normal monitoring",
+                          "Document any minor issues found",
+                          "Consider preventive maintenance"
+                      ])
+                  
+                  return recommendations
+          
+          if __name__ == "__main__":
+              assessment = EmergencyAssessment()
+              result = assessment.run_assessment()
+          EOF
+          
+          # Run emergency assessment
+          python3 emergency_assessment.py
+          
+          # Set outputs from assessment
+          if [[ -f emergency_assessment.json ]]; then
+            assessment=$(cat emergency_assessment.json)
+            level=$(echo "$assessment" | jq -r '.emergency_level')
+            strategy=$(echo "$assessment" | jq -r '.recovery_strategy')
+            rto=$(echo "$assessment" | jq -r '.estimated_rto_minutes')
+            services=$(echo "$assessment" | jq -c '.affected_services')
+            
+            echo "level=$level" >> $GITHUB_OUTPUT
+            echo "strategy=$strategy" >> $GITHUB_OUTPUT
+            echo "rto=$rto" >> $GITHUB_OUTPUT
+            echo "services=$services" >> $GITHUB_OUTPUT
+            
+            echo "✅ Emergency assessment completed"
+          else
+            echo "❌ Emergency assessment failed"
+            echo "level=unknown" >> $GITHUB_OUTPUT
+            echo "strategy=manual_intervention" >> $GITHUB_OUTPUT
+            echo "rto=240" >> $GITHUB_OUTPUT
+            echo "services=[]" >> $GITHUB_OUTPUT
+          fi
+
+  backup-system:
+    name: System Backup
+    runs-on: self-hosted
+    needs: emergency-assessment
+    if: github.event.inputs.action == 'backup' || github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Initialize Backup Environment
+        run: |
+          echo "💾 Initializing backup environment..."
+          
+          # Create backup directories
+          sudo mkdir -p "$BACKUP_STORAGE_PATH"/{database,configuration,data,logs}
+          sudo mkdir -p "$VAULT_BACKUP_PATH"
+          
+          # Set permissions
+          sudo chown -R $(whoami):$(whoami) "$BACKUP_STORAGE_PATH"
+          
+          # Install backup tools
+          sudo apt-get update >/dev/null 2>&1
+          sudo apt-get install -y postgresql-client redis-tools rsync tar gzip >/dev/null 2>&1
+          
+          echo "✅ Backup environment ready"
+
+      - name: Backup Docker Volumes and Configurations
+        run: |
+          echo "📦 Backing up Docker volumes and configurations..."
+          
+          backup_type="${{ github.event.inputs.backup_type || 'incremental' }}"
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          backup_dir="$BACKUP_STORAGE_PATH/system_backup_${timestamp}"
+          
+          mkdir -p "$backup_dir"
+          
+          # Backup Docker Compose configurations
+          echo "📋 Backing up Docker Compose configurations..."
+          cp docker-compose*.yml "$backup_dir/" 2>/dev/null || true
+          cp .env "$backup_dir/" 2>/dev/null || true
+          
+          # Backup critical configuration files
+          echo "⚙️ Backing up configuration files..."
+          mkdir -p "$backup_dir/config"
+          cp -r config/* "$backup_dir/config/" 2>/dev/null || true
+          cp nginx.conf "$backup_dir/" 2>/dev/null || true
+          
+          # Backup Docker volumes
+          echo "💾 Backing up Docker volumes..."
+          volume_backup_dir="$backup_dir/volumes"
+          mkdir -p "$volume_backup_dir"
+          
+          # Get list of Docker volumes
+          docker volume ls --format "{{.Name}}" | grep -E "bev_|postgres|redis|neo4j|grafana|prometheus" | while read volume; do
+            echo "  Backing up volume: $volume"
+            
+            # Create volume backup using docker run
+            docker run --rm \
+              -v "$volume:/source:ro" \
+              -v "$volume_backup_dir:/backup" \
+              alpine tar czf "/backup/${volume}.tar.gz" -C /source .
+          done
+          
+          # Backup Vault data if available
+          if docker ps | grep -q vault; then
+            echo "🔐 Backing up Vault data..."
+            docker exec vault vault operator status >/dev/null 2>&1 && {
+              docker exec vault vault write sys/storage/raft/snapshot > "$backup_dir/vault_snapshot.dat"
+            } || echo "⚠️ Vault not accessible for backup"
+          fi
+          
+          # Create backup manifest
+          cat > "$backup_dir/backup_manifest.json" << EOF
+          {
+            "backup_timestamp": "$timestamp",
+            "backup_type": "$backup_type",
+            "emergency_level": "${{ needs.emergency-assessment.outputs.emergency-level }}",
+            "system_state": "$(docker ps --format 'table {{.Names}}\t{{.Status}}' | tail -n +2)",
+            "backup_size_mb": "$(du -sm $backup_dir | cut -f1)",
+            "retention_until": "$(date -d '+$BACKUP_RETENTION_DAYS days' +%Y-%m-%d)"
+          }
+          EOF
+          
+          # Compress backup if it's a full backup
+          if [[ "$backup_type" == "full" ]]; then
+            echo "🗜️ Compressing full backup..."
+            cd "$BACKUP_STORAGE_PATH"
+            tar czf "system_backup_${timestamp}.tar.gz" "system_backup_${timestamp}"
+            rm -rf "system_backup_${timestamp}"
+            backup_path="$BACKUP_STORAGE_PATH/system_backup_${timestamp}.tar.gz"
+          else
+            backup_path="$backup_dir"
+          fi
+          
+          echo "backup_path=$backup_path" >> $GITHUB_ENV
+          echo "backup_timestamp=$timestamp" >> $GITHUB_ENV
+          echo "✅ System backup completed: $backup_path"
+
+      - name: Backup Databases
+        run: |
+          echo "🗄️ Backing up databases..."
+          
+          timestamp="${backup_timestamp}"
+          db_backup_dir="$BACKUP_STORAGE_PATH/database/backup_${timestamp}"
+          mkdir -p "$db_backup_dir"
+          
+          # PostgreSQL backup
+          if docker ps | grep -q bev_postgres; then
+            echo "🐘 Backing up PostgreSQL..."
+            docker exec bev_postgres pg_dumpall -U researcher > "$db_backup_dir/postgresql_full.sql"
+            docker exec bev_postgres pg_dump -U researcher osint > "$db_backup_dir/postgresql_osint.sql"
+            
+            # Backup specific schemas
+            docker exec bev_postgres pg_dump -U researcher -n companion_personality osint > "$db_backup_dir/companion_personality.sql" 2>/dev/null || true
+            docker exec bev_postgres pg_dump -U researcher -n companion_memory osint > "$db_backup_dir/companion_memory.sql" 2>/dev/null || true
+            
+            echo "✅ PostgreSQL backup completed"
+          else
+            echo "⚠️ PostgreSQL container not running"
+          fi
+          
+          # Redis backup
+          if docker ps | grep -q bev_redis; then
+            echo "🔴 Backing up Redis..."
+            docker exec bev_redis redis-cli BGSAVE
+            sleep 5  # Wait for background save
+            docker exec bev_redis redis-cli LASTSAVE > "$db_backup_dir/redis_lastsave.txt"
+            docker cp bev_redis:/data/dump.rdb "$db_backup_dir/redis_dump.rdb"
+            echo "✅ Redis backup completed"
+          else
+            echo "⚠️ Redis container not running"
+          fi
+          
+          # Neo4j backup
+          if docker ps | grep -q bev_neo4j; then
+            echo "🕸️ Backing up Neo4j..."
+            docker exec bev_neo4j neo4j-admin dump --database=neo4j --to=/tmp/neo4j_backup.dump 2>/dev/null || {
+              echo "⚠️ Neo4j admin dump failed, trying alternative method"
+              docker exec bev_neo4j cypher-shell -u neo4j -p BevGraphMaster2024 "CALL apoc.export.cypher.all('/tmp/neo4j_export.cypher', {})" 2>/dev/null || true
+            }
+            
+            # Copy backup files
+            docker cp bev_neo4j:/tmp/neo4j_backup.dump "$db_backup_dir/" 2>/dev/null || true
+            docker cp bev_neo4j:/tmp/neo4j_export.cypher "$db_backup_dir/" 2>/dev/null || true
+            echo "✅ Neo4j backup completed"
+          else
+            echo "⚠️ Neo4j container not running"
+          fi
+          
+          # InfluxDB backup (if running)
+          if docker ps | grep -q influxdb; then
+            echo "📊 Backing up InfluxDB..."
+            docker exec influxdb influxd backup -portable /tmp/influxdb_backup 2>/dev/null || true
+            docker cp influxdb:/tmp/influxdb_backup "$db_backup_dir/" 2>/dev/null || true
+            echo "✅ InfluxDB backup completed"
+          fi
+          
+          # Create database backup summary
+          du -sh "$db_backup_dir"/* > "$db_backup_dir/backup_summary.txt" 2>/dev/null || true
+          echo "✅ Database backups completed"
+
+      - name: Backup Application Data
+        run: |
+          echo "📁 Backing up application data..."
+          
+          timestamp="${backup_timestamp}"
+          data_backup_dir="$BACKUP_STORAGE_PATH/data/backup_${timestamp}"
+          mkdir -p "$data_backup_dir"
+          
+          # Backup OSINT analysis results
+          if [[ -d "/opt/bev-data" ]]; then
+            echo "🔍 Backing up OSINT data..."
+            rsync -av /opt/bev-data/ "$data_backup_dir/osint_data/" 2>/dev/null || true
+          fi
+          
+          # Backup companion data
+          if [[ -d "/opt/bev-companion" ]]; then
+            echo "🤖 Backing up companion data..."
+            rsync -av /opt/bev-companion/data/ "$data_backup_dir/companion_data/" 2>/dev/null || true
+            rsync -av /opt/bev-companion/logs/ "$data_backup_dir/companion_logs/" 2>/dev/null || true
+          fi
+          
+          # Backup logs
+          echo "📋 Backing up system logs..."
+          mkdir -p "$data_backup_dir/logs"
+          
+          # Docker logs
+          docker ps --format "{{.Names}}" | while read container; do
+            docker logs "$container" > "$data_backup_dir/logs/${container}.log" 2>&1 || true
+          done
+          
+          # System logs
+          sudo cp /var/log/syslog "$data_backup_dir/logs/" 2>/dev/null || true
+          sudo cp /var/log/auth.log "$data_backup_dir/logs/" 2>/dev/null || true
+          sudo cp /var/log/kern.log "$data_backup_dir/logs/" 2>/dev/null || true
+          
+          # Backup monitoring data
+          if [[ -d "/opt/prometheus" ]]; then
+            echo "📊 Backing up Prometheus data..."
+            rsync -av /opt/prometheus/ "$data_backup_dir/prometheus_data/" 2>/dev/null || true
+          fi
+          
+          if [[ -d "/opt/grafana" ]]; then
+            echo "📈 Backing up Grafana data..."
+            rsync -av /opt/grafana/ "$data_backup_dir/grafana_data/" 2>/dev/null || true
+          fi
+          
+          echo "✅ Application data backup completed"
+
+      - name: Cleanup Old Backups
+        run: |
+          echo "🧹 Cleaning up old backups..."
+          
+          # Remove backups older than retention period
+          find "$BACKUP_STORAGE_PATH" -type f -name "*.tar.gz" -mtime +$BACKUP_RETENTION_DAYS -delete 2>/dev/null || true
+          find "$BACKUP_STORAGE_PATH" -type d -name "backup_*" -mtime +$BACKUP_RETENTION_DAYS -exec rm -rf {} + 2>/dev/null || true
+          find "$BACKUP_STORAGE_PATH" -type d -name "system_backup_*" -mtime +$BACKUP_RETENTION_DAYS -exec rm -rf {} + 2>/dev/null || true
+          
+          # Keep emergency backups longer
+          find "$BACKUP_STORAGE_PATH" -type f -name "*emergency*" -mtime +$EMERGENCY_BACKUP_RETENTION -delete 2>/dev/null || true
+          
+          # Report backup storage usage
+          echo "📊 Backup storage usage:"
+          du -sh "$BACKUP_STORAGE_PATH"/*
+          
+          echo "✅ Backup cleanup completed"
+
+  restore-system:
+    name: System Restore
+    runs-on: self-hosted
+    needs: emergency-assessment
+    if: github.event.inputs.action == 'restore' || github.event.inputs.action == 'emergency-restore'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Identify Restore Point
+        id: restore-point
+        run: |
+          echo "🔍 Identifying restore point..."
+          
+          restore_point="${{ github.event.inputs.restore_point }}"
+          action="${{ github.event.inputs.action }}"
+          
+          if [[ -z "$restore_point" ]]; then
+            # Auto-select most recent backup
+            if [[ "$action" == "emergency-restore" ]]; then
+              # For emergency restore, find most recent emergency backup or full backup
+              restore_point=$(find "$BACKUP_STORAGE_PATH" -name "*emergency*" -o -name "*full*" | sort -r | head -1)
+            else
+              # For normal restore, find most recent backup
+              restore_point=$(find "$BACKUP_STORAGE_PATH" -name "system_backup_*" | sort -r | head -1)
+            fi
+          fi
+          
+          if [[ ! -e "$restore_point" ]]; then
+            echo "❌ Restore point not found: $restore_point"
+            exit 1
+          fi
+          
+          echo "restore_point=$restore_point" >> $GITHUB_OUTPUT
+          echo "📍 Restore point identified: $restore_point"
+
+      - name: Pre-Restore Safety Checks
+        run: |
+          echo "🔒 Performing pre-restore safety checks..."
+          
+          restore_point="${{ steps.restore-point.outputs.restore_point }}"
+          emergency_level="${{ needs.emergency-assessment.outputs.emergency-level }}"
+          
+          # Create pre-restore backup if not in critical emergency
+          if [[ "$emergency_level" != "critical" ]]; then
+            echo "💾 Creating pre-restore backup..."
+            timestamp=$(date +%Y%m%d_%H%M%S)
+            pre_restore_backup="$BACKUP_STORAGE_PATH/pre_restore_backup_${timestamp}"
+            
+            mkdir -p "$pre_restore_backup"
+            
+            # Backup current Docker Compose files
+            cp docker-compose*.yml "$pre_restore_backup/" 2>/dev/null || true
+            cp .env "$pre_restore_backup/" 2>/dev/null || true
+            
+            # Quick database backup
+            if docker ps | grep -q bev_postgres; then
+              docker exec bev_postgres pg_dumpall -U researcher > "$pre_restore_backup/pre_restore_postgresql.sql" &
+            fi
+            
+            if docker ps | grep -q bev_redis; then
+              docker exec bev_redis redis-cli BGSAVE &
+            fi
+            
+            wait  # Wait for background backups
+            echo "✅ Pre-restore backup completed"
+          fi
+          
+          # Validate restore point
+          if [[ -f "$restore_point" && "$restore_point" == *.tar.gz ]]; then
+            echo "📦 Validating compressed backup..."
+            tar -tzf "$restore_point" >/dev/null || {
+              echo "❌ Backup archive is corrupted"
+              exit 1
+            }
+          elif [[ -d "$restore_point" ]]; then
+            echo "📁 Validating directory backup..."
+            if [[ ! -f "$restore_point/backup_manifest.json" ]]; then
+              echo "⚠️ Backup manifest missing - proceeding with caution"
+            fi
+          fi
+          
+          echo "✅ Pre-restore safety checks completed"
+
+      - name: Stop Services for Restore
+        run: |
+          echo "⏹️ Stopping services for restore..."
+          
+          # Gracefully stop services
+          echo "🛑 Stopping Docker Compose services..."
+          docker-compose -f docker-compose-thanos-unified.yml down || true
+          docker-compose -f docker-compose-oracle1-unified.yml down || true
+          
+          # Stop companion service if running
+          sudo systemctl stop bev-companion 2>/dev/null || true
+          
+          # Wait for services to stop
+          sleep 30
+          
+          echo "✅ Services stopped for restore"
+
+      - name: Restore System Configuration
+        run: |
+          echo "⚙️ Restoring system configuration..."
+          
+          restore_point="${{ steps.restore-point.outputs.restore_point }}"
+          
+          # Extract backup if compressed
+          if [[ -f "$restore_point" && "$restore_point" == *.tar.gz ]]; then
+            echo "📦 Extracting compressed backup..."
+            cd "$BACKUP_STORAGE_PATH"
+            tar -xzf "$restore_point"
+            
+            # Find extracted directory
+            extracted_dir=$(tar -tzf "$restore_point" | head -1 | cut -f1 -d'/')
+            restore_source="$BACKUP_STORAGE_PATH/$extracted_dir"
+          else
+            restore_source="$restore_point"
+          fi
+          
+          echo "📂 Restoring from: $restore_source"
+          
+          # Restore Docker Compose configurations
+          if [[ -d "$restore_source" ]]; then
+            echo "📋 Restoring Docker Compose configurations..."
+            cp "$restore_source"/*.yml . 2>/dev/null || true
+            cp "$restore_source"/.env . 2>/dev/null || true
+            
+            # Restore configuration files
+            if [[ -d "$restore_source/config" ]]; then
+              echo "⚙️ Restoring configuration files..."
+              rsync -av "$restore_source/config/" config/ 2>/dev/null || true
+            fi
+            
+            cp "$restore_source/nginx.conf" . 2>/dev/null || true
+            
+            echo "✅ System configuration restored"
+          else
+            echo "❌ Restore source directory not found"
+            exit 1
+          fi
+
+      - name: Restore Docker Volumes
+        run: |
+          echo "💾 Restoring Docker volumes..."
+          
+          restore_source="${{ env.restore_source || '/tmp/restore_source' }}"
+          volume_source="$restore_source/volumes"
+          
+          if [[ -d "$volume_source" ]]; then
+            # Restore each volume
+            for volume_backup in "$volume_source"/*.tar.gz; do
+              if [[ -f "$volume_backup" ]]; then
+                volume_name=$(basename "$volume_backup" .tar.gz)
+                echo "  Restoring volume: $volume_name"
+                
+                # Remove existing volume
+                docker volume rm "$volume_name" 2>/dev/null || true
+                
+                # Create new volume
+                docker volume create "$volume_name"
+                
+                # Restore volume data
+                docker run --rm \
+                  -v "$volume_name:/target" \
+                  -v "$volume_source:/backup" \
+                  alpine tar -xzf "/backup/$(basename "$volume_backup")" -C /target
+              fi
+            done
+            
+            echo "✅ Docker volumes restored"
+          else
+            echo "⚠️ No volume backups found in restore source"
+          fi
+
+      - name: Restore Databases
+        run: |
+          echo "🗄️ Restoring databases..."
+          
+          # Start database services only
+          echo "🚀 Starting database services..."
+          docker-compose -f docker-compose-thanos-unified.yml up -d bev_postgres bev_redis bev_neo4j
+          
+          # Wait for databases to be ready
+          echo "⏳ Waiting for databases to start..."
+          timeout 60 bash -c 'until docker exec bev_postgres pg_isready -U researcher; do sleep 2; done'
+          timeout 60 bash -c 'until docker exec bev_redis redis-cli ping; do sleep 2; done'
+          
+          # Find database backups
+          backup_timestamp="${{ env.backup_timestamp }}"
+          db_backup_dir="$BACKUP_STORAGE_PATH/database/backup_${backup_timestamp}"
+          
+          # If specific timestamp not available, find most recent
+          if [[ ! -d "$db_backup_dir" ]]; then
+            db_backup_dir=$(find "$BACKUP_STORAGE_PATH/database" -type d -name "backup_*" | sort -r | head -1)
+          fi
+          
+          if [[ -d "$db_backup_dir" ]]; then
+            echo "📂 Restoring from database backup: $db_backup_dir"
+            
+            # Restore PostgreSQL
+            if [[ -f "$db_backup_dir/postgresql_full.sql" ]]; then
+              echo "🐘 Restoring PostgreSQL..."
+              
+              # Drop existing databases
+              docker exec bev_postgres psql -U researcher -c "DROP DATABASE IF EXISTS osint;"
+              docker exec bev_postgres psql -U researcher -c "CREATE DATABASE osint;"
+              
+              # Restore full backup
+              docker exec -i bev_postgres psql -U researcher osint < "$db_backup_dir/postgresql_osint.sql"
+              
+              # Restore companion schemas if available
+              if [[ -f "$db_backup_dir/companion_personality.sql" ]]; then
+                docker exec -i bev_postgres psql -U researcher osint < "$db_backup_dir/companion_personality.sql"
+              fi
+              
+              if [[ -f "$db_backup_dir/companion_memory.sql" ]]; then
+                docker exec -i bev_postgres psql -U researcher osint < "$db_backup_dir/companion_memory.sql"
+              fi
+              
+              echo "✅ PostgreSQL restored"
+            fi
+            
+            # Restore Redis
+            if [[ -f "$db_backup_dir/redis_dump.rdb" ]]; then
+              echo "🔴 Restoring Redis..."
+              docker stop bev_redis
+              docker cp "$db_backup_dir/redis_dump.rdb" bev_redis:/data/dump.rdb
+              docker start bev_redis
+              
+              # Wait for Redis to start
+              timeout 30 bash -c 'until docker exec bev_redis redis-cli ping; do sleep 2; done'
+              echo "✅ Redis restored"
+            fi
+            
+            # Restore Neo4j
+            if [[ -f "$db_backup_dir/neo4j_backup.dump" ]]; then
+              echo "🕸️ Restoring Neo4j..."
+              docker stop bev_neo4j
+              docker cp "$db_backup_dir/neo4j_backup.dump" bev_neo4j:/tmp/
+              docker start bev_neo4j
+              
+              # Wait for Neo4j and restore
+              sleep 30
+              docker exec bev_neo4j neo4j-admin load --database=neo4j --from=/tmp/neo4j_backup.dump --force || true
+              echo "✅ Neo4j restored"
+            fi
+            
+            echo "✅ Database restore completed"
+          else
+            echo "⚠️ No database backups found for restore"
+          fi
+
+      - name: Start Restored Services
+        run: |
+          echo "🚀 Starting restored services..."
+          
+          # Start all services
+          docker-compose -f docker-compose-thanos-unified.yml up -d
+          
+          # Start Oracle1 services if on correct host
+          if [[ "$(hostname)" == *"oracle"* ]] || [[ "${{ runner.name }}" == *"oracle"* ]]; then
+            docker-compose -f docker-compose-oracle1-unified.yml up -d || true
+          fi
+          
+          # Wait for services to be healthy
+          echo "⏳ Waiting for services to become healthy..."
+          sleep 60
+          
+          # Check service health
+          timeout 300 bash -c '
+            while true; do
+              healthy_count=$(docker ps --filter "health=healthy" --format "{{.Names}}" | wc -l)
+              total_count=$(docker ps --format "{{.Names}}" | wc -l)
+              
+              echo "Healthy services: $healthy_count/$total_count"
+              
+              if [[ $healthy_count -ge $(($total_count * 2 / 3)) ]]; then
+                break
+              fi
+              
+              sleep 10
+            done
+          ' || echo "⚠️ Not all services are healthy, but continuing..."
+          
+          echo "✅ Services started"
+
+      - name: Validate Restore Success
+        run: |
+          echo "✅ Validating restore success..."
+          
+          # Check critical endpoints
+          endpoints=(
+            "http://localhost:80"
+            "http://localhost:3000"
+            "http://localhost:9090"
+          )
+          
+          healthy_endpoints=0
+          for endpoint in "${endpoints[@]}"; do
+            if curl -s "$endpoint/health" >/dev/null 2>&1 || curl -s "$endpoint" >/dev/null 2>&1; then
+              echo "  ✅ $endpoint - Healthy"
+              ((healthy_endpoints++))
+            else
+              echo "  ❌ $endpoint - Unhealthy"
+            fi
+          done
+          
+          # Check database connectivity
+          if docker exec bev_postgres pg_isready -U researcher >/dev/null 2>&1; then
+            echo "  ✅ PostgreSQL - Connected"
+          else
+            echo "  ❌ PostgreSQL - Connection failed"
+          fi
+          
+          if docker exec bev_redis redis-cli ping >/dev/null 2>&1; then
+            echo "  ✅ Redis - Connected"
+          else
+            echo "  ❌ Redis - Connection failed"
+          fi
+          
+          # Overall assessment
+          if [[ $healthy_endpoints -ge 2 ]]; then
+            echo "✅ Restore validation PASSED"
+            echo "🎉 System restore completed successfully"
+          else
+            echo "❌ Restore validation FAILED"
+            echo "⚠️ Manual intervention may be required"
+            exit 1
+          fi
+
+  emergency-procedures:
+    name: Emergency Procedures
+    runs-on: self-hosted
+    needs: emergency-assessment
+    if: github.event.inputs.action == 'emergency-stop' || needs.emergency-assessment.outputs.emergency-level == 'critical'
+    
+    steps:
+      - name: Emergency System Shutdown
+        if: github.event.inputs.action == 'emergency-stop'
+        run: |
+          echo "🚨 Executing emergency system shutdown..."
+          
+          # Immediate emergency backup
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          emergency_backup="$BACKUP_STORAGE_PATH/emergency_backup_${timestamp}"
+          mkdir -p "$emergency_backup"
+          
+          # Quick critical data backup
+          echo "💾 Emergency data backup..."
+          
+          # Database emergency backup
+          if docker ps | grep -q bev_postgres; then
+            docker exec bev_postgres pg_dumpall -U researcher > "$emergency_backup/emergency_postgresql.sql" &
+          fi
+          
+          if docker ps | grep -q bev_redis; then
+            docker exec bev_redis redis-cli BGSAVE &
+            sleep 2
+            docker cp bev_redis:/data/dump.rdb "$emergency_backup/emergency_redis.rdb" &
+          fi
+          
+          # Configuration backup
+          cp docker-compose*.yml "$emergency_backup/" 2>/dev/null &
+          cp .env "$emergency_backup/" 2>/dev/null &
+          
+          # Wait for critical backups
+          wait
+          
+          # Emergency shutdown
+          echo "⏹️ Emergency service shutdown..."
+          docker stop $(docker ps -q) 2>/dev/null || true
+          sudo systemctl stop bev-companion 2>/dev/null || true
+          
+          echo "🚨 Emergency shutdown completed"
+          echo "💾 Emergency backup saved to: $emergency_backup"
+
+      - name: Emergency Health Recovery
+        if: github.event.inputs.action == 'health-restore'
+        run: |
+          echo "🏥 Executing emergency health recovery..."
+          
+          # Restart critical services only
+          echo "🚀 Starting critical services..."
+          
+          # Start databases first
+          docker-compose -f docker-compose-thanos-unified.yml up -d bev_postgres bev_redis
+          
+          # Wait and start monitoring
+          sleep 30
+          docker-compose -f docker-compose-thanos-unified.yml up -d bev_prometheus bev_grafana
+          
+          # Start main platform
+          sleep 30
+          docker-compose -f docker-compose-thanos-unified.yml up -d
+          
+          echo "✅ Emergency health recovery initiated"
+
+  system-rebuild:
+    name: System Rebuild
+    runs-on: self-hosted
+    needs: emergency-assessment
+    if: github.event.inputs.action == 'system-rebuild' || needs.emergency-assessment.outputs.recovery-strategy == 'emergency_rebuild'
+    
+    steps:
+      - name: Complete System Rebuild
+        run: |
+          echo "🔨 Executing complete system rebuild..."
+          
+          # Emergency backup before rebuild
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          rebuild_backup="$BACKUP_STORAGE_PATH/pre_rebuild_backup_${timestamp}"
+          mkdir -p "$rebuild_backup"
+          
+          # Quick backup of existing state
+          echo "💾 Pre-rebuild backup..."
+          docker ps > "$rebuild_backup/docker_ps.txt"
+          docker images > "$rebuild_backup/docker_images.txt"
+          cp docker-compose*.yml "$rebuild_backup/" 2>/dev/null || true
+          
+          # Complete teardown
+          echo "🧹 Complete system teardown..."
+          docker-compose -f docker-compose-thanos-unified.yml down -v --remove-orphans 2>/dev/null || true
+          docker-compose -f docker-compose-oracle1-unified.yml down -v --remove-orphans 2>/dev/null || true
+          
+          # Prune system
+          docker system prune -af --volumes
+          
+          # Rebuild from scratch
+          echo "🏗️ Rebuilding system from latest backup..."
+          
+          # Find most recent full backup
+          latest_backup=$(find "$BACKUP_STORAGE_PATH" -name "*full*" -o -name "system_backup_*" | sort -r | head -1)
+          
+          if [[ -n "$latest_backup" ]]; then
+            echo "📂 Rebuilding from: $latest_backup"
+            
+            # Trigger restore workflow
+            gh workflow run disaster-recovery.yml \
+              --field action=restore \
+              --field restore_point="$latest_backup" \
+              --field emergency_level=critical || {
+              echo "❌ Failed to trigger restore workflow"
+              echo "🔧 Manual restore required using: $latest_backup"
+            }
+          else
+            echo "❌ No backup found for rebuild"
+            echo "🆘 Manual system recovery required"
+            exit 1
+          fi
+          
+          echo "✅ System rebuild initiated"
+
+  notification-and-reporting:
+    name: Notification & Reporting
+    runs-on: ubuntu-latest
+    needs: [emergency-assessment, backup-system, restore-system, emergency-procedures, system-rebuild]
+    if: always()
+    
+    steps:
+      - name: Generate Recovery Report
+        run: |
+          echo "📋 Generating disaster recovery report..."
+          
+          # Create comprehensive report
+          cat > disaster_recovery_report.md << 'EOF'
+          # Disaster Recovery Report
+          
+          **Timestamp**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Action**: ${{ github.event.inputs.action || 'scheduled-backup' }}
+          **Emergency Level**: ${{ needs.emergency-assessment.outputs.emergency-level }}
+          **Recovery Strategy**: ${{ needs.emergency-assessment.outputs.recovery-strategy }}
+          **Estimated RTO**: ${{ needs.emergency-assessment.outputs.estimated-rto }} minutes
+          
+          ## Assessment Results
+          
+          **Affected Services**: 
+          ${{ needs.emergency-assessment.outputs.affected-services }}
+          
+          **Emergency Level**: ${{ needs.emergency-assessment.outputs.emergency-level }}
+          - 🟢 Low: System operating normally
+          - 🟡 Moderate: Minor issues detected
+          - 🟠 High: Significant degradation
+          - 🔴 Critical: Service failure
+          
+          ## Action Results
+          
+          EOF
+          
+          # Add job results
+          if [[ "${{ github.event.inputs.action }}" == "backup" ]] || [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "### Backup Results" >> disaster_recovery_report.md
+            echo "**Backup Job**: ${{ needs.backup-system.result }}" >> disaster_recovery_report.md
+          fi
+          
+          if [[ "${{ github.event.inputs.action }}" == "restore" ]] || [[ "${{ github.event.inputs.action }}" == "emergency-restore" ]]; then
+            echo "### Restore Results" >> disaster_recovery_report.md
+            echo "**Restore Job**: ${{ needs.restore-system.result }}" >> disaster_recovery_report.md
+          fi
+          
+          if [[ "${{ needs.emergency-procedures.result }}" != "skipped" ]]; then
+            echo "### Emergency Procedures" >> disaster_recovery_report.md
+            echo "**Emergency Job**: ${{ needs.emergency-procedures.result }}" >> disaster_recovery_report.md
+          fi
+          
+          if [[ "${{ needs.system-rebuild.result }}" != "skipped" ]]; then
+            echo "### System Rebuild" >> disaster_recovery_report.md
+            echo "**Rebuild Job**: ${{ needs.system-rebuild.result }}" >> disaster_recovery_report.md
+          fi
+          
+          # Add recommendations
+          cat >> disaster_recovery_report.md << 'EOF'
+          
+          ## Recommendations
+          
+          Based on the current emergency level and recovery results:
+          
+          EOF
+          
+          emergency_level="${{ needs.emergency-assessment.outputs.emergency-level }}"
+          
+          if [[ "$emergency_level" == "critical" ]]; then
+            cat >> disaster_recovery_report.md << 'EOF'
+          - 🚨 **IMMEDIATE ATTENTION REQUIRED**
+          - Monitor system closely for the next 24 hours
+          - Consider implementing additional monitoring
+          - Review incident for process improvements
+          EOF
+          elif [[ "$emergency_level" == "high" ]]; then
+            cat >> disaster_recovery_report.md << 'EOF'
+          - ⚠️ **Monitor system for 12 hours**
+          - Review logs for root cause analysis
+          - Update alerting thresholds if needed
+          EOF
+          elif [[ "$emergency_level" == "moderate" ]]; then
+            cat >> disaster_recovery_report.md << 'EOF'
+          - 📊 Continue normal monitoring
+          - Document any issues for trend analysis
+          - Consider preventive maintenance
+          EOF
+          else
+            cat >> disaster_recovery_report.md << 'EOF'
+          - ✅ System operating normally
+          - Backup completed successfully
+          - No immediate action required
+          EOF
+          fi
+          
+          echo ""
+          echo "📋 Disaster Recovery Report:"
+          cat disaster_recovery_report.md
+
+      - name: Upload Recovery Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: disaster-recovery-results
+          path: |
+            disaster_recovery_report.md
+            emergency_assessment.json
+          retention-days: 90
+
+      - name: Summary
+        run: |
+          echo "🎯 Disaster Recovery Summary"
+          echo "============================="
+          
+          action="${{ github.event.inputs.action || 'backup' }}"
+          emergency_level="${{ needs.emergency-assessment.outputs.emergency-level }}"
+          
+          echo "🎯 Action: $action"
+          echo "🚨 Emergency Level: $emergency_level"
+          
+          # Overall status
+          if [[ "${{ needs.backup-system.result }}" == "success" ]] || 
+             [[ "${{ needs.restore-system.result }}" == "success" ]] || 
+             [[ "$action" == "emergency-stop" && "${{ needs.emergency-procedures.result }}" == "success" ]]; then
+            echo "✅ Disaster recovery operation completed successfully"
+          else
+            echo "⚠️ Disaster recovery operation completed with warnings"
+          fi
+          
+          echo ""
+          echo "📊 Next Actions:"
+          case "$emergency_level" in
+            "critical")
+              echo "  🚨 Monitor system continuously"
+              echo "  📞 Alert stakeholders"
+              echo "  📋 Conduct post-incident review"
+              ;;
+            "high")
+              echo "  ⚠️ Monitor system for 12 hours"
+              echo "  📋 Review incident logs"
+              ;;
+            "moderate"|"low")
+              echo "  📊 Continue normal monitoring"
+              echo "  📁 Archive recovery artifacts"
+              ;;
+          esac
+          
+          echo ""
+          echo "🔗 Recovery artifacts uploaded for review"

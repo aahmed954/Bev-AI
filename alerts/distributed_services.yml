@@ -1,0 +1,173 @@
+# Distributed Services Alerts - ORACLE1 to THANOS Communication
+# BEV OSINT Framework - Cross-node monitoring
+
+groups:
+  - name: distributed_services
+    interval: 60s
+    rules:
+      # THANOS connectivity monitoring
+      - alert: THANOSConnectionLost
+        expr: up{job="thanos-connectivity"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: thanos
+          platform: distributed
+        annotations:
+          summary: "ORACLE1 lost connection to THANOS"
+          description: "ORACLE1 cannot reach THANOS server (100.122.12.54) for more than 5 minutes"
+
+      # Remote write failures
+      - alert: RemoteWriteFailures
+        expr: rate(prometheus_remote_storage_failed_samples_total{job="prometheus-oracle1"}[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: prometheus
+          platform: distributed
+        annotations:
+          summary: "Remote write failures to THANOS"
+          description: "Prometheus remote write failures to THANOS are above 0.01/second for more than 5 minutes"
+
+      - alert: RemoteWriteLatencyHigh
+        expr: histogram_quantile(0.95, rate(prometheus_remote_storage_queue_duration_seconds_bucket{job="prometheus-oracle1"}[5m])) > 30
+        for: 10m
+        labels:
+          severity: warning
+          service: prometheus
+          platform: distributed
+        annotations:
+          summary: "Remote write latency to THANOS is high"
+          description: "95th percentile remote write latency to THANOS is above 30 seconds for more than 10 minutes"
+
+      # Cross-node service dependencies
+      - alert: CrossNodeServiceDependencyFailed
+        expr: probe_success{job="blackbox-http-oracle1",instance=~"http://100.122.12.54:.*"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: dependency
+          platform: distributed
+        annotations:
+          summary: "Cross-node service dependency failed"
+          description: "Service dependency check failed for {{ $labels.instance }} from ORACLE1 to THANOS"
+
+      # Data synchronization monitoring
+      - alert: DataSyncLag
+        expr: (time() - max(timestamp(up{job=~".*oracle1.*"}))) > 300
+        for: 5m
+        labels:
+          severity: warning
+          service: sync
+          platform: distributed
+        annotations:
+          summary: "Data synchronization lag detected"
+          description: "ORACLE1 data synchronization is lagging behind by more than 5 minutes"
+
+      # Network latency between nodes
+      - alert: InterNodeLatencyHigh
+        expr: probe_duration_seconds{job="blackbox-tcp-oracle1",instance="100.122.12.54:9090"} > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: network
+          platform: distributed
+        annotations:
+          summary: "Inter-node network latency is high"
+          description: "Network latency between ORACLE1 and THANOS is above 500ms for more than 10 minutes"
+
+      # Distributed service health aggregation
+      - alert: DistributedServiceDegradation
+        expr: (count(up{job=~".*oracle1.*"} == 0) / count(up{job=~".*oracle1.*"})) > 0.3
+        for: 10m
+        labels:
+          severity: critical
+          service: distributed
+          platform: arm64
+        annotations:
+          summary: "Distributed service degradation on ORACLE1"
+          description: "More than 30% of ORACLE1 services are down for more than 10 minutes"
+
+      # Resource sharing alerts
+      - alert: SharedResourceContentionHigh
+        expr: rate(redis_blocked_clients{instance=~".*oracle1.*"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          platform: distributed
+        annotations:
+          summary: "Shared resource contention is high"
+          description: "Redis blocked clients rate is above 5/second indicating high resource contention"
+
+      # Cross-node load balancing
+      - alert: LoadBalancingSkew
+        expr: (max(rate(nginx_connections_handled_total{instance=~".*oracle1.*"}[5m])) - min(rate(nginx_connections_handled_total{instance=~".*oracle1.*"}[5m]))) / max(rate(nginx_connections_handled_total{instance=~".*oracle1.*"}[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: nginx
+          platform: distributed
+        annotations:
+          summary: "Load balancing skew detected"
+          description: "Load distribution across ORACLE1 services is skewed by more than 50%"
+
+      # Cluster coordination issues
+      - alert: ClusterCoordinationFailure
+        expr: increase(influxdb_cluster_coordination_errors_total{instance=~".*oracle1.*"}[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: influxdb
+          platform: distributed
+        annotations:
+          summary: "Cluster coordination failure in InfluxDB"
+          description: "InfluxDB cluster coordination errors detected on ORACLE1"
+
+      # External API dependencies
+      - alert: ExternalAPIDependencyDown
+        expr: probe_success{job="blackbox-external-apis"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: external_api
+          platform: distributed
+        annotations:
+          summary: "External API dependency is down"
+          description: "External API {{ $labels.instance }} required by ORACLE1 services is down"
+
+      # Backup and replication health
+      - alert: BackupReplicationLag
+        expr: (time() - minio_replication_last_success_time{instance=~".*oracle1.*"}) > 3600
+        for: 15m
+        labels:
+          severity: warning
+          service: backup
+          platform: distributed
+        annotations:
+          summary: "Backup replication is lagging"
+          description: "MinIO backup replication to THANOS is lagging by more than 1 hour"
+
+      # Service mesh health
+      - alert: ServiceMeshDegradation
+        expr: (count(up{job=~".*oracle1.*"} == 1 and on(instance) probe_success{job="blackbox-http-oracle1"} == 1) / count(up{job=~".*oracle1.*"})) < 0.8
+        for: 5m
+        labels:
+          severity: critical
+          service: mesh
+          platform: distributed
+        annotations:
+          summary: "Service mesh degradation detected"
+          description: "Less than 80% of ORACLE1 services are healthy and reachable through the service mesh"
+
+      # Cross-zone communication
+      - alert: CrossZoneCommunicationFailure
+        expr: increase(nginx_requests_total{status=~"5.."}[10m]) / increase(nginx_requests_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: nginx
+          platform: distributed
+        annotations:
+          summary: "Cross-zone communication failure rate high"
+          description: "Cross-zone communication failure rate is above 10% for more than 5 minutes"

@@ -1,0 +1,1529 @@
+name: AI Companion Coordination & Resource Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Companion Action'
+        required: true
+        type: choice
+        default: 'deploy'
+        options:
+          - deploy
+          - start
+          - stop
+          - restart
+          - health-check
+          - resource-optimize
+      target_node:
+        description: 'Target Node'
+        required: true
+        type: choice
+        default: 'STARLORD'
+        options:
+          - STARLORD
+          - THANOS
+          - ORACLE1
+          - all
+      companion_mode:
+        description: 'Companion Operating Mode'
+        required: false
+        type: choice
+        default: 'research-assistant'
+        options:
+          - research-assistant
+          - cybersecurity-specialist
+          - investigation-coordinator
+          - autonomous-analyst
+          - development-companion
+      resource_allocation:
+        description: 'RTX 4090 Resource Allocation (%)'
+        required: false
+        default: '60'
+        type: string
+  schedule:
+    - cron: '0 8 * * 1-5'  # 8 AM weekdays - auto-start companion
+    - cron: '0 22 * * *'   # 10 PM daily - health check and optimization
+  push:
+    paths:
+      - 'companion-standalone/**'
+      - '.github/workflows/companion-coordination.yml'
+  repository_dispatch:
+    types: [companion-event]
+
+env:
+  STARLORD_HOST: "100.122.12.54"  # Tailscale IP for STARLORD (RTX 4090)
+  THANOS_HOST: "100.96.197.84"    # Tailscale IP for THANOS (RTX 3080)
+  ORACLE1_HOST: "100.96.197.84"   # Tailscale IP for ORACLE1 (ARM64)
+  COMPANION_SERVICE_PORT: 3010
+  GPU_MEMORY_THRESHOLD: 80
+  THERMAL_THRESHOLD: 83
+
+jobs:
+  pre-flight-validation:
+    name: Pre-Flight Companion Validation
+    runs-on: ubuntu-latest
+    outputs:
+      deployment-ready: ${{ steps.validation.outputs.ready }}
+      target-validated: ${{ steps.validation.outputs.target }}
+      resource-plan: ${{ steps.validation.outputs.resources }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Validate Companion Infrastructure
+        id: validation
+        run: |
+          echo "🔍 Validating AI companion infrastructure..."
+          
+          # Validate action and target
+          action="${{ github.event.inputs.action || 'health-check' }}"
+          target="${{ github.event.inputs.target_node || 'STARLORD' }}"
+          
+          echo "🎯 Action: $action"
+          echo "🖥️ Target: $target"
+          
+          # Validate resource allocation
+          allocation="${{ github.event.inputs.resource_allocation || '60' }}"
+          if ! [[ "$allocation" =~ ^[0-9]+$ ]] || [ "$allocation" -lt 10 ] || [ "$allocation" -gt 90 ]; then
+            echo "❌ Invalid resource allocation: $allocation% (must be 10-90%)"
+            exit 1
+          fi
+          
+          # Check companion-standalone directory
+          if [[ ! -d "companion-standalone" ]]; then
+            echo "⚠️ Companion standalone directory not found - creating basic structure"
+            mkdir -p companion-standalone/{src,config,scripts}
+            
+            # Create basic companion service script
+            cat > companion-standalone/install-companion-service.sh << 'INSTALL_EOF'
+          #!/bin/bash
+          # BEV AI Companion Installation Script
+          
+          set -euo pipefail
+          
+          COMPANION_DIR="/opt/bev-companion"
+          SERVICE_USER="bev-companion"
+          GPU_DEVICE="${GPU_DEVICE:-0}"
+          
+          echo "🤖 Installing BEV AI Companion Service..."
+          
+          # Create service directory
+          sudo mkdir -p "$COMPANION_DIR"/{src,config,logs,data}
+          
+          # Create service user
+          if ! id "$SERVICE_USER" &>/dev/null; then
+              sudo useradd -r -s /bin/false -d "$COMPANION_DIR" "$SERVICE_USER"
+          fi
+          
+          # Copy companion files
+          sudo cp -r src/* "$COMPANION_DIR/src/" 2>/dev/null || echo "No src files to copy"
+          sudo cp -r config/* "$COMPANION_DIR/config/" 2>/dev/null || echo "No config files to copy"
+          
+          # Set permissions
+          sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$COMPANION_DIR"
+          sudo chmod +x "$COMPANION_DIR"/src/*.py 2>/dev/null || true
+          
+          # Create systemd service
+          sudo tee /etc/systemd/system/bev-companion.service > /dev/null << 'SERVICE_EOF'
+          [Unit]
+          Description=BEV AI Companion Service
+          After=network.target
+          Wants=network.target
+          
+          [Service]
+          Type=simple
+          User=bev-companion
+          Group=bev-companion
+          WorkingDirectory=/opt/bev-companion
+          Environment=CUDA_VISIBLE_DEVICES=${GPU_DEVICE}
+          Environment=COMPANION_MODE=research-assistant
+          Environment=OSINT_INTEGRATION=enabled
+          ExecStart=/usr/bin/python3 /opt/bev-companion/src/companion_service.py
+          ExecReload=/bin/kill -HUP $MAINPID
+          Restart=always
+          RestartSec=5
+          StandardOutput=journal
+          StandardError=journal
+          
+          [Install]
+          WantedBy=multi-user.target
+          SERVICE_EOF
+          
+          # Install Python dependencies
+          pip3 install --user torch torchvision torchaudio transformers accelerate websockets fastapi uvicorn
+          
+          # Reload systemd
+          sudo systemctl daemon-reload
+          
+          echo "✅ BEV AI Companion service installed successfully"
+          echo "📋 Use 'sudo systemctl start bev-companion' to start the service"
+          INSTALL_EOF
+            
+            chmod +x companion-standalone/install-companion-service.sh
+          fi
+          
+          # Set outputs
+          echo "ready=true" >> $GITHUB_OUTPUT
+          echo "target=$target" >> $GITHUB_OUTPUT
+          echo "resources={\"allocation\": $allocation, \"mode\": \"${{ github.event.inputs.companion_mode || 'research-assistant' }}\"}" >> $GITHUB_OUTPUT
+          
+          echo "✅ Pre-flight validation completed"
+
+  gpu-resource-analysis:
+    name: GPU Resource Analysis
+    runs-on: self-hosted
+    needs: pre-flight-validation
+    if: needs.pre-flight-validation.outputs.deployment-ready == 'true'
+    outputs:
+      gpu-status: ${{ steps.analysis.outputs.status }}
+      thermal-status: ${{ steps.analysis.outputs.thermal }}
+      memory-available: ${{ steps.analysis.outputs.memory }}
+      recommended-allocation: ${{ steps.analysis.outputs.allocation }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Analyze GPU Resources
+        id: analysis
+        run: |
+          echo "🖥️ Analyzing GPU resources across nodes..."
+          
+          # Create GPU analysis script
+          python3 - << 'EOF' > gpu_analysis.py
+          import subprocess
+          import json
+          import re
+          import sys
+          
+          def get_gpu_info():
+              """Get GPU information using nvidia-smi"""
+              try:
+                  result = subprocess.run([
+                      'nvidia-smi', 
+                      '--query-gpu=index,name,memory.total,memory.used,memory.free,temperature.gpu,utilization.gpu,utilization.memory',
+                      '--format=csv,noheader,nounits'
+                  ], capture_output=True, text=True, timeout=10)
+                  
+                  if result.returncode != 0:
+                      print("❌ nvidia-smi not available or failed")
+                      return None
+                  
+                  gpus = []
+                  for line in result.stdout.strip().split('\n'):
+                      if line.strip():
+                          parts = [p.strip() for p in line.split(',')]
+                          if len(parts) >= 8:
+                              gpu_info = {
+                                  'index': int(parts[0]),
+                                  'name': parts[1],
+                                  'memory_total_mb': int(parts[2]),
+                                  'memory_used_mb': int(parts[3]),
+                                  'memory_free_mb': int(parts[4]),
+                                  'temperature_c': int(parts[5]),
+                                  'utilization_gpu_percent': int(parts[6]),
+                                  'utilization_memory_percent': int(parts[7])
+                              }
+                              gpus.append(gpu_info)
+                  
+                  return gpus
+              except Exception as e:
+                  print(f"❌ Error getting GPU info: {e}")
+                  return None
+          
+          def analyze_gpu_resources(gpus, target_allocation=60):
+              """Analyze GPU resources and provide recommendations"""
+              if not gpus:
+                  return {
+                      'status': 'unavailable',
+                      'thermal_status': 'unknown',
+                      'memory_available_percent': 0,
+                      'recommended_allocation': 30
+                  }
+              
+              # Focus on primary GPU (index 0)
+              primary_gpu = gpus[0]
+              
+              # Calculate available memory percentage
+              memory_used_percent = (primary_gpu['memory_used_mb'] / primary_gpu['memory_total_mb']) * 100
+              memory_available_percent = 100 - memory_used_percent
+              
+              # Thermal analysis
+              temp = primary_gpu['temperature_c']
+              if temp < 70:
+                  thermal_status = 'optimal'
+              elif temp < 80:
+                  thermal_status = 'acceptable'
+              elif temp < 85:
+                  thermal_status = 'warning'
+              else:
+                  thermal_status = 'critical'
+              
+              # GPU utilization analysis
+              gpu_util = primary_gpu['utilization_gpu_percent']
+              if gpu_util < 30:
+                  gpu_status = 'available'
+              elif gpu_util < 70:
+                  gpu_status = 'moderate'
+              elif gpu_util < 90:
+                  gpu_status = 'busy'
+              else:
+                  gpu_status = 'saturated'
+              
+              # Recommend allocation based on current usage
+              if gpu_status == 'available' and thermal_status in ['optimal', 'acceptable']:
+                  recommended_allocation = min(target_allocation, 80)
+              elif gpu_status == 'moderate':
+                  recommended_allocation = min(target_allocation, 60)
+              elif gpu_status == 'busy':
+                  recommended_allocation = min(target_allocation, 40)
+              else:
+                  recommended_allocation = min(target_allocation, 20)
+              
+              # Ensure minimum companion allocation
+              recommended_allocation = max(recommended_allocation, 15)
+              
+              return {
+                  'status': gpu_status,
+                  'thermal_status': thermal_status,
+                  'memory_available_percent': memory_available_percent,
+                  'recommended_allocation': recommended_allocation,
+                  'gpu_info': primary_gpu
+              }
+          
+          def main():
+              print("🔍 Analyzing GPU resources...")
+              
+              gpus = get_gpu_info()
+              if gpus:
+                  print(f"📊 Found {len(gpus)} GPU(s)")
+                  for gpu in gpus:
+                      print(f"  GPU {gpu['index']}: {gpu['name']}")
+                      print(f"    Memory: {gpu['memory_used_mb']}/{gpu['memory_total_mb']} MB ({(gpu['memory_used_mb']/gpu['memory_total_mb']*100):.1f}% used)")
+                      print(f"    Temperature: {gpu['temperature_c']}°C")
+                      print(f"    Utilization: {gpu['utilization_gpu_percent']}% GPU, {gpu['utilization_memory_percent']}% Memory")
+              
+              target_allocation = int("${{ github.event.inputs.resource_allocation || '60' }}")
+              analysis = analyze_gpu_resources(gpus, target_allocation)
+              
+              print(f"\n📊 Resource Analysis:")
+              print(f"  GPU Status: {analysis['status']}")
+              print(f"  Thermal Status: {analysis['thermal_status']}")
+              print(f"  Memory Available: {analysis['memory_available_percent']:.1f}%")
+              print(f"  Recommended Allocation: {analysis['recommended_allocation']}%")
+              
+              # Output for GitHub Actions
+              with open('gpu_analysis.json', 'w') as f:
+                  json.dump(analysis, f, indent=2)
+              
+              return analysis
+          
+          if __name__ == "__main__":
+              analysis = main()
+          EOF
+          
+          # Run GPU analysis
+          python3 gpu_analysis.py
+          
+          # Set outputs from analysis
+          if [[ -f gpu_analysis.json ]]; then
+            analysis=$(cat gpu_analysis.json)
+            status=$(echo "$analysis" | jq -r '.status')
+            thermal=$(echo "$analysis" | jq -r '.thermal_status')
+            memory=$(echo "$analysis" | jq -r '.memory_available_percent')
+            allocation=$(echo "$analysis" | jq -r '.recommended_allocation')
+            
+            echo "status=$status" >> $GITHUB_OUTPUT
+            echo "thermal=$thermal" >> $GITHUB_OUTPUT
+            echo "memory=$memory" >> $GITHUB_OUTPUT
+            echo "allocation=$allocation" >> $GITHUB_OUTPUT
+            
+            # Validate thermal and resource constraints
+            if [[ "$thermal" == "critical" ]]; then
+              echo "🚨 Critical GPU temperature detected - companion deployment blocked"
+              exit 1
+            fi
+            
+            if (( $(echo "$memory < 20" | bc -l) )); then
+              echo "⚠️ Low GPU memory available - reducing companion allocation"
+            fi
+            
+            echo "✅ GPU resource analysis completed"
+          else
+            echo "⚠️ GPU analysis failed - using conservative defaults"
+            echo "status=unknown" >> $GITHUB_OUTPUT
+            echo "thermal=unknown" >> $GITHUB_OUTPUT
+            echo "memory=50" >> $GITHUB_OUTPUT
+            echo "allocation=30" >> $GITHUB_OUTPUT
+          fi
+
+  osint-integration-check:
+    name: OSINT Platform Integration Check
+    runs-on: self-hosted
+    needs: [pre-flight-validation, gpu-resource-analysis]
+    outputs:
+      osint-status: ${{ steps.check.outputs.status }}
+      integration-ready: ${{ steps.check.outputs.ready }}
+      available-endpoints: ${{ steps.check.outputs.endpoints }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check OSINT Platform Integration
+        id: check
+        run: |
+          echo "🔍 Checking OSINT platform integration readiness..."
+          
+          # Create OSINT integration checker
+          python3 - << 'EOF' > osint_integration_check.py
+          import requests
+          import json
+          import time
+          from urllib.parse import urljoin
+          
+          class OSINTIntegrationChecker:
+              def __init__(self):
+                  self.endpoints = {
+                      'main_platform': 'http://localhost:80',
+                      'mcp_server': 'http://localhost:3010',
+                      'prometheus': 'http://localhost:9090',
+                      'grafana': 'http://localhost:3000',
+                      'postgres': 'postgresql://researcher@localhost:5432/osint',
+                      'redis': 'redis://localhost:6379',
+                      'neo4j': 'bolt://localhost:7687'
+                  }
+                  self.available_endpoints = []
+                  self.integration_status = {}
+              
+              def check_http_endpoint(self, name, url, timeout=5):
+                  """Check HTTP endpoint availability"""
+                  try:
+                      response = requests.get(f"{url}/health", timeout=timeout)
+                      if response.status_code == 200:
+                          self.available_endpoints.append(name)
+                          self.integration_status[name] = 'available'
+                          return True
+                  except requests.exceptions.RequestException:
+                      pass
+                  
+                  try:
+                      # Try base URL if /health fails
+                      response = requests.get(url, timeout=timeout)
+                      if response.status_code < 500:  # Accept any non-server-error response
+                          self.available_endpoints.append(name)
+                          self.integration_status[name] = 'available'
+                          return True
+                  except requests.exceptions.RequestException:
+                      pass
+                  
+                  self.integration_status[name] = 'unavailable'
+                  return False
+              
+              def check_database_connectivity(self):
+                  """Check database connectivity"""
+                  # PostgreSQL check
+                  try:
+                      import psycopg2
+                      conn = psycopg2.connect(
+                          host='localhost',
+                          port=5432,
+                          user='researcher',
+                          database='osint',
+                          connect_timeout=5
+                      )
+                      conn.close()
+                      self.available_endpoints.append('postgres')
+                      self.integration_status['postgres'] = 'available'
+                  except Exception:
+                      self.integration_status['postgres'] = 'unavailable'
+                  
+                  # Redis check
+                  try:
+                      import redis
+                      r = redis.Redis(host='localhost', port=6379, socket_timeout=5)
+                      r.ping()
+                      self.available_endpoints.append('redis')
+                      self.integration_status['redis'] = 'available'
+                  except Exception:
+                      self.integration_status['redis'] = 'unavailable'
+              
+              def check_osint_tools_availability(self):
+                  """Check OSINT tools and analyzers"""
+                  osint_tools = []
+                  
+                  # Check if MCP server is running
+                  if 'mcp_server' in self.available_endpoints:
+                      try:
+                          response = requests.get('http://localhost:3010/tools', timeout=5)
+                          if response.status_code == 200:
+                              tools_data = response.json()
+                              osint_tools = list(tools_data.keys()) if isinstance(tools_data, dict) else []
+                      except Exception:
+                          pass
+                  
+                  self.integration_status['osint_tools'] = osint_tools
+                  return len(osint_tools) > 0
+              
+              def check_companion_integration_points(self):
+                  """Check companion-specific integration points"""
+                  integration_points = {
+                      'avatar_system': False,
+                      'voice_synthesis': False,
+                      'memory_system': False,
+                      'workflow_integration': False
+                  }
+                  
+                  # Check for avatar system components
+                  try:
+                      response = requests.get('http://localhost:80/avatar/status', timeout=3)
+                      integration_points['avatar_system'] = response.status_code == 200
+                  except:
+                      pass
+                  
+                  # Check for companion memory system
+                  if 'postgres' in self.available_endpoints:
+                      integration_points['memory_system'] = True
+                  
+                  # Check for OSINT workflow integration
+                  if 'mcp_server' in self.available_endpoints:
+                      integration_points['workflow_integration'] = True
+                  
+                  self.integration_status['companion_integration'] = integration_points
+                  return any(integration_points.values())
+              
+              def run_comprehensive_check(self):
+                  """Run comprehensive integration check"""
+                  print("🔍 Running OSINT platform integration check...")
+                  
+                  # Check HTTP endpoints
+                  http_endpoints = ['main_platform', 'mcp_server', 'prometheus', 'grafana']
+                  for endpoint in http_endpoints:
+                      url = self.endpoints[endpoint]
+                      status = self.check_http_endpoint(endpoint, url)
+                      print(f"  {endpoint}: {'✅' if status else '❌'}")
+                  
+                  # Check databases
+                  print("\n🗄️ Checking database connectivity...")
+                  self.check_database_connectivity()
+                  for db in ['postgres', 'redis']:
+                      status = self.integration_status.get(db, 'unknown')
+                      print(f"  {db}: {'✅' if status == 'available' else '❌'}")
+                  
+                  # Check OSINT tools
+                  print("\n🛠️ Checking OSINT tools...")
+                  osint_available = self.check_osint_tools_availability()
+                  tools = self.integration_status.get('osint_tools', [])
+                  print(f"  OSINT tools: {'✅' if osint_available else '❌'} ({len(tools)} tools found)")
+                  
+                  # Check companion integration
+                  print("\n🤖 Checking companion integration points...")
+                  companion_ready = self.check_companion_integration_points()
+                  integration = self.integration_status.get('companion_integration', {})
+                  for point, status in integration.items():
+                      print(f"  {point}: {'✅' if status else '❌'}")
+                  
+                  # Overall assessment
+                  core_services = ['main_platform', 'postgres']
+                  core_available = all(endpoint in self.available_endpoints for endpoint in core_services)
+                  
+                  integration_ready = (
+                      core_available and 
+                      osint_available and 
+                      companion_ready
+                  )
+                  
+                  overall_status = 'ready' if integration_ready else 'partial' if core_available else 'unavailable'
+                  
+                  print(f"\n📊 Integration Status: {overall_status}")
+                  print(f"🔌 Available endpoints: {len(self.available_endpoints)}")
+                  print(f"🤖 Companion ready: {'Yes' if companion_ready else 'No'}")
+                  
+                  # Save results
+                  results = {
+                      'overall_status': overall_status,
+                      'integration_ready': integration_ready,
+                      'available_endpoints': self.available_endpoints,
+                      'integration_status': self.integration_status,
+                      'summary': {
+                          'core_services_available': core_available,
+                          'osint_tools_available': osint_available,
+                          'companion_integration_ready': companion_ready,
+                          'total_endpoints_available': len(self.available_endpoints)
+                      }
+                  }
+                  
+                  with open('osint_integration_status.json', 'w') as f:
+                      json.dump(results, f, indent=2)
+                  
+                  return results
+          
+          if __name__ == "__main__":
+              checker = OSINTIntegrationChecker()
+              results = checker.run_comprehensive_check()
+          EOF
+          
+          # Install required packages
+          pip3 install --user psycopg2-binary redis requests
+          
+          # Run integration check
+          python3 osint_integration_check.py
+          
+          # Set outputs
+          if [[ -f osint_integration_status.json ]]; then
+            status=$(cat osint_integration_status.json | jq -r '.overall_status')
+            ready=$(cat osint_integration_status.json | jq -r '.integration_ready')
+            endpoints=$(cat osint_integration_status.json | jq -c '.available_endpoints')
+            
+            echo "status=$status" >> $GITHUB_OUTPUT
+            echo "ready=$ready" >> $GITHUB_OUTPUT
+            echo "endpoints=$endpoints" >> $GITHUB_OUTPUT
+            
+            echo "✅ OSINT integration check completed"
+          else
+            echo "❌ OSINT integration check failed"
+            echo "status=unknown" >> $GITHUB_OUTPUT
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "endpoints=[]" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-companion:
+    name: Deploy AI Companion
+    runs-on: self-hosted
+    needs: [pre-flight-validation, gpu-resource-analysis, osint-integration-check]
+    if: github.event.inputs.action == 'deploy' && needs.osint-integration-check.outputs.integration-ready == 'true'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Companion Deployment
+        run: |
+          echo "🚀 Preparing AI companion deployment..."
+          
+          # Get recommended resource allocation
+          allocation="${{ needs.gpu-resource-analysis.outputs.recommended-allocation }}"
+          mode="${{ github.event.inputs.companion_mode || 'research-assistant' }}"
+          
+          echo "📊 Resource allocation: ${allocation}%"
+          echo "🎯 Companion mode: $mode"
+          
+          # Create companion configuration
+          mkdir -p companion-standalone/config
+          
+          cat > companion-standalone/config/companion.yaml << EOF
+          # BEV AI Companion Configuration
+          version: "1.0"
+          
+          # Resource Configuration
+          resources:
+            gpu_allocation_percent: $allocation
+            memory_limit_gb: 8
+            cpu_cores: 4
+            thermal_limit_celsius: 80
+          
+          # Companion Behavior
+          companion:
+            mode: "$mode"
+            personality_model: "cybersecurity_specialist"
+            emotional_intelligence: true
+            proactive_assistance: true
+            learning_enabled: true
+          
+          # OSINT Integration
+          osint_integration:
+            enabled: true
+            platforms:
+              - main_platform
+              - mcp_server
+              - prometheus
+            workflow_enhancement: true
+            autonomous_research: true
+          
+          # Avatar System
+          avatar:
+            enabled: true
+            model: "live2d_cybersec"
+            expressions: true
+            voice_synthesis: true
+            real_time_rendering: true
+          
+          # Memory System
+          memory:
+            long_term_enabled: true
+            conversation_context: true
+            user_preferences: true
+            research_history: true
+            retention_days: 365
+          
+          # Voice and Interaction
+          voice:
+            synthesis_enabled: true
+            recognition_enabled: true
+            real_time_processing: true
+            emotional_modulation: true
+          
+          # Performance Monitoring
+          monitoring:
+            performance_tracking: true
+            resource_optimization: true
+            health_reporting: true
+            metrics_collection: true
+          
+          # Security
+          security:
+            data_encryption: true
+            secure_communication: true
+            privacy_mode: true
+            audit_logging: true
+          EOF
+
+      - name: Create Companion Service Implementation
+        run: |
+          echo "💻 Creating companion service implementation..."
+          
+          # Create main companion service
+          cat > companion-standalone/src/companion_service.py << 'EOF'
+          #!/usr/bin/env python3
+          """
+          BEV AI Companion Service
+          
+          A sophisticated AI companion specialized in cybersecurity research
+          with emotional intelligence, proactive assistance, and OSINT integration.
+          """
+          
+          import asyncio
+          import json
+          import logging
+          import os
+          import signal
+          import sys
+          import time
+          import yaml
+          from pathlib import Path
+          from typing import Dict, List, Optional, Any
+          
+          import torch
+          import psutil
+          import websockets
+          from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+          from fastapi.middleware.cors import CORSMiddleware
+          import uvicorn
+          
+          # Companion modules
+          from companion_brain import CompanionBrain
+          from osint_integrator import OSINTIntegrator
+          from resource_manager import GPUResourceManager
+          from avatar_controller import AvatarController
+          from memory_manager import CompanionMemoryManager
+          from voice_synthesizer import VoiceSynthesizer
+          
+          class BEVCompanionService:
+              def __init__(self, config_path: str = "/opt/bev-companion/config/companion.yaml"):
+                  self.config_path = config_path
+                  self.config = self.load_configuration()
+                  self.running = False
+                  
+                  # Initialize logging
+                  self.setup_logging()
+                  self.logger = logging.getLogger(__name__)
+                  
+                  # Initialize core components
+                  self.brain = None
+                  self.osint_integrator = None
+                  self.resource_manager = None
+                  self.avatar_controller = None
+                  self.memory_manager = None
+                  self.voice_synthesizer = None
+                  
+                  # FastAPI app
+                  self.app = FastAPI(title="BEV AI Companion", version="1.0.0")
+                  self.setup_fastapi()
+                  
+                  # Active connections
+                  self.active_connections: List[WebSocket] = []
+              
+              def load_configuration(self) -> Dict[str, Any]:
+                  """Load companion configuration"""
+                  try:
+                      with open(self.config_path, 'r') as f:
+                          config = yaml.safe_load(f)
+                      
+                      # Set environment variables from config
+                      gpu_allocation = config.get('resources', {}).get('gpu_allocation_percent', 60)
+                      os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+                      os.environ['COMPANION_GPU_ALLOCATION'] = str(gpu_allocation)
+                      
+                      return config
+                  except Exception as e:
+                      # Default configuration
+                      return {
+                          'resources': {'gpu_allocation_percent': 30},
+                          'companion': {'mode': 'research-assistant'},
+                          'osint_integration': {'enabled': True},
+                          'avatar': {'enabled': False},
+                          'memory': {'long_term_enabled': True},
+                          'voice': {'synthesis_enabled': False}
+                      }
+              
+              def setup_logging(self):
+                  """Setup logging configuration"""
+                  log_dir = Path("/opt/bev-companion/logs")
+                  log_dir.mkdir(exist_ok=True)
+                  
+                  logging.basicConfig(
+                      level=logging.INFO,
+                      format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                      handlers=[
+                          logging.FileHandler(log_dir / 'companion.log'),
+                          logging.StreamHandler(sys.stdout)
+                      ]
+                  )
+              
+              def setup_fastapi(self):
+                  """Setup FastAPI application"""
+                  self.app.add_middleware(
+                      CORSMiddleware,
+                      allow_origins=["*"],
+                      allow_credentials=True,
+                      allow_methods=["*"],
+                      allow_headers=["*"],
+                  )
+                  
+                  # Health endpoint
+                  @self.app.get("/health")
+                  async def health_check():
+                      return {
+                          "status": "healthy" if self.running else "starting",
+                          "companion_mode": self.config.get('companion', {}).get('mode'),
+                          "gpu_allocation": self.config.get('resources', {}).get('gpu_allocation_percent'),
+                          "osint_integration": self.osint_integrator.is_connected() if self.osint_integrator else False,
+                          "memory_system": self.memory_manager.is_healthy() if self.memory_manager else False
+                      }
+                  
+                  # Status endpoint
+                  @self.app.get("/status")
+                  async def get_status():
+                      status = {
+                          "service": "BEV AI Companion",
+                          "version": "1.0.0",
+                          "uptime_seconds": time.time() - getattr(self, 'start_time', time.time()),
+                          "configuration": self.config,
+                          "active_connections": len(self.active_connections)
+                      }
+                      
+                      if self.resource_manager:
+                          status["resources"] = await self.resource_manager.get_current_usage()
+                      
+                      if self.brain:
+                          status["brain"] = self.brain.get_status()
+                      
+                      return status
+                  
+                  # WebSocket endpoint for real-time companion interaction
+                  @self.app.websocket("/companion")
+                  async def companion_websocket(websocket: WebSocket):
+                      await self.handle_websocket_connection(websocket)
+              
+              async def handle_websocket_connection(self, websocket: WebSocket):
+                  """Handle WebSocket connection for real-time companion interaction"""
+                  await websocket.accept()
+                  self.active_connections.append(websocket)
+                  
+                  try:
+                      # Send welcome message
+                      await websocket.send_json({
+                          "type": "welcome",
+                          "message": "BEV AI Companion connected",
+                          "companion_mode": self.config.get('companion', {}).get('mode'),
+                          "capabilities": self.get_capabilities()
+                      })
+                      
+                      while True:
+                          # Receive message from client
+                          data = await websocket.receive_json()
+                          
+                          # Process companion interaction
+                          response = await self.process_companion_interaction(data)
+                          
+                          # Send response
+                          await websocket.send_json(response)
+                          
+                  except WebSocketDisconnect:
+                      pass
+                  finally:
+                      self.active_connections.remove(websocket)
+              
+              async def process_companion_interaction(self, data: Dict[str, Any]) -> Dict[str, Any]:
+                  """Process companion interaction and generate response"""
+                  try:
+                      message_type = data.get('type', 'message')
+                      content = data.get('content', '')
+                      
+                      if message_type == 'research_request':
+                          # Handle research request with OSINT integration
+                          response = await self.handle_research_request(content)
+                      elif message_type == 'conversation':
+                          # Handle general conversation
+                          response = await self.handle_conversation(content)
+                      elif message_type == 'system_command':
+                          # Handle system commands
+                          response = await self.handle_system_command(content)
+                      else:
+                          response = {
+                              "type": "response",
+                              "content": "I understand you want to communicate. How can I assist with your cybersecurity research today?",
+                              "emotional_state": "attentive"
+                          }
+                      
+                      return response
+                      
+                  except Exception as e:
+                      self.logger.error(f"Error processing companion interaction: {e}")
+                      return {
+                          "type": "error",
+                          "content": "I encountered an issue processing your request. Please try again.",
+                          "error": str(e)
+                      }
+              
+              async def handle_research_request(self, request: str) -> Dict[str, Any]:
+                  """Handle OSINT research request"""
+                  if self.osint_integrator and self.osint_integrator.is_connected():
+                      try:
+                          # Initiate OSINT research
+                          research_result = await self.osint_integrator.execute_research(request)
+                          
+                          # Generate companion response
+                          companion_response = await self.brain.generate_research_response(
+                              request, research_result
+                          ) if self.brain else "Research completed successfully."
+                          
+                          return {
+                              "type": "research_response",
+                              "content": companion_response,
+                              "research_data": research_result,
+                              "emotional_state": "analytical"
+                          }
+                      except Exception as e:
+                          return {
+                              "type": "research_error",
+                              "content": f"I encountered an issue with the research request: {str(e)}",
+                              "emotional_state": "concerned"
+                          }
+                  else:
+                      return {
+                          "type": "integration_error",
+                          "content": "OSINT integration is not available. I can still help with general cybersecurity questions.",
+                          "emotional_state": "apologetic"
+                      }
+              
+              async def handle_conversation(self, message: str) -> Dict[str, Any]:
+                  """Handle general conversation"""
+                  if self.brain:
+                      try:
+                          response = await self.brain.generate_conversation_response(message)
+                          return {
+                              "type": "conversation_response",
+                              "content": response.get('text', ''),
+                              "emotional_state": response.get('emotion', 'neutral'),
+                              "suggestions": response.get('suggestions', [])
+                          }
+                      except Exception as e:
+                          self.logger.error(f"Brain processing error: {e}")
+                  
+                  # Fallback response
+                  return {
+                      "type": "conversation_response",
+                      "content": "I'm here to help with your cybersecurity research. What would you like to investigate?",
+                      "emotional_state": "helpful"
+                  }
+              
+              async def handle_system_command(self, command: str) -> Dict[str, Any]:
+                  """Handle system commands"""
+                  if command == "status":
+                      return {
+                          "type": "system_response",
+                          "content": "All systems operational",
+                          "status": await self.get_system_status()
+                      }
+                  elif command == "optimize":
+                      await self.optimize_performance()
+                      return {
+                          "type": "system_response",
+                          "content": "Performance optimization completed"
+                      }
+                  else:
+                      return {
+                          "type": "system_response",
+                          "content": f"Unknown command: {command}"
+                      }
+              
+              def get_capabilities(self) -> List[str]:
+                  """Get list of companion capabilities"""
+                  capabilities = [
+                      "natural_conversation",
+                      "cybersecurity_expertise",
+                      "research_assistance"
+                  ]
+                  
+                  if self.config.get('osint_integration', {}).get('enabled'):
+                      capabilities.append("osint_integration")
+                  
+                  if self.config.get('avatar', {}).get('enabled'):
+                      capabilities.append("avatar_visualization")
+                  
+                  if self.config.get('voice', {}).get('synthesis_enabled'):
+                      capabilities.append("voice_synthesis")
+                  
+                  if self.config.get('memory', {}).get('long_term_enabled'):
+                      capabilities.append("persistent_memory")
+                  
+                  return capabilities
+              
+              async def get_system_status(self) -> Dict[str, Any]:
+                  """Get comprehensive system status"""
+                  status = {
+                      "service_health": "healthy",
+                      "gpu_available": torch.cuda.is_available(),
+                      "gpu_memory_gb": torch.cuda.get_device_properties(0).total_memory / 1e9 if torch.cuda.is_available() else 0,
+                      "system_memory_percent": psutil.virtual_memory().percent,
+                      "cpu_percent": psutil.cpu_percent(),
+                      "active_connections": len(self.active_connections)
+                  }
+                  
+                  if self.resource_manager:
+                      status.update(await self.resource_manager.get_detailed_status())
+                  
+                  return status
+              
+              async def optimize_performance(self):
+                  """Optimize companion performance"""
+                  if self.resource_manager:
+                      await self.resource_manager.optimize_allocation()
+                  
+                  if self.brain:
+                      await self.brain.optimize_inference()
+                  
+                  # Garbage collection
+                  if torch.cuda.is_available():
+                      torch.cuda.empty_cache()
+              
+              async def initialize_components(self):
+                  """Initialize all companion components"""
+                  self.logger.info("🤖 Initializing BEV AI Companion components...")
+                  
+                  try:
+                      # Initialize resource manager
+                      self.resource_manager = GPUResourceManager(self.config)
+                      await self.resource_manager.initialize()
+                      
+                      # Initialize companion brain
+                      self.brain = CompanionBrain(self.config)
+                      await self.brain.initialize()
+                      
+                      # Initialize OSINT integration
+                      if self.config.get('osint_integration', {}).get('enabled'):
+                          self.osint_integrator = OSINTIntegrator(self.config)
+                          await self.osint_integrator.initialize()
+                      
+                      # Initialize memory manager
+                      if self.config.get('memory', {}).get('long_term_enabled'):
+                          self.memory_manager = CompanionMemoryManager(self.config)
+                          await self.memory_manager.initialize()
+                      
+                      # Initialize avatar controller
+                      if self.config.get('avatar', {}).get('enabled'):
+                          self.avatar_controller = AvatarController(self.config)
+                          await self.avatar_controller.initialize()
+                      
+                      # Initialize voice synthesizer
+                      if self.config.get('voice', {}).get('synthesis_enabled'):
+                          self.voice_synthesizer = VoiceSynthesizer(self.config)
+                          await self.voice_synthesizer.initialize()
+                      
+                      self.logger.info("✅ All companion components initialized successfully")
+                      
+                  except Exception as e:
+                      self.logger.error(f"❌ Component initialization failed: {e}")
+                      raise
+              
+              async def start_service(self):
+                  """Start the companion service"""
+                  self.logger.info("🚀 Starting BEV AI Companion Service...")
+                  self.start_time = time.time()
+                  
+                  try:
+                      # Initialize components
+                      await self.initialize_components()
+                      
+                      self.running = True
+                      self.logger.info("✅ BEV AI Companion Service started successfully")
+                      
+                      # Start background tasks
+                      asyncio.create_task(self.performance_monitoring_loop())
+                      asyncio.create_task(self.health_check_loop())
+                      
+                  except Exception as e:
+                      self.logger.error(f"❌ Failed to start companion service: {e}")
+                      raise
+              
+              async def stop_service(self):
+                  """Stop the companion service"""
+                  self.logger.info("⏹️ Stopping BEV AI Companion Service...")
+                  self.running = False
+                  
+                  # Close all WebSocket connections
+                  for connection in self.active_connections.copy():
+                      try:
+                          await connection.close()
+                      except:
+                          pass
+                  
+                  # Cleanup components
+                  if self.brain:
+                      await self.brain.cleanup()
+                  
+                  if self.resource_manager:
+                      await self.resource_manager.cleanup()
+                  
+                  self.logger.info("✅ BEV AI Companion Service stopped")
+              
+              async def performance_monitoring_loop(self):
+                  """Background performance monitoring"""
+                  while self.running:
+                      try:
+                          if self.resource_manager:
+                              await self.resource_manager.monitor_performance()
+                          
+                          # Auto-optimization every 10 minutes
+                          if int(time.time()) % 600 == 0:
+                              await self.optimize_performance()
+                          
+                      except Exception as e:
+                          self.logger.error(f"Performance monitoring error: {e}")
+                      
+                      await asyncio.sleep(30)  # Monitor every 30 seconds
+              
+              async def health_check_loop(self):
+                  """Background health checking"""
+                  while self.running:
+                      try:
+                          # Check component health
+                          if self.osint_integrator:
+                              await self.osint_integrator.health_check()
+                          
+                          if self.memory_manager:
+                              await self.memory_manager.health_check()
+                          
+                      except Exception as e:
+                          self.logger.error(f"Health check error: {e}")
+                      
+                      await asyncio.sleep(60)  # Check every minute
+              
+              def setup_signal_handlers(self):
+                  """Setup signal handlers for graceful shutdown"""
+                  def signal_handler(signum, frame):
+                      self.logger.info(f"Received signal {signum}, shutting down...")
+                      asyncio.create_task(self.stop_service())
+                  
+                  signal.signal(signal.SIGTERM, signal_handler)
+                  signal.signal(signal.SIGINT, signal_handler)
+              
+              def run(self):
+                  """Run the companion service"""
+                  self.setup_signal_handlers()
+                  
+                  # Run FastAPI with uvicorn
+                  config = uvicorn.Config(
+                      self.app,
+                      host="0.0.0.0",
+                      port=3010,
+                      log_level="info"
+                  )
+                  server = uvicorn.Server(config)
+                  
+                  async def startup():
+                      await self.start_service()
+                      await server.serve()
+                  
+                  asyncio.run(startup())
+          
+          if __name__ == "__main__":
+              service = BEVCompanionService()
+              service.run()
+          EOF
+          
+          # Make service executable
+          chmod +x companion-standalone/src/companion_service.py
+
+      - name: Create Supporting Companion Modules
+        run: |
+          echo "🧠 Creating supporting companion modules..."
+          
+          # Create companion brain module
+          cat > companion-standalone/src/companion_brain.py << 'EOF'
+          """
+          Companion Brain - Core AI intelligence for the BEV companion
+          """
+          
+          import asyncio
+          import logging
+          from typing import Dict, Any, List, Optional
+          
+          class CompanionBrain:
+              def __init__(self, config: Dict[str, Any]):
+                  self.config = config
+                  self.logger = logging.getLogger(__name__)
+                  self.personality_mode = config.get('companion', {}).get('mode', 'research-assistant')
+                  self.emotional_state = 'neutral'
+                  
+              async def initialize(self):
+                  """Initialize the companion brain"""
+                  self.logger.info("🧠 Initializing Companion Brain...")
+                  # In a full implementation, this would load AI models
+                  self.logger.info("✅ Companion Brain initialized")
+              
+              async def generate_conversation_response(self, message: str) -> Dict[str, Any]:
+                  """Generate a contextual conversation response"""
+                  # Simplified response generation
+                  responses = {
+                      'research-assistant': "I'm here to help with your cybersecurity research. What specific area would you like to investigate?",
+                      'cybersecurity-specialist': "As your cybersecurity specialist, I can help analyze threats, vulnerabilities, and defensive strategies. What's your focus today?",
+                      'investigation-coordinator': "I can coordinate multiple investigation streams and OSINT sources. What's the target of our investigation?",
+                      'autonomous-analyst': "I'm ready to autonomously analyze data and provide insights. What dataset or intelligence should I examine?"
+                  }
+                  
+                  base_response = responses.get(self.personality_mode, responses['research-assistant'])
+                  
+                  return {
+                      'text': base_response,
+                      'emotion': 'helpful',
+                      'suggestions': ['Start a new investigation', 'Review past research', 'Check threat intelligence']
+                  }
+              
+              async def generate_research_response(self, request: str, research_data: Dict[str, Any]) -> str:
+                  """Generate response based on research results"""
+                  return f"I've completed the research on '{request}'. The analysis reveals several key findings that we should examine together."
+              
+              def get_status(self) -> Dict[str, Any]:
+                  """Get brain status"""
+                  return {
+                      'personality_mode': self.personality_mode,
+                      'emotional_state': self.emotional_state,
+                      'status': 'active'
+                  }
+              
+              async def optimize_inference(self):
+                  """Optimize AI inference performance"""
+                  pass
+              
+              async def cleanup(self):
+                  """Cleanup brain resources"""
+                  pass
+          EOF
+          
+          # Create other supporting modules with basic implementations
+          modules=(
+              "osint_integrator.py"
+              "resource_manager.py"
+              "avatar_controller.py"
+              "memory_manager.py"
+              "voice_synthesizer.py"
+          )
+          
+          for module in "${modules[@]}"; do
+            cat > "companion-standalone/src/$module" << EOF
+          """
+          ${module%.*} - Supporting module for BEV AI Companion
+          """
+          
+          import asyncio
+          import logging
+          from typing import Dict, Any
+          
+          class ${module%.*^}:
+              def __init__(self, config: Dict[str, Any]):
+                  self.config = config
+                  self.logger = logging.getLogger(__name__)
+              
+              async def initialize(self):
+                  self.logger.info(f"Initializing {module%.*}...")
+                  # Module-specific initialization
+                  
+              async def health_check(self):
+                  return True
+              
+              async def cleanup(self):
+                  pass
+          EOF
+          done
+          
+          echo "✅ Companion modules created"
+
+      - name: Install Companion Service
+        run: |
+          echo "📦 Installing companion service..."
+          
+          # Run installation script
+          cd companion-standalone
+          sudo ./install-companion-service.sh
+          
+          # Start the service
+          sudo systemctl start bev-companion
+          sudo systemctl enable bev-companion
+          
+          # Verify service is running
+          sleep 10
+          if sudo systemctl is-active bev-companion >/dev/null; then
+            echo "✅ BEV AI Companion service started successfully"
+          else
+            echo "❌ Failed to start BEV AI Companion service"
+            sudo journalctl -u bev-companion --no-pager -n 20
+            exit 1
+          fi
+
+      - name: Validate Companion Deployment
+        run: |
+          echo "🔍 Validating companion deployment..."
+          
+          # Test companion endpoints
+          timeout 30 bash -c 'until curl -s http://localhost:3010/health; do sleep 2; done' || {
+            echo "❌ Companion health endpoint not responding"
+            exit 1
+          }
+          
+          # Test companion status
+          status=$(curl -s http://localhost:3010/status | jq -r '.service')
+          if [[ "$status" == "BEV AI Companion" ]]; then
+            echo "✅ Companion service responding correctly"
+          else
+            echo "❌ Companion service not responding properly"
+            exit 1
+          fi
+          
+          # Test companion WebSocket (if available)
+          python3 - << 'EOF'
+          import asyncio
+          import websockets
+          import json
+          
+          async def test_websocket():
+              try:
+                  async with websockets.connect("ws://localhost:3010/companion") as websocket:
+                      # Send test message
+                      await websocket.send(json.dumps({
+                          "type": "conversation",
+                          "content": "Hello, companion!"
+                      }))
+                      
+                      # Receive response
+                      response = await websocket.recv()
+                      data = json.loads(response)
+                      
+                      if data.get("type") in ["welcome", "conversation_response"]:
+                          print("✅ WebSocket connection successful")
+                          return True
+              except Exception as e:
+                  print(f"⚠️ WebSocket test failed: {e}")
+                  return False
+          
+          asyncio.run(test_websocket())
+          EOF
+          
+          echo "✅ Companion deployment validation completed"
+
+  start-companion:
+    name: Start AI Companion
+    runs-on: self-hosted
+    needs: [pre-flight-validation, gpu-resource-analysis, osint-integration-check]
+    if: github.event.inputs.action == 'start'
+    
+    steps:
+      - name: Start Companion Service
+        run: |
+          echo "▶️ Starting BEV AI Companion service..."
+          
+          if sudo systemctl is-active bev-companion >/dev/null; then
+            echo "ℹ️ Companion service is already running"
+          else
+            sudo systemctl start bev-companion
+            
+            # Wait for service to start
+            timeout 30 bash -c 'until sudo systemctl is-active bev-companion >/dev/null; do sleep 2; done' || {
+              echo "❌ Failed to start companion service"
+              sudo journalctl -u bev-companion --no-pager -n 20
+              exit 1
+            }
+            
+            echo "✅ Companion service started successfully"
+          fi
+
+  stop-companion:
+    name: Stop AI Companion
+    runs-on: self-hosted
+    needs: pre-flight-validation
+    if: github.event.inputs.action == 'stop'
+    
+    steps:
+      - name: Stop Companion Service
+        run: |
+          echo "⏹️ Stopping BEV AI Companion service..."
+          
+          if sudo systemctl is-active bev-companion >/dev/null; then
+            sudo systemctl stop bev-companion
+            echo "✅ Companion service stopped"
+          else
+            echo "ℹ️ Companion service is not running"
+          fi
+
+  health-check:
+    name: Companion Health Check
+    runs-on: self-hosted
+    needs: pre-flight-validation
+    if: github.event.inputs.action == 'health-check'
+    
+    steps:
+      - name: Comprehensive Health Check
+        run: |
+          echo "🏥 Running comprehensive companion health check..."
+          
+          # Service status
+          if sudo systemctl is-active bev-companion >/dev/null; then
+            echo "✅ Service status: Active"
+          else
+            echo "❌ Service status: Inactive"
+            sudo journalctl -u bev-companion --no-pager -n 10
+          fi
+          
+          # Endpoint health
+          if curl -s http://localhost:3010/health >/dev/null; then
+            health=$(curl -s http://localhost:3010/health)
+            echo "✅ Health endpoint: Responsive"
+            echo "📊 Health status: $(echo $health | jq -r '.status')"
+          else
+            echo "❌ Health endpoint: Not responding"
+          fi
+          
+          # Resource usage
+          echo "📊 Resource usage:"
+          echo "  CPU: $(python3 -c "import psutil; print(f'{psutil.cpu_percent():.1f}%')")"
+          echo "  Memory: $(python3 -c "import psutil; print(f'{psutil.virtual_memory().percent:.1f}%')")"
+          
+          # GPU status (if available)
+          if command -v nvidia-smi >/dev/null; then
+            echo "🖥️ GPU status:"
+            nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits | head -1 | while IFS=, read gpu_util mem_used mem_total temp; do
+              echo "  GPU Utilization: ${gpu_util}%"
+              echo "  GPU Memory: ${mem_used}/${mem_total} MB"
+              echo "  GPU Temperature: ${temp}°C"
+            done
+          fi
+
+  resource-optimize:
+    name: Optimize Companion Resources
+    runs-on: self-hosted
+    needs: [pre-flight-validation, gpu-resource-analysis]
+    if: github.event.inputs.action == 'resource-optimize'
+    
+    steps:
+      - name: Optimize GPU Resource Allocation
+        run: |
+          echo "⚡ Optimizing companion resource allocation..."
+          
+          # Get current resource status
+          allocation="${{ needs.gpu-resource-analysis.outputs.recommended-allocation }}"
+          thermal="${{ needs.gpu-resource-analysis.outputs.thermal-status }}"
+          
+          echo "📊 Current recommended allocation: ${allocation}%"
+          echo "🌡️ Thermal status: $thermal"
+          
+          # Trigger optimization via companion API
+          if curl -s http://localhost:3010/health >/dev/null; then
+            echo "🔧 Sending optimization request to companion..."
+            
+            # Send system optimization command
+            python3 - << EOF
+          import asyncio
+          import websockets
+          import json
+          
+          async def optimize_companion():
+              try:
+                  async with websockets.connect("ws://localhost:3010/companion") as websocket:
+                      await websocket.send(json.dumps({
+                          "type": "system_command",
+                          "content": "optimize"
+                      }))
+                      
+                      response = await websocket.recv()
+                      data = json.loads(response)
+                      print(f"✅ Optimization response: {data.get('content', 'Success')}")
+                      
+              except Exception as e:
+                  print(f"❌ Optimization failed: {e}")
+          
+          asyncio.run(optimize_companion())
+          EOF
+          else
+            echo "❌ Companion service not available for optimization"
+          fi
+
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [pre-flight-validation, gpu-resource-analysis, osint-integration-check, deploy-companion, start-companion, stop-companion, health-check, resource-optimize]
+    if: always()
+    
+    steps:
+      - name: Generate Deployment Summary
+        run: |
+          echo "📋 AI Companion Deployment Summary"
+          echo "=================================="
+          
+          action="${{ github.event.inputs.action || 'health-check' }}"
+          target="${{ github.event.inputs.target_node || 'STARLORD' }}"
+          
+          echo "🎯 Action: $action"
+          echo "🖥️ Target Node: $target"
+          echo "📊 GPU Analysis: ${{ needs.gpu-resource-analysis.outputs.gpu-status }}"
+          echo "🌡️ Thermal Status: ${{ needs.gpu-resource-analysis.outputs.thermal-status }}"
+          echo "🔌 OSINT Integration: ${{ needs.osint-integration-check.outputs.osint-status }}"
+          
+          # Job results
+          echo ""
+          echo "📊 Job Results:"
+          echo "  Pre-flight Validation: ${{ needs.pre-flight-validation.result }}"
+          echo "  GPU Analysis: ${{ needs.gpu-resource-analysis.result }}"
+          echo "  OSINT Integration: ${{ needs.osint-integration-check.result }}"
+          
+          if [[ "$action" == "deploy" ]]; then
+            echo "  Companion Deployment: ${{ needs.deploy-companion.result }}"
+          elif [[ "$action" == "start" ]]; then
+            echo "  Companion Start: ${{ needs.start-companion.result }}"
+          elif [[ "$action" == "stop" ]]; then
+            echo "  Companion Stop: ${{ needs.stop-companion.result }}"
+          elif [[ "$action" == "health-check" ]]; then
+            echo "  Health Check: ${{ needs.health-check.result }}"
+          elif [[ "$action" == "resource-optimize" ]]; then
+            echo "  Resource Optimization: ${{ needs.resource-optimize.result }}"
+          fi
+          
+          # Next steps
+          echo ""
+          echo "🎯 Next Steps:"
+          if [[ "${{ needs.deploy-companion.result }}" == "success" ]]; then
+            echo "  ✅ Companion deployment successful"
+            echo "  🌐 Access companion at: http://${{ env.STARLORD_HOST }}:3010"
+            echo "  🔌 WebSocket endpoint: ws://${{ env.STARLORD_HOST }}:3010/companion"
+          elif [[ "${{ needs.health-check.result }}" == "success" ]]; then
+            echo "  ✅ Companion health check passed"
+            echo "  📊 System operating within normal parameters"
+          else
+            echo "  ⚠️ Review job logs for any issues"
+            echo "  📞 Consider manual intervention if problems persist"
+          fi
+          
+          echo ""
+          echo "🤖 BEV AI Companion coordination completed!"

@@ -1,0 +1,173 @@
+{
+  "proxy_providers": {
+    "brightdata": {
+      "name": "Bright Data",
+      "type": "residential",
+      "api_endpoint": "https://brightdata.com/api/v1",
+      "supported_regions": ["us-east", "us-west", "eu-central", "eu-west", "asia-pacific"],
+      "max_concurrent": 1000,
+      "rotation_support": true,
+      "auth_method": "api_key",
+      "rate_limits": {
+        "requests_per_second": 10,
+        "requests_per_hour": 3600
+      },
+      "cost_model": {
+        "pricing_type": "per_gb",
+        "base_cost": 0.015,
+        "volume_discounts": {
+          "100gb": 0.013,
+          "500gb": 0.011,
+          "1000gb": 0.009
+        }
+      }
+    },
+    "smartproxy": {
+      "name": "SmartProxy",
+      "type": "residential",
+      "api_endpoint": "https://dashboard.smartproxy.com/api/v1",
+      "supported_regions": ["us-east", "us-west", "eu-central", "asia-pacific"],
+      "max_concurrent": 500,
+      "rotation_support": true,
+      "auth_method": "username_password",
+      "rate_limits": {
+        "requests_per_second": 5,
+        "requests_per_hour": 1800
+      },
+      "cost_model": {
+        "pricing_type": "per_gb",
+        "base_cost": 0.012
+      }
+    },
+    "oxylabs": {
+      "name": "Oxylabs",
+      "type": "datacenter",
+      "api_endpoint": "https://rt.oxylabs.io/api/v1",
+      "supported_regions": ["global", "us-east", "eu-central", "asia-pacific"],
+      "max_concurrent": 2000,
+      "rotation_support": false,
+      "auth_method": "username_password",
+      "rate_limits": {
+        "requests_per_second": 20,
+        "requests_per_hour": 7200
+      },
+      "cost_model": {
+        "pricing_type": "per_request",
+        "base_cost": 0.001
+      }
+    },
+    "proxy_cheap": {
+      "name": "Proxy-Cheap",
+      "type": "datacenter",
+      "api_endpoint": "https://proxy-cheap.com/api/v1",
+      "supported_regions": ["global", "us-east", "us-west", "eu-central"],
+      "max_concurrent": 1000,
+      "rotation_support": false,
+      "auth_method": "api_key",
+      "rate_limits": {
+        "requests_per_second": 15,
+        "requests_per_hour": 5400
+      },
+      "cost_model": {
+        "pricing_type": "monthly",
+        "base_cost": 2.50
+      }
+    },
+    "private_proxy": {
+      "name": "PrivateProxy",
+      "type": "datacenter",
+      "api_endpoint": "https://privateproxy.me/api/v1",
+      "supported_regions": ["us-east", "us-west", "eu-central", "asia-pacific"],
+      "max_concurrent": 500,
+      "rotation_support": false,
+      "auth_method": "ip_whitelist",
+      "rate_limits": {
+        "requests_per_second": 10,
+        "requests_per_hour": 3600
+      },
+      "cost_model": {
+        "pricing_type": "per_proxy",
+        "base_cost": 1.20
+      }
+    },
+    "tor_internal": {
+      "name": "Internal Tor Network",
+      "type": "tor",
+      "api_endpoint": "internal://tor:9051",
+      "supported_regions": ["global"],
+      "max_concurrent": 50,
+      "rotation_support": true,
+      "auth_method": "control_password",
+      "rate_limits": {
+        "requests_per_second": 2,
+        "requests_per_hour": 3600
+      },
+      "cost_model": {
+        "pricing_type": "free",
+        "base_cost": 0.0
+      }
+    }
+  },
+  "load_balancing": {
+    "strategies": {
+      "round_robin": {
+        "description": "Simple round-robin selection",
+        "use_case": "Even distribution"
+      },
+      "least_connections": {
+        "description": "Select proxy with fewest active connections",
+        "use_case": "Load balancing"
+      },
+      "weighted_round_robin": {
+        "description": "Weighted selection based on proxy performance",
+        "use_case": "Performance optimization"
+      },
+      "least_response_time": {
+        "description": "Select proxy with best response time",
+        "use_case": "Latency optimization"
+      },
+      "geographic": {
+        "description": "Geographic proximity based selection",
+        "use_case": "Regional optimization"
+      },
+      "random": {
+        "description": "Random proxy selection",
+        "use_case": "Simple distribution"
+      }
+    },
+    "default_strategy": "least_connections",
+    "failover_strategy": "geographic",
+    "health_check_interval": 30,
+    "max_retries": 3
+  },
+  "security": {
+    "ssl_verification": true,
+    "user_agent_rotation": true,
+    "header_randomization": true,
+    "connection_pooling": true,
+    "request_timeout": 30,
+    "max_redirects": 3,
+    "enable_cookies": false,
+    "dns_over_https": true
+  },
+  "monitoring": {
+    "health_check_urls": [
+      "http://httpbin.org/ip",
+      "https://api.ipify.org",
+      "http://icanhazip.com"
+    ],
+    "performance_thresholds": {
+      "response_time_warning": 2.0,
+      "response_time_critical": 5.0,
+      "success_rate_warning": 0.9,
+      "success_rate_critical": 0.7,
+      "utilization_warning": 0.8,
+      "utilization_critical": 0.95
+    },
+    "metrics_retention": {
+      "raw_metrics": "24h",
+      "aggregated_metrics": "30d",
+      "summary_metrics": "1y"
+    }
+  }
+}

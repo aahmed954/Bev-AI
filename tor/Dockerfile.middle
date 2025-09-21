@@ -1,0 +1,85 @@
+# Tor Middle Relay Container
+FROM alpine:3.18
+
+LABEL maintainer="Bev Security Team"
+LABEL description="Tor Middle Relay - Second hop in 3-hop circuit"
+LABEL version="1.0.0"
+
+# Install Tor and dependencies
+RUN apk add --no-cache \
+    tor \
+    obfs4proxy \
+    torsocks \
+    curl \
+    dumb-init \
+    su-exec
+
+# Create tor user and directories
+RUN adduser -D -s /bin/sh tor && \
+    mkdir -p /var/lib/tor /var/log/tor /etc/tor && \
+    chown -R tor:tor /var/lib/tor /var/log/tor
+
+# Copy configuration
+COPY torrc_node2 /etc/tor/torrc
+
+# Copy startup script
+COPY <<EOF /usr/local/bin/entrypoint.sh
+#!/bin/sh
+set -e
+
+# Generate Tor state directory if it doesn't exist
+if [ ! -d "/var/lib/tor/keys" ]; then
+    echo "Generating Tor keys..."
+    su-exec tor tor --verify-config
+fi
+
+# Set proper permissions
+chown -R tor:tor /var/lib/tor /var/log/tor
+chmod 700 /var/lib/tor
+chmod 755 /var/log/tor
+
+# Initialize obfs4proxy state if needed
+if [ ! -d "/var/lib/tor/pt_state" ]; then
+    mkdir -p /var/lib/tor/pt_state
+    chown -R tor:tor /var/lib/tor/pt_state
+    chmod 700 /var/lib/tor/pt_state
+fi
+
+# Start Tor as non-root user
+echo "Starting Tor Middle Relay..."
+exec su-exec tor tor -f /etc/tor/torrc
+EOF
+
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Create relay info page
+COPY <<EOF /etc/tor/tor-exit-notice.html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BEV Tor Middle Relay</title>
+</head>
+<body>
+    <h1>BEV Tor Middle Relay</h1>
+    <p>This is a Tor middle relay operated by BEV Security.</p>
+    <p>This relay does not allow exit traffic.</p>
+    <p>For more information about Tor, see <a href="https://www.torproject.org/">https://www.torproject.org/</a></p>
+</body>
+</html>
+EOF
+
+# Health check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:9031/tor/status-vote/current/consensus || exit 1
+
+# Expose ports
+EXPOSE 9002 9031 9052 9003
+
+# Security hardening
+RUN rm -rf /tmp/* /var/cache/apk/*
+
+USER tor
+WORKDIR /var/lib/tor
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["/usr/local/bin/entrypoint.sh"]

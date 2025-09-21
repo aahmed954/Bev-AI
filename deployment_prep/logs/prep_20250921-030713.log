@@ -1,0 +1,10 @@
+[2025-09-21 03:07:13] [INFO] Initializing pre-deployment preparation environment
+[2025-09-21 03:07:14] [INFO] Preparation environment initialized
+[2025-09-21 03:07:14] [INFO] Working directory: /home/starlord/Projects/Bev/deployment_prep/prep_work_kzANHa
+[2025-09-21 03:07:14] [INFO] Log file: /home/starlord/Projects/Bev/deployment_prep/logs/prep_20250921-030713.log
+[2025-09-21 03:07:14] [INFO] Starting pre-deployment preparation and validation
+[2025-09-21 03:07:14] [INFO] Auto-fix mode: false
+[2025-09-21 03:07:14] [INFO] Force mode: false
+[2025-09-21 03:07:14] [WARN] Failed to create system backup
+[2025-09-21 03:07:14] [ERROR] Cannot proceed without backup. Use --force to override.
+[2025-09-21 03:07:14] [ERROR] Pre-deployment preparation failed with exit code 1

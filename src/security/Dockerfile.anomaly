@@ -1,0 +1,56 @@
+# Anomaly Detector - Isolation Forest ML Model
+FROM python:3.11-slim
+
+LABEL maintainer="Bev Security Team"
+LABEL description="Isolation Forest Anomaly Detection System"
+LABEL version="1.0.0"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python ML libraries
+RUN pip install --no-cache-dir \
+    scikit-learn==1.2.2 \
+    numpy==1.24.3 \
+    pandas==2.0.1 \
+    matplotlib==3.7.1 \
+    seaborn==0.12.2 \
+    joblib==1.2.0 \
+    redis==4.5.4 \
+    influxdb-client==1.36.1 \
+    psutil==5.9.5 \
+    loguru==0.7.0 \
+    prometheus-client==0.16.0 \
+    flask==2.3.2 \
+    requests==2.30.0 \
+    pyyaml==6.0
+
+# Create anomaly detector user
+RUN useradd -m -s /bin/bash anomaly_user
+
+# Create directories
+RUN mkdir -p /app/logs /app/models /app/data /app/config
+RUN chown -R anomaly_user:anomaly_user /app
+
+# Copy anomaly detector
+COPY anomaly_detector.py /app/
+COPY config/ /app/config/
+
+USER anomaly_user
+WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=60s --timeout=15s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8083/health || exit 1
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_ENV=production
+
+# Expose API port
+EXPOSE 8083
+
+CMD ["python", "anomaly_detector.py"]

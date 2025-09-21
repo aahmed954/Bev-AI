@@ -1,0 +1,246 @@
+# BEV OSINT Framework - Predictive Cache Configuration
+# ML-driven multi-tier caching with intelligent prefetching and optimization
+
+service:
+  host: "0.0.0.0"
+  port: 8044
+  workers: 4
+  debug: false
+  max_request_size: 16777216  # 16MB
+  keepalive_timeout: 30
+
+redis:
+  cluster_nodes:
+    - host: "redis-node-1"
+      port: 7001
+    - host: "redis-node-2"
+      port: 7002
+    - host: "redis-node-3"
+      port: 7003
+  password: "${REDIS_PASSWORD}"
+  standalone_url: "redis://redis:6379"
+  connection_pool_size: 20
+  max_connections: 100
+  retry_on_timeout: true
+  socket_keepalive: true
+
+postgres:
+  uri: "${POSTGRES_URI}"
+  min_connections: 2
+  max_connections: 20
+  command_timeout: 60
+  pool_recycle: 3600
+
+cache:
+  # Multi-tier configuration
+  hot_tier_size_gb: 4.0
+  warm_tier_size_gb: 8.0
+  cold_tier_persistent: true
+
+  # Cache behavior
+  default_ttl_seconds: 3600
+  max_key_size: 1024
+  max_value_size_mb: 100
+
+  # Intelligent prefetching
+  prefetch_threshold: 0.7
+  enable_intelligent_warming: true
+  max_prefetch_batch_size: 100
+  prefetch_confidence_threshold: 0.6
+
+  # Eviction policies
+  eviction_policy: "ml_adaptive"  # Options: lru, lfu, arc, ml_adaptive
+  eviction_batch_size: 10
+  memory_pressure_threshold: 0.85
+
+  # Performance tuning
+  compression_enabled: true
+  compression_algorithm: "lz4"  # Options: lz4, gzip, zstd
+  serialization_format: "pickle"  # Options: pickle, json, msgpack
+
+  # Advanced features
+  enable_cache_warming: true
+  enable_predictive_eviction: true
+  enable_user_based_optimization: true
+  enable_collaborative_filtering: true
+
+ml:
+  # Model training
+  min_training_samples: 1000
+  retrain_interval_hours: 6
+  model_accuracy_threshold: 0.8
+  prediction_confidence_threshold: 0.7
+  feature_window_hours: 24
+
+  # Model types
+  hit_prediction_model: "random_forest"  # Options: random_forest, gradient_boosting, neural_network
+  access_time_model: "gradient_boosting"
+  user_clustering_model: "kmeans"
+
+  # Model parameters
+  random_forest_estimators: 100
+  random_forest_max_depth: 10
+  gradient_boosting_estimators: 100
+  gradient_boosting_learning_rate: 0.1
+  neural_network_hidden_layers: [128, 64, 32]
+
+  # Feature engineering
+  enable_temporal_features: true
+  enable_user_features: true
+  enable_content_features: true
+  enable_system_features: true
+
+  # Model persistence
+  model_save_interval_hours: 12
+  model_backup_retention_days: 30
+
+optimization:
+  # Optimization intervals
+  optimization_interval_seconds: 300
+  analysis_window_hours: 24
+
+  # Performance targets
+  target_hit_rate: 0.85
+  target_response_time_ms: 100
+  max_memory_utilization: 0.9
+  max_cpu_utilization: 0.8
+
+  # Adaptive algorithms
+  enable_arc_optimization: true
+  enable_lirs_optimization: true
+  enable_ml_guided_optimization: true
+
+  # Optimization strategies
+  auto_tier_rebalancing: true
+  auto_policy_switching: true
+  auto_parameter_tuning: true
+
+  # Thresholds
+  hit_rate_improvement_threshold: 0.02
+  memory_savings_threshold: 0.05
+  optimization_confidence_threshold: 0.8
+
+warming:
+  # Task management
+  max_concurrent_tasks: 10
+  warming_interval_seconds: 300
+  task_timeout_seconds: 300
+  max_retries: 3
+
+  # User analysis
+  user_analysis_window_hours: 24
+  min_user_activity_threshold: 5
+  user_similarity_threshold: 0.8
+
+  # Popularity analysis
+  popularity_threshold: 0.1
+  popularity_decay_factor: 0.95
+  trending_threshold: 0.2
+
+  # Bandwidth management
+  max_warming_bandwidth_mbps: 100
+  bandwidth_throttling_enabled: true
+  peak_hours_bandwidth_limit_mbps: 50
+
+  # Strategies
+  enable_user_based_warming: true
+  enable_temporal_based_warming: true
+  enable_popularity_based_warming: true
+  enable_collaborative_warming: true
+
+  # Advanced features
+  enable_pattern_prediction: true
+  enable_seasonal_adjustment: true
+  enable_workload_forecasting: true
+
+monitoring:
+  # Metrics collection
+  metrics_interval_seconds: 60
+  detailed_metrics_enabled: true
+  prometheus_port: 9044
+
+  # Health monitoring
+  health_check_interval_seconds: 30
+  component_health_timeout_seconds: 10
+
+  # Logging
+  log_level: "INFO"
+  enable_detailed_logging: true
+  log_format: "structured"
+  log_rotation_enabled: true
+  log_max_size_mb: 100
+  log_backup_count: 10
+
+  # Performance monitoring
+  enable_performance_profiling: false
+  profile_sample_rate: 0.01
+  slow_query_threshold_ms: 1000
+
+  # Alerting
+  enable_alerting: true
+  alert_channels: ["prometheus", "logs"]
+  critical_hit_rate_threshold: 0.7
+  critical_response_time_threshold_ms: 500
+  critical_error_rate_threshold: 0.05
+
+security:
+  # Authentication
+  enable_authentication: false
+  api_key_required: false
+
+  # Rate limiting
+  enable_rate_limiting: true
+  requests_per_minute: 1000
+  burst_limit: 100
+
+  # Data protection
+  enable_encryption_at_rest: false
+  enable_encryption_in_transit: true
+  sensitive_data_masking: true
+
+  # Access control
+  allowed_networks: []  # Empty means all networks allowed
+  blocked_networks: []
+  admin_networks: ["172.30.0.0/16"]
+
+# Feature flags for A/B testing and gradual rollouts
+features:
+  ml_prediction_v2: false
+  adaptive_warming: true
+  collaborative_filtering: false
+  real_time_optimization: true
+  advanced_analytics: true
+  experimental_algorithms: false
+
+# Environment-specific overrides
+environments:
+  development:
+    cache:
+      hot_tier_size_gb: 1.0
+      warm_tier_size_gb: 2.0
+    ml:
+      min_training_samples: 100
+      retrain_interval_hours: 1
+    monitoring:
+      log_level: "DEBUG"
+      enable_detailed_logging: true
+
+  production:
+    cache:
+      hot_tier_size_gb: 8.0
+      warm_tier_size_gb: 16.0
+    ml:
+      min_training_samples: 5000
+      retrain_interval_hours: 12
+    monitoring:
+      log_level: "INFO"
+      enable_performance_profiling: true
+
+  testing:
+    cache:
+      hot_tier_size_gb: 0.5
+      warm_tier_size_gb: 1.0
+    warming:
+      max_concurrent_tasks: 2
+    monitoring:
+      log_level: "DEBUG"

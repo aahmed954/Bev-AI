@@ -1,0 +1,143 @@
+# Tor Middle Relay Configuration (Node 2)
+# Second hop in the 3-hop circuit for maximum anonymity
+
+## Basic Configuration
+SocksPort 0
+ControlPort 9052
+ControlListenAddress 127.0.0.1
+HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C
+
+## Data Directory
+DataDirectory /var/lib/tor
+
+## Logging
+Log notice file /var/log/tor/notices.log
+Log warn file /var/log/tor/warnings.log
+
+## Middle Relay Configuration
+ORPort 9002
+ORListenAddress 0.0.0.0:9002
+Nickname BEVMiddleRelay2
+ContactInfo security@bev.local
+
+## Relay Configuration
+RelayBandwidthRate 15 MB
+RelayBandwidthBurst 30 MB
+MaxMemInQueues 1024 MB
+
+## Directory Configuration
+DirPort 9031
+DirListenAddress 0.0.0.0:9031
+
+## Exit Policy - No exits from middle relay
+ExitPolicy reject *:*
+
+## Security Hardening
+DisableAllSwap 1
+HardwareAccel 1
+SafeLogging 1
+ProtocolWarnings 1
+
+## Middle Relay Specific Configuration
+ClientOnly 0
+PublishServerDescriptor 1
+AssumeReachable 1
+Address 0.0.0.0
+
+## Bandwidth Management
+MaxAdvertisedBandwidth 15 MB
+BandwidthRate 10 MB
+BandwidthBurst 20 MB
+MaxOnionQueueDelay 1750 msec
+
+## Connection Limits
+ConnLimit 2000
+MaxClientCircuitsPending 64
+MaxOnionsPending 200
+
+## Performance Optimizations
+NumCPUs 2
+DisableOOSCheck 0
+
+## Circuit Configuration
+CircuitIdleTimeout 30 minutes
+NewCircuitPeriod 30 seconds
+MaxCircuitDirtiness 10 minutes
+
+## Directory Mirror
+DirCache 1
+DirPortFrontPage /etc/tor/tor-exit-notice.html
+
+## Family Configuration (if running multiple relays)
+MyFamily $BEVEntryNode1,$BEVMiddleRelay2,$BEVExitNode3
+
+## Network Configuration
+OutboundBindAddress 0.0.0.0
+IPv6Exit 1
+
+## GeoIP Configuration
+GeoIPFile /usr/share/tor/geoip
+GeoIPv6File /usr/share/tor/geoip6
+
+## Statistics (disabled for privacy)
+CellStatistics 0
+DirReqStatistics 0
+EntryStatistics 0
+ExitPortStatistics 0
+ConnDirectionStatistics 0
+HiddenServiceStatistics 0
+
+## Circuit Building
+PathsNeededToBuildCircuits 0.25
+CircuitBuildTimeout 60 seconds
+LearnCircuitBuildTimeout 1
+
+## Traffic Management
+KeepalivePeriod 60 seconds
+HeartbeatPeriod 6 hours
+
+## Consensus Configuration
+UseMicrodescriptors 1
+FetchDirInfoExtraEarly 0
+FetchDirInfoEarly 0
+DownloadExtraInfo 1
+
+## Onion Services Support
+HiddenServiceSingleHopMode 0
+HiddenServiceNonAnonymousMode 0
+
+## Circuit Priorities
+CircuitPriorityHalflife 30 seconds
+
+## DNS Configuration
+ServerDNSSearchDomains 0
+ServerDNSDetectHijacking 1
+ServerDNSTestAddresses 8.8.8.8,4.4.4.4,208.67.222.222
+
+## Resource Management
+MaxMemInCellQueues 24 GB
+CircuitStreamTimeout 10 seconds
+
+## Directory Authority
+AuthDirReject *:*
+AuthDirInvalid *:*
+
+## Transport Configuration
+ExtORPort auto
+ExtendedErrors 1
+
+## Guard Configuration
+GuardLifetime 3 months
+NumPrimaryGuards 3
+
+## Dormant Mode
+DormantOnFirstStartup 0
+DormantTimeoutDisabledByIdleStreams 1
+
+## Circuit Padding
+CircuitPadding 1
+ReducedCircuitPadding 0
+
+## Relay Information
+ServerTransportPlugin obfs4 exec /usr/bin/obfs4proxy
+ServerTransportListenAddr obfs4 0.0.0.0:9003

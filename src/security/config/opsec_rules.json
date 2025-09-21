@@ -1,0 +1,24 @@
+{
+  "opsec_rules": [
+    {
+      "rule_id": "tor_traffic_only",
+      "description": "Ensure all traffic routes through Tor",
+      "enabled": true,
+      "enforcement_level": "strict"
+    },
+    {
+      "rule_id": "metadata_stripping",
+      "description": "Remove identifying metadata from requests",
+      "enabled": true,
+      "enforcement_level": "strict"
+    },
+    {
+      "rule_id": "user_agent_rotation",
+      "description": "Rotate user agents for anonymity",
+      "enabled": true,
+      "rotation_interval": 300
+    }
+  ],
+  "privacy_level": "HIGH",
+  "compartmentalization": true
+}

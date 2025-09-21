@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BEV Live2D Avatar</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: white;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: #ef4444;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            padding: 2rem;
+            gap: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .avatar-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #avatarCanvas {
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .emotion-display {
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 100px;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .controls-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .control-group {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .control-group h3 {
+            margin-bottom: 1rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .text-input-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .text-input {
+            flex: 1;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .text-input:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .text-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .emotion-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+        }
+
+        .emotion-btn {
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.875rem;
+        }
+
+        .emotion-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .emotion-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+        }
+
+        .gesture-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .gesture-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 100px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.875rem;
+        }
+
+        .gesture-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .params-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .param-control {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .param-label {
+            flex: 0 0 150px;
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .param-slider {
+            flex: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .param-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .param-value {
+            flex: 0 0 50px;
+            text-align: right;
+            font-size: 0.875rem;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+        }
+
+        .audio-visualizer {
+            height: 60px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 0 1rem;
+        }
+
+        .audio-bar {
+            width: 4px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 2px;
+            transition: height 0.1s;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+
+            .emotion-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.3s;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <header class="header">
+        <h1>🤖 BEV Live2D Avatar</h1>
+        <div class="status">
+            <span id="connectionStatus">Connecting...</span>
+            <div class="status-indicator" id="statusIndicator"></div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <section class="avatar-section">
+            <canvas id="avatarCanvas"></canvas>
+            <div class="emotion-display">
+                <span>Current Emotion:</span>
+                <strong id="currentEmotion">Neutral</strong>
+            </div>
+            <div class="audio-visualizer" id="audioVisualizer">
+                <!-- Audio bars will be generated dynamically -->
+            </div>
+        </section>
+
+        <section class="controls-section">
+            <!-- Speech Controls -->
+            <div class="control-group">
+                <h3>💬 Speech</h3>
+                <div class="text-input-group">
+                    <input type="text" class="text-input" id="speechInput"
+                           placeholder="Enter text for avatar to speak...">
+                    <button class="btn" onclick="handleSpeak()">Speak</button>
+                </div>
+            </div>
+
+            <!-- Emotion Controls -->
+            <div class="control-group">
+                <h3>😊 Emotions</h3>
+                <div class="emotion-buttons">
+                    <button class="emotion-btn" onclick="setEmotion('neutral')">😐 Neutral</button>
+                    <button class="emotion-btn" onclick="setEmotion('happy')">😊 Happy</button>
+                    <button class="emotion-btn" onclick="setEmotion('sad')">😢 Sad</button>
+                    <button class="emotion-btn" onclick="setEmotion('angry')">😠 Angry</button>
+                    <button class="emotion-btn" onclick="setEmotion('surprised')">😲 Surprised</button>
+                    <button class="emotion-btn" onclick="setEmotion('thinking')">🤔 Thinking</button>
+                    <button class="emotion-btn" onclick="setEmotion('excited')">🤩 Excited</button>
+                    <button class="emotion-btn" onclick="setEmotion('confused')">😕 Confused</button>
+                    <button class="emotion-btn" onclick="setEmotion('confident')">😎 Confident</button>
+                </div>
+            </div>
+
+            <!-- Gesture Controls -->
+            <div class="control-group">
+                <h3>👋 Gestures</h3>
+                <div class="gesture-buttons">
+                    <button class="gesture-btn" onclick="performGesture('wave')">👋 Wave</button>
+                    <button class="gesture-btn" onclick="performGesture('nod')">✅ Nod</button>
+                    <button class="gesture-btn" onclick="performGesture('shake')">❌ Shake Head</button>
+                    <button class="gesture-btn" onclick="performGesture('think')">💭 Think</button>
+                    <button class="gesture-btn" onclick="performGesture('celebrate')">🎉 Celebrate</button>
+                </div>
+            </div>
+
+            <!-- Advanced Parameters -->
+            <div class="control-group">
+                <h3>⚙️ Parameters</h3>
+                <div class="params-grid">
+                    <div class="param-control">
+                        <label class="param-label">Expression Intensity</label>
+                        <input type="range" class="param-slider" id="expressionIntensity"
+                               min="0" max="1" step="0.1" value="1"
+                               oninput="updateParam('expression_intensity', this.value)">
+                        <span class="param-value" id="expressionIntensityValue">1.0</span>
+                    </div>
+                    <div class="param-control">
+                        <label class="param-label">Eye Openness</label>
+                        <input type="range" class="param-slider" id="eyeOpenness"
+                               min="0" max="1" step="0.1" value="1"
+                               oninput="updateParam('eye_openness', this.value)">
+                        <span class="param-value" id="eyeOpennessValue">1.0</span>
+                    </div>
+                    <div class="param-control">
+                        <label class="param-label">Head X Position</label>
+                        <input type="range" class="param-slider" id="headX"
+                               min="-1" max="1" step="0.1" value="0"
+                               oninput="updateParam('head_x', this.value)">
+                        <span class="param-value" id="headXValue">0.0</span>
+                    </div>
+                    <div class="param-control">
+                        <label class="param-label">Head Y Position</label>
+                        <input type="range" class="param-slider" id="headY"
+                               min="-1" max="1" step="0.1" value="0"
+                               oninput="updateParam('head_y', this.value)">
+                        <span class="param-value" id="headYValue">0.0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Load Pixi.js for WebGL rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.x/dist/pixi.min.js"></script>
+    <!-- Load Live2D Cubism SDK -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+
+    <!-- Application Scripts -->
+    <script src="avatar.js"></script>
+    <script src="controls.js"></script>
+</body>
+</html>

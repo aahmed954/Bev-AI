@@ -1,0 +1,108 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "BEV OSINT Framework",
+  "version": "0.1.0",
+  "identifier": "com.bev.osint",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "BEV OSINT Framework",
+        "width": 1920,
+        "height": 1080,
+        "resizable": true,
+        "fullscreen": false,
+        "alwaysOnTop": false,
+        "decorations": true,
+        "transparent": false,
+        "skipTaskbar": false,
+        "fileDropEnabled": false,
+        "center": true,
+        "webPreferences": {
+          "allowRunningInsecureContent": true,
+          "experimentalFeatures": true
+        }
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://localhost; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'",
+      "freezePrototype": true,
+      "dangerousRemoteDomainIpcAccess": [],
+      "dangerousDisableAssetCspModification": false,
+      "assetProtocol": {
+        "enable": true,
+        "scope": []
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "assets/*",
+      "shaders/*"
+    ]
+  },
+  "plugins": {
+    "shell": {
+      "open": false,
+      "scope": []
+    },
+    "fs": {
+      "scope": [
+        "**",
+        "$APPDATA/BEV/*",
+        "$LOCALDATA/BEV/*"
+      ]
+    },
+    "http": {
+      "scope": [
+        "http://localhost:*",
+        "https://localhost:*"
+      ]
+    }
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "fs": {
+        "all": true,
+        "scope": [
+          "**",
+          "$APPDATA/BEV/*",
+          "$LOCALDATA/BEV/*"
+        ]
+      },
+      "http": {
+        "all": true,
+        "scope": [
+          "http://localhost:*",
+          "https://localhost:*"
+        ]
+      },
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "window": {
+        "all": true
+      },
+      "globalShortcut": {
+        "all": true
+      }
+    }
+  }
+}

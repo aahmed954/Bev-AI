@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+LABEL maintainer="BEV DevOps"
+WORKDIR /app
+COPY src/autonomous/adaptive_learning.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONUNBUFFERED=1
+HEALTHCHECK CMD ["python", "adaptive_learning.py", "--healthcheck"]
+CMD ["python", "adaptive_learning.py"]
+EXPOSE 8101

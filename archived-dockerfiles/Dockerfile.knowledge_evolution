@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+LABEL maintainer="BEV DevOps"
+WORKDIR /app
+COPY src/autonomous/knowledge_evolution.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONUNBUFFERED=1
+HEALTHCHECK CMD ["python", "knowledge_evolution.py", "--healthcheck"]
+CMD ["python", "knowledge_evolution.py"]
+EXPOSE 8102

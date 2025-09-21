@@ -1,0 +1,251 @@
+# Docker Compose for 3-hop Tor Circuit
+# Complete anonymity infrastructure with entry, middle, and exit nodes
+
+version: '3.8'
+
+services:
+  # Tor Entry Node (First Hop)
+  tor-entry:
+    build:
+      context: .
+      dockerfile: Dockerfile.entry
+    container_name: bev-tor-entry
+    hostname: tor-entry-node
+    restart: unless-stopped
+    ports:
+      - "9001:9001"  # ORPort
+      - "9030:9030"  # DirPort
+      - "9051:9051"  # ControlPort
+    volumes:
+      - tor_entry_data:/var/lib/tor
+      - tor_entry_logs:/var/log/tor
+      - ./torrc_node1:/etc/tor/torrc:ro
+    networks:
+      tor_network:
+        ipv4_address: 172.20.0.10
+    environment:
+      - TOR_NICKNAME=BEVEntryNode1
+      - TOR_CONTACT_INFO=security@bev.local
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=100m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9030/tor/server/authority"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Tor Middle Relay (Second Hop)
+  tor-middle:
+    build:
+      context: .
+      dockerfile: Dockerfile.middle
+    container_name: bev-tor-middle
+    hostname: tor-middle-relay
+    restart: unless-stopped
+    ports:
+      - "9002:9002"  # ORPort
+      - "9031:9031"  # DirPort
+      - "9052:9052"  # ControlPort
+      - "9003:9003"  # obfs4 transport
+    volumes:
+      - tor_middle_data:/var/lib/tor
+      - tor_middle_logs:/var/log/tor
+      - ./torrc_node2:/etc/tor/torrc:ro
+    networks:
+      tor_network:
+        ipv4_address: 172.20.0.11
+    environment:
+      - TOR_NICKNAME=BEVMiddleRelay2
+      - TOR_CONTACT_INFO=security@bev.local
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=100m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    depends_on:
+      - tor-entry
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9031/tor/server/authority"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Tor Exit Node (Third Hop)
+  tor-exit:
+    build:
+      context: .
+      dockerfile: Dockerfile.exit
+    container_name: bev-tor-exit
+    hostname: tor-exit-node
+    restart: unless-stopped
+    ports:
+      - "9004:9003"  # ORPort (mapped to different host port)
+      - "9032:9032"  # DirPort
+      - "9053:9053"  # ControlPort
+    volumes:
+      - tor_exit_data:/var/lib/tor
+      - tor_exit_logs:/var/log/tor
+      - ./torrc_node3:/etc/tor/torrc:ro
+    networks:
+      tor_network:
+        ipv4_address: 172.20.0.12
+    environment:
+      - TOR_NICKNAME=BEVExitNode3
+      - TOR_CONTACT_INFO=security@bev.local
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+      - NET_ADMIN  # Required for iptables in exit node
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=100m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    depends_on:
+      - tor-middle
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9032/tor/server/authority"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Tor Control Interface (Optional management interface)
+  tor-controller:
+    image: alpine:3.18
+    container_name: bev-tor-controller
+    hostname: tor-controller
+    restart: unless-stopped
+    volumes:
+      - ./scripts:/scripts:ro
+    networks:
+      - tor_network
+    environment:
+      - ENTRY_NODE=172.20.0.10:9051
+      - MIDDLE_NODE=172.20.0.11:9052
+      - EXIT_NODE=172.20.0.12:9053
+    command: >
+      sh -c "
+        apk add --no-cache curl python3 py3-pip;
+        pip3 install stem;
+        echo 'Tor circuit controller ready';
+        tail -f /dev/null
+      "
+    depends_on:
+      - tor-entry
+      - tor-middle
+      - tor-exit
+
+  # Traffic Monitor for Tor Network
+  tor-monitor:
+    image: alpine:3.18
+    container_name: bev-tor-monitor
+    hostname: tor-monitor
+    restart: unless-stopped
+    volumes:
+      - tor_entry_logs:/logs/entry:ro
+      - tor_middle_logs:/logs/middle:ro
+      - tor_exit_logs:/logs/exit:ro
+      - ./monitoring:/monitoring:ro
+    networks:
+      - tor_network
+    environment:
+      - MONITOR_INTERVAL=60
+      - LOG_LEVEL=INFO
+    command: >
+      sh -c "
+        apk add --no-cache curl python3 py3-pip;
+        pip3 install psutil requests;
+        echo 'Tor network monitor ready';
+        python3 /monitoring/tor_monitor.py
+      "
+    depends_on:
+      - tor-entry
+      - tor-middle
+      - tor-exit
+
+networks:
+  tor_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.name: br-tor
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+volumes:
+  # Persistent storage for Tor node data
+  tor_entry_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/entry
+
+  tor_middle_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/middle
+
+  tor_exit_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/exit
+
+  # Log storage
+  tor_entry_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs/entry
+
+  tor_middle_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs/middle
+
+  tor_exit_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs/exit

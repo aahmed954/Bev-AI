@@ -1,0 +1,372 @@
+version: '3.9'
+
+# Thanos Node - GPU/Primary Compute Services
+# This compose file deploys high-compute services on Thanos
+
+x-vault-env: &vault-env
+  VAULT_ADDR: ${VAULT_ADDR}
+  VAULT_TOKEN: ${VAULT_TOKEN}
+  SECRETS_BACKEND: vault
+  NODE_NAME: thanos
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+networks:
+  bev_network:
+    driver: bridge
+    name: bev_network
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  elasticsearch_data:
+  influxdb_data:
+  kafka_data:
+  zookeeper_data:
+  rabbitmq_data:
+  intelowl_static:
+
+services:
+  # PostgreSQL with pgvector - Primary Database
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: bev_postgres
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      POSTGRES_USER: bev
+      POSTGRES_DB: bev_db
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y curl jq &&
+        export POSTGRES_PASSWORD=$$(curl -s -H \"X-Vault-Token: $$VAULT_TOKEN\" \
+          $$VAULT_ADDR/v1/bev/data/database | jq -r '.data.data.postgres_password') &&
+        docker-entrypoint.sh postgres
+      "
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.10
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Neo4j Graph Database
+  neo4j:
+    image: neo4j:5.14-community
+    container_name: bev_neo4j
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_AUTH: neo4j/temporary
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y curl jq &&
+        export NEO4J_PASSWORD=$$(curl -s -H \"X-Vault-Token: $$VAULT_TOKEN\" \
+          $$VAULT_ADDR/v1/bev/data/database | jq -r '.data.data.neo4j_password') &&
+        neo4j-admin dbms set-initial-password $$NEO4J_PASSWORD &&
+        neo4j start
+      "
+    volumes:
+      - neo4j_data:/data
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.11
+    logging: *default-logging
+
+  # Elasticsearch
+  elasticsearch:
+    image: elasticsearch:8.10.4
+    container_name: bev_elasticsearch
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms2g -Xmx2g"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.12
+    logging: *default-logging
+
+  # InfluxDB Time Series Database
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: bev_influxdb
+    restart: unless-stopped
+    environment:
+      <<: *vault-env
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_ORG: bev
+      DOCKER_INFLUXDB_INIT_BUCKET: metrics
+      DOCKER_INFLUXDB_INIT_RETENTION: 30d
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    ports:
+      - "8086:8086"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.13
+    logging: *default-logging
+
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: bev_zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.20
+    logging: *default-logging
+
+  # Kafka Broker 1
+  kafka-1:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: bev_kafka_1
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      <<: *vault-env
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,EXTERNAL://${NODE_IP}:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    ports:
+      - "19092:19092"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.21
+    logging: *default-logging
+
+  # Kafka Broker 2
+  kafka-2:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: bev_kafka_2
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      <<: *vault-env
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092,EXTERNAL://${NODE_IP}:19093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+    ports:
+      - "19093:19093"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.22
+    logging: *default-logging
+
+  # Kafka Broker 3
+  kafka-3:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: bev_kafka_3
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      <<: *vault-env
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092,EXTERNAL://${NODE_IP}:19094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+    ports:
+      - "19094:19094"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.23
+    logging: *default-logging
+
+  # RabbitMQ 1
+  rabbitmq-1:
+    image: rabbitmq:3.12-management-alpine
+    container_name: bev_rabbitmq_1
+    restart: unless-stopped
+    hostname: rabbitmq-1
+    environment:
+      <<: *vault-env
+      RABBITMQ_ERLANG_COOKIE: bev_rabbitmq_cluster
+      RABBITMQ_NODE_NAME: rabbit@rabbitmq-1
+    command: >
+      sh -c "
+        apk add --no-cache curl jq &&
+        export RABBITMQ_DEFAULT_PASS=$$(curl -s -H \"X-Vault-Token: $$VAULT_TOKEN\" \
+          $$VAULT_ADDR/v1/bev/data/services | jq -r '.data.data.rabbitmq_password') &&
+        export RABBITMQ_DEFAULT_USER=bev &&
+        rabbitmq-server
+      "
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.30
+    logging: *default-logging
+
+  # IntelOwl Django
+  intelowl-django:
+    image: intelowl/intelowl:latest
+    container_name: bev_intelowl_django
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      <<: *vault-env
+      DJANGO_POSTGRES_HOST: postgres
+      DJANGO_POSTGRES_PORT: 5432
+      DJANGO_POSTGRES_DB: intelowl
+      DJANGO_POSTGRES_USER: bev
+    volumes:
+      - intelowl_static:/opt/deploy/intel_owl/static
+    ports:
+      - "8001:8001"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.40
+    logging: *default-logging
+
+  # IntelOwl Celery Worker
+  intelowl-celery-worker:
+    image: intelowl/intelowl:latest
+    container_name: bev_intelowl_celery
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq-1
+      - postgres
+    environment:
+      <<: *vault-env
+      CELERY_BROKER: amqp://bev@rabbitmq-1:5672
+    command: celery -A intel_owl worker -l info
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.41
+    logging: *default-logging
+
+  # GPU Services - Autonomous Coordinator
+  autonomous-coordinator:
+    build:
+      context: ./src/autonomous
+      dockerfile: Dockerfile
+    container_name: bev_autonomous_coordinator
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - neo4j
+      - kafka-1
+    environment:
+      <<: *vault-env
+      CUDA_VISIBLE_DEVICES: "0"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - ./src/autonomous:/app
+    ports:
+      - "8009:8009"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.50
+    logging: *default-logging
+
+  # GPU Services - Adaptive Learning
+  adaptive-learning:
+    build:
+      context: ./src/enhancement
+      dockerfile: Dockerfile
+    container_name: bev_adaptive_learning
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - influxdb
+    environment:
+      <<: *vault-env
+      CUDA_VISIBLE_DEVICES: "0"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - ./src/enhancement:/app
+    ports:
+      - "8010:8010"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.51
+    logging: *default-logging
+
+  # GPU Services - Knowledge Evolution
+  knowledge-evolution:
+    build:
+      context: ./src/advanced
+      dockerfile: Dockerfile
+    container_name: bev_knowledge_evolution
+    restart: unless-stopped
+    depends_on:
+      - neo4j
+      - elasticsearch
+    environment:
+      <<: *vault-env
+      CUDA_VISIBLE_DEVICES: "0"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]
+    volumes:
+      - ./src/advanced:/app
+    ports:
+      - "8012:8012"
+    networks:
+      bev_network:
+        ipv4_address: 172.20.0.52
+    logging: *default-logging

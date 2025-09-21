@@ -1,0 +1,47 @@
+Starting BEV deployment at Sun Sep 21 08:45:31 AM EDT 2025
+[1m[0;35m🚀 BEV OSINT FRAMEWORK - FULL DEPLOYMENT[0m
+============================================
+[1m[0;35m🔍 SYSTEM REQUIREMENTS CHECK[0m
+============================================
+[0;34m[INFO][0m System Resources:
+[0;34m[INFO][0m   Memory: 60GB
+[0;34m[INFO][0m   Available Disk: 1436GB
+[0;32m[SUCCESS][0m System requirements check passed
+[0;34m[INFO][0m Creating emergency management scripts...
+[0;32m[SUCCESS][0m Emergency procedures created
+[1m[0;35m🚀 DEPLOYING THANOS NODE (Primary Compute)[0m
+============================================
+[0;34m[INFO][0m Starting THANOS node deployment...
+[0;34m[INFO][0m Starting THANOS node deployment...
+========================================
+[0;34m[INFO][0m Checking prerequisites for THANOS deployment...
+[0;32m[SUCCESS][0m Prerequisites check passed
+[0;34m[INFO][0m Validating Docker Compose configuration...
+[0;32m[SUCCESS][0m Docker Compose configuration is valid
+[0;34m[INFO][0m Cleaning up existing BEV containers...
+[0;34m[INFO][0m Removing BEV networks...
+bev_bev_osint
+bev_bev_test
+[0;32m[SUCCESS][0m Cleanup completed
+[0;34m[INFO][0m Phase 1: Infrastructure deployment
+[0;34m[INFO][0m Deploying core infrastructure services...
+[0;34m[INFO][0m Starting postgres...
+Creating network "bev_bev_osint" with driver "bridge"
+Creating bev_postgres ... 
+Creating bev_postgres ... done
+[0;32m[SUCCESS][0m postgres started
+[0;34m[INFO][0m Waiting for postgres to be healthy...
+[0;32m[SUCCESS][0m postgres is healthy
+[0;34m[INFO][0m Starting redis...
+Creating bev_redis_standalone ... 
+Host is already in use by another container
+Creating bev_redis_standalone ... error
+
+ERROR: for bev_redis_standalone  Cannot start service redis: failed to set up container networking: driver failed programming external connectivity on endpoint bev_redis_standalone (ed6f54e4faf973a266d8d16d68d937aaa2987ef6b9ecbcf84e542b749d9519c5): Bind for 0.0.0.0:6379 failed: port is already allocated
+
+ERROR: for redis  Cannot start service redis: failed to set up container networking: driver failed programming external connectivity on endpoint bev_redis_standalone (ed6f54e4faf973a266d8d16d68d937aaa2987ef6b9ecbcf84e542b749d9519c5): Bind for 0.0.0.0:6379 failed: port is already allocated
+Encountered errors while bringing up the project.
+[0;31m[ERROR][0m Failed to start redis
+[0;31m[ERROR][0m Infrastructure deployment failed
+[0;31m[ERROR][0m THANOS node deployment failed
+[0;31m[ERROR][0m THANOS deployment failed

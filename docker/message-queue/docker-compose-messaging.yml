@@ -1,0 +1,254 @@
+version: '3.8'
+
+services:
+  # RabbitMQ Cluster - 3 nodes for HA
+  rabbitmq1:
+    image: rabbitmq:3.12-management-alpine
+    hostname: rabbitmq1
+    container_name: bev_rabbitmq1
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-BevSwarm2024!}
+      RABBITMQ_ERLANG_COOKIE: ${ERLANG_COOKIE:-BevSecretCookie123}
+      RABBITMQ_NODENAME: rabbit@rabbitmq1
+      RABBITMQ_CLUSTER_NODE_TYPE: disc
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmq1_data:/var/lib/rabbitmq
+      - ./rabbitmq-config/enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./rabbitmq-config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+    networks:
+      - bev_network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq2:
+    image: rabbitmq:3.12-management-alpine
+    hostname: rabbitmq2
+    container_name: bev_rabbitmq2
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-BevSwarm2024!}
+      RABBITMQ_ERLANG_COOKIE: ${ERLANG_COOKIE:-BevSecretCookie123}
+      RABBITMQ_NODENAME: rabbit@rabbitmq2
+      RABBITMQ_CLUSTER_NODE_TYPE: disc
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitmq2_data:/var/lib/rabbitmq
+      - ./rabbitmq-config/enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./rabbitmq-config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+    networks:
+      - bev_network
+    depends_on:
+      - rabbitmq1
+    command: |
+      bash -c "
+        sleep 10 &&
+        rabbitmqctl stop_app &&
+        rabbitmqctl reset &&
+        rabbitmqctl join_cluster rabbit@rabbitmq1 &&
+        rabbitmqctl start_app
+      "
+
+  rabbitmq3:
+    image: rabbitmq:3.12-management-alpine
+    hostname: rabbitmq3
+    container_name: bev_rabbitmq3
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-BevSwarm2024!}
+      RABBITMQ_ERLANG_COOKIE: ${ERLANG_COOKIE:-BevSecretCookie123}
+      RABBITMQ_NODENAME: rabbit@rabbitmq3
+      RABBITMQ_CLUSTER_NODE_TYPE: disc
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    volumes:
+      - rabbitmq3_data:/var/lib/rabbitmq
+      - ./rabbitmq-config/enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./rabbitmq-config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+    networks:
+      - bev_network
+    depends_on:
+      - rabbitmq2
+    command: |
+      bash -c "
+        sleep 20 &&
+        rabbitmqctl stop_app &&
+        rabbitmqctl reset &&
+        rabbitmqctl join_cluster rabbit@rabbitmq1 &&
+        rabbitmqctl start_app
+      "
+
+  # HAProxy for RabbitMQ load balancing
+  rabbitmq-haproxy:
+    image: haproxy:2.8-alpine
+    container_name: bev_rabbitmq_lb
+    ports:
+      - "5670:5670"  # Load balanced AMQP
+      - "15670:15670"  # Load balanced Management
+      - "8404:8404"  # HAProxy stats
+    volumes:
+      - ./haproxy/rabbitmq-haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks:
+      - bev_network
+    depends_on:
+      - rabbitmq1
+      - rabbitmq2
+      - rabbitmq3
+
+  # Kafka Cluster - 3 brokers
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: bev_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - bev_network
+
+  kafka1:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: bev_kafka1
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+    volumes:
+      - kafka1_data:/var/lib/kafka/data
+    networks:
+      - bev_network
+
+  kafka2:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: bev_kafka2
+    depends_on:
+      - zookeeper
+    ports:
+      - "9093:9093"
+      - "19093:19093"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:29093,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka2
+    volumes:
+      - kafka2_data:/var/lib/kafka/data
+    networks:
+      - bev_network
+
+  kafka3:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: bev_kafka3
+    depends_on:
+      - zookeeper
+    ports:
+      - "9094:9094"
+      - "19094:19094"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:29094,PLAINTEXT_HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka3
+    volumes:
+      - kafka3_data:/var/lib/kafka/data
+    networks:
+      - bev_network
+
+  # Kafka UI for management
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: bev_kafka_ui
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: bev-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_READONLY: 'false'
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    networks:
+      - bev_network
+
+  # Schema Registry for Kafka
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: bev_schema_registry
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: PLAINTEXT
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    networks:
+      - bev_network
+
+volumes:
+  rabbitmq1_data:
+  rabbitmq2_data:
+  rabbitmq3_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka1_data:
+  kafka2_data:
+  kafka3_data:
+
+networks:
+  bev_network:
+    driver: bridge

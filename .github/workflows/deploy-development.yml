@@ -1,0 +1,662 @@
+name: 🛠️ BEV Development Deployment
+
+on:
+  push:
+    branches: [feature/*, bugfix/*, hotfix/*]
+  workflow_dispatch:
+    inputs:
+      deployment_target:
+        description: 'Development deployment target'
+        required: true
+        default: 'starlord-local'
+        type: choice
+        options:
+          - starlord-local
+          - thanos-dev
+          - oracle1-dev
+          - multi-node-dev
+      services_subset:
+        description: 'Services to deploy'
+        required: true
+        default: 'core'
+        type: choice
+        options:
+          - core
+          - all
+          - osint-only
+          - ai-only
+          - monitoring-only
+      debug_mode:
+        description: 'Enable debug mode'
+        required: false
+        default: true
+        type: boolean
+      hot_reload:
+        description: 'Enable hot reload for development'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Development configuration
+  DEV_ENVIRONMENT: "development"
+  DEBUG_ENABLED: "true"
+  LOG_LEVEL: "debug"
+
+  # Node configurations for development
+  STARLORD_DEV_HOST: "localhost"
+  THANOS_DEV_HOST: "100.122.12.54"
+  ORACLE1_DEV_HOST: "100.96.197.84"
+
+  # Vault configuration
+  VAULT_ADDR: "http://100.122.12.35:8200"
+  VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+
+  # Development resource limits (minimal)
+  DEV_MAX_MEMORY: "8GB"
+  DEV_MAX_CPU: "4"
+  DEV_TIMEOUT: "1200"
+
+jobs:
+  # Development environment setup
+  dev-setup:
+    name: 🛠️ Development Setup
+    runs-on: starlord-runner
+    outputs:
+      dev-id: ${{ steps.setup.outputs.dev-id }}
+      target-node: ${{ steps.setup.outputs.target-node }}
+      services-list: ${{ steps.setup.outputs.services-list }}
+      mount-source: ${{ steps.setup.outputs.mount-source }}
+    steps:
+      - name: 📋 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🏷️ Setup development metadata
+        id: setup
+        run: |
+          DEV_ID="dev-$(date +%Y%m%d-%H%M%S)-${{ github.actor }}"
+          echo "dev-id=$DEV_ID" >> $GITHUB_OUTPUT
+          echo "target-node=${{ github.event.inputs.deployment_target || 'starlord-local' }}" >> $GITHUB_OUTPUT
+          echo "mount-source=${{ github.event.inputs.hot_reload == 'true' && 'true' || 'false' }}" >> $GITHUB_OUTPUT
+          echo "🛠️ Development deployment ID: $DEV_ID"
+
+          # Determine services to deploy
+          case "${{ github.event.inputs.services_subset || 'core' }}" in
+            "core")
+              SERVICES="postgres,redis,vault,nginx"
+              ;;
+            "all")
+              SERVICES="postgres,redis,vault,nginx,neo4j,elasticsearch,rabbitmq,intelowl,analyzers,ai-services,monitoring"
+              ;;
+            "osint-only")
+              SERVICES="postgres,redis,intelowl,analyzers"
+              ;;
+            "ai-only")
+              SERVICES="redis,ai-services,autonomous-coordinator,knowledge-evolution"
+              ;;
+            "monitoring-only")
+              SERVICES="prometheus,grafana,consul"
+              ;;
+          esac
+
+          echo "services-list=$SERVICES" >> $GITHUB_OUTPUT
+          echo "📦 Services to deploy: $SERVICES"
+
+      - name: 🔍 Validate development environment
+        run: |
+          echo "🔍 Validating development environment..."
+
+          # Check Docker
+          docker --version
+          docker-compose --version
+
+          # Check available resources
+          echo "💾 Available Memory: $(free -h | awk '/^Mem:/ {print $7}')"
+          echo "💿 Available Disk: $(df -h / | awk 'NR==2{print $4}')"
+
+          # Check GPU availability for AI development
+          if command -v nvidia-smi &> /dev/null; then
+            echo "🎮 GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader)"
+            echo "🎮 GPU Memory: $(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits) MB free"
+          else
+            echo "ℹ️ No GPU detected - AI services will run on CPU"
+          fi
+
+      - name: 🔐 Setup development secrets
+        run: |
+          # Create development-specific secrets
+          vault auth -method=token token=${{ secrets.VAULT_TOKEN }}
+
+          # Create dev namespace
+          vault namespace create dev 2>/dev/null || true
+
+          # Setup minimal dev secrets
+          vault kv put secret/dev/bev/postgres \
+            username="dev_researcher" \
+            password="dev_password_$(openssl rand -hex 8)" \
+            database="dev_osint"
+
+          vault kv put secret/dev/bev/redis \
+            password="dev_redis_$(openssl rand -hex 6)"
+
+          vault kv put secret/dev/bev/jwt \
+            secret="dev_jwt_$(openssl rand -hex 16)"
+
+          echo "🔐 Development secrets configured"
+
+      - name: 📊 Generate development plan
+        run: |
+          cat > /tmp/dev-plan.json <<EOF
+          {
+            "dev_id": "${{ steps.setup.outputs.dev-id }}",
+            "target_node": "${{ steps.setup.outputs.target-node }}",
+            "services": "${{ steps.setup.outputs.services-list }}",
+            "timestamp": "$(date -Iseconds)",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "actor": "${{ github.actor }}",
+            "debug_mode": ${{ github.event.inputs.debug_mode || true }},
+            "hot_reload": ${{ github.event.inputs.hot_reload || true }},
+            "mount_source": ${{ steps.setup.outputs.mount-source }}
+          }
+          EOF
+
+          echo "📋 Development Plan:"
+          cat /tmp/dev-plan.json | jq .
+
+  # Build development images
+  build-dev-images:
+    name: 🏗️ Build Development Images
+    runs-on: starlord-runner
+    needs: dev-setup
+    strategy:
+      matrix:
+        component:
+          - name: "dev-dm-crawler"
+            dockerfile: "src/alternative_market/Dockerfile.dm_crawler"
+            context: "."
+          - name: "dev-autonomous-controller"
+            dockerfile: "src/autonomous/Dockerfile.enhanced_autonomous_controller"
+            context: "."
+          - name: "dev-tactical-intelligence"
+            dockerfile: "src/security/Dockerfile.tactical_intelligence"
+            context: "."
+    steps:
+      - name: 📋 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:master
+            network=host
+
+      - name: 🐳 Build development image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.component.context }}
+          file: ${{ matrix.component.dockerfile }}
+          push: false
+          tags: bev-${{ matrix.component.name }}:dev-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_MODE=development
+            DEBUG_ENABLED=true
+            HOT_RELOAD=${{ needs.dev-setup.outputs.mount-source }}
+
+      - name: 💾 Save development image
+        run: |
+          # Save image for local use
+          docker save bev-${{ matrix.component.name }}:dev-${{ github.sha }} | gzip > /tmp/bev-${{ matrix.component.name }}-dev.tar.gz
+          echo "💾 Saved development image: bev-${{ matrix.component.name }}:dev-${{ github.sha }}"
+
+  # Local development deployment
+  deploy-local-dev:
+    name: 🏠 Deploy Local Development
+    runs-on: starlord-runner
+    needs: [dev-setup, build-dev-images]
+    if: ${{ needs.dev-setup.outputs.target-node == 'starlord-local' }}
+    steps:
+      - name: 📋 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup local development environment
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+          SERVICES="${{ needs.dev-setup.outputs.services-list }}"
+
+          # Create development directory
+          mkdir -p /tmp/dev-deployment-$DEV_ID
+          cd /tmp/dev-deployment-$DEV_ID
+
+          # Create development docker-compose
+          cat > docker-compose.dev.yml <<EOF
+          version: '3.8'
+          services:
+          EOF
+
+          # Add services based on selection
+          if [[ "$SERVICES" == *"postgres"* ]]; then
+            cat >> docker-compose.dev.yml <<EOF
+            bev_postgres_dev:
+              image: postgres:15-alpine
+              container_name: bev_postgres_dev_$DEV_ID
+              ports:
+                - "5434:5432"
+              environment:
+                POSTGRES_DB: dev_osint
+                POSTGRES_USER: dev_researcher
+                POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+              volumes:
+                - postgres_dev_data:/var/lib/postgresql/data
+              restart: unless-stopped
+
+          EOF
+          fi
+
+          if [[ "$SERVICES" == *"redis"* ]]; then
+            cat >> docker-compose.dev.yml <<EOF
+            bev_redis_dev:
+              image: redis:7-alpine
+              container_name: bev_redis_dev_$DEV_ID
+              ports:
+                - "6381:6379"
+              command: redis-server --requirepass \${REDIS_PASSWORD}
+              restart: unless-stopped
+
+          EOF
+          fi
+
+          if [[ "$SERVICES" == *"neo4j"* ]]; then
+            cat >> docker-compose.dev.yml <<EOF
+            bev_neo4j_dev:
+              image: neo4j:5.11-community
+              container_name: bev_neo4j_dev_$DEV_ID
+              ports:
+                - "7476:7474"
+                - "7689:7687"
+              environment:
+                NEO4J_AUTH: neo4j/\${NEO4J_PASSWORD}
+                NEO4J_PLUGINS: '["apoc"]'
+              volumes:
+                - neo4j_dev_data:/data
+              restart: unless-stopped
+
+          EOF
+          fi
+
+          # Add volumes section
+          cat >> docker-compose.dev.yml <<EOF
+          volumes:
+            postgres_dev_data:
+            neo4j_dev_data:
+          EOF
+
+          echo "🔧 Development docker-compose.yml created"
+
+      - name: 🔐 Setup development environment variables
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+          cd /tmp/dev-deployment-$DEV_ID
+
+          # Get secrets from Vault
+          vault auth -method=token token=${{ secrets.VAULT_TOKEN }}
+
+          cat > .env.dev <<EOF
+          # Development Environment Configuration
+          ENVIRONMENT=development
+          DEV_ID=$DEV_ID
+          DEBUG=true
+          LOG_LEVEL=debug
+          HOT_RELOAD=${{ needs.dev-setup.outputs.mount-source }}
+
+          # Database Configuration
+          POSTGRES_PASSWORD=$(vault kv get -field=password secret/dev/bev/postgres)
+          REDIS_PASSWORD=$(vault kv get -field=password secret/dev/bev/redis)
+          NEO4J_PASSWORD=dev_neo4j_password
+
+          # API Configuration
+          JWT_SECRET=$(vault kv get -field=secret secret/dev/bev/jwt)
+          API_DEBUG=true
+
+          # Source Code Mounting (for hot reload)
+          SOURCE_PATH=${{ github.workspace }}
+          MOUNT_SOURCE=${{ needs.dev-setup.outputs.mount-source }}
+          EOF
+
+          echo "🔐 Development environment variables configured"
+
+      - name: 🚀 Start local development services
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+          cd /tmp/dev-deployment-$DEV_ID
+
+          echo "🚀 Starting local development services..."
+
+          # Load development images
+          for image_file in /tmp/bev-*-dev.tar.gz; do
+            if [[ -f "$image_file" ]]; then
+              docker load < "$image_file"
+            fi
+          done
+
+          # Start services
+          docker-compose -f docker-compose.dev.yml --env-file .env.dev up -d
+
+          echo "✅ Local development services started"
+
+      - name: ⏳ Wait for development services
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+          cd /tmp/dev-deployment-$DEV_ID
+
+          echo "⏳ Waiting for development services..."
+
+          # Wait for PostgreSQL
+          if docker-compose -f docker-compose.dev.yml ps | grep -q "bev_postgres_dev"; then
+            timeout 60 bash -c 'while ! docker-compose -f docker-compose.dev.yml exec -T bev_postgres_dev pg_isready -U dev_researcher; do sleep 3; done'
+            echo "✅ Development PostgreSQL ready"
+          fi
+
+          # Wait for Redis
+          if docker-compose -f docker-compose.dev.yml ps | grep -q "bev_redis_dev"; then
+            timeout 30 bash -c 'while ! docker-compose -f docker-compose.dev.yml exec -T bev_redis_dev redis-cli ping | grep -q PONG; do sleep 2; done'
+            echo "✅ Development Redis ready"
+          fi
+
+          echo "✅ All development services ready"
+
+      - name: 🔧 Setup development tools
+        run: |
+          echo "🔧 Setting up development tools..."
+
+          # Create development aliases
+          cat > ~/.bev_dev_aliases <<EOF
+          # BEV Development Aliases
+          alias bev-dev-logs='docker-compose -f /tmp/dev-deployment-${{ needs.dev-setup.outputs.dev-id }}/docker-compose.dev.yml logs -f'
+          alias bev-dev-ps='docker-compose -f /tmp/dev-deployment-${{ needs.dev-setup.outputs.dev-id }}/docker-compose.dev.yml ps'
+          alias bev-dev-stop='docker-compose -f /tmp/dev-deployment-${{ needs.dev-setup.outputs.dev-id }}/docker-compose.dev.yml stop'
+          alias bev-dev-restart='docker-compose -f /tmp/dev-deployment-${{ needs.dev-setup.outputs.dev-id }}/docker-compose.dev.yml restart'
+          alias bev-dev-psql='docker-compose -f /tmp/dev-deployment-${{ needs.dev-setup.outputs.dev-id }}/docker-compose.dev.yml exec bev_postgres_dev psql -U dev_researcher -d dev_osint'
+          alias bev-dev-redis='docker-compose -f /tmp/dev-deployment-${{ needs.dev-setup.outputs.dev-id }}/docker-compose.dev.yml exec bev_redis_dev redis-cli'
+          EOF
+
+          echo "source ~/.bev_dev_aliases" >> ~/.bashrc
+
+          # Create development scripts
+          cat > /usr/local/bin/bev-dev-status <<EOF
+          #!/bin/bash
+          echo "🛠️ BEV Development Status"
+          echo "Development ID: ${{ needs.dev-setup.outputs.dev-id }}"
+          echo "Services: ${{ needs.dev-setup.outputs.services-list }}"
+          echo ""
+          docker-compose -f /tmp/dev-deployment-${{ needs.dev-setup.outputs.dev-id }}/docker-compose.dev.yml ps
+          EOF
+
+          chmod +x /usr/local/bin/bev-dev-status
+
+          echo "🔧 Development tools configured"
+
+  # Remote development deployment
+  deploy-remote-dev:
+    name: 🌐 Deploy Remote Development
+    runs-on: ${{ needs.dev-setup.outputs.target-node }}-runner
+    needs: [dev-setup, build-dev-images]
+    if: ${{ needs.dev-setup.outputs.target-node != 'starlord-local' }}
+    steps:
+      - name: 📋 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup remote development environment
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+          TARGET_NODE="${{ needs.dev-setup.outputs.target-node }}"
+
+          echo "🌐 Setting up remote development on $TARGET_NODE"
+
+          # Create development directory
+          mkdir -p /tmp/dev-deployment-$DEV_ID
+          cd /tmp/dev-deployment-$DEV_ID
+
+          # Copy appropriate compose file based on target
+          case "$TARGET_NODE" in
+            "thanos-dev")
+              cp ${{ github.workspace }}/docker-compose-thanos-unified.yml ./docker-compose.remote.yml
+              ;;
+            "oracle1-dev")
+              cp ${{ github.workspace }}/docker-compose-oracle1-unified.yml ./docker-compose.remote.yml
+              ;;
+            "multi-node-dev")
+              cp ${{ github.workspace }}/docker-compose.complete.yml ./docker-compose.remote.yml
+              ;;
+          esac
+
+          # Modify for development
+          sed -i 's/:latest/:dev-${{ github.sha }}/g' docker-compose.remote.yml
+          sed -i 's/restart: always/restart: unless-stopped/g' docker-compose.remote.yml
+
+      - name: 🚀 Deploy to remote development node
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+          cd /tmp/dev-deployment-$DEV_ID
+
+          # Setup environment
+          cat > .env.remote.dev <<EOF
+          ENVIRONMENT=development
+          DEBUG=true
+          LOG_LEVEL=debug
+          DEV_ID=$DEV_ID
+          TARGET_NODE=${{ needs.dev-setup.outputs.target-node }}
+          EOF
+
+          # Deploy with development configuration
+          docker-compose -f docker-compose.remote.yml --env-file .env.remote.dev up -d
+
+          echo "✅ Remote development deployment completed"
+
+  # Development testing
+  dev-testing:
+    name: 🧪 Development Testing
+    runs-on: starlord-runner
+    needs: [dev-setup, deploy-local-dev, deploy-remote-dev]
+    if: ${{ always() && (needs.deploy-local-dev.result == 'success' || needs.deploy-remote-dev.result == 'success') }}
+    steps:
+      - name: 📋 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧪 Run development tests
+        run: |
+          echo "🧪 Running development tests..."
+
+          # Set development environment
+          export BEV_ENVIRONMENT=development
+          export DEBUG=true
+
+          # Quick smoke tests
+          python -m pytest tests/unit/ -v --tb=short -x
+
+          # Integration tests if services are running
+          if docker ps | grep -q "bev_postgres_dev"; then
+            export POSTGRES_HOST=localhost
+            export POSTGRES_PORT=5434
+            python -m pytest tests/integration/test_database.py -v
+          fi
+
+          echo "✅ Development tests completed"
+
+      - name: 🔍 Code quality checks
+        run: |
+          echo "🔍 Running code quality checks..."
+
+          # Python code formatting
+          python -m black --check --diff src/ tests/ || echo "⚠️ Black formatting issues found"
+
+          # Python linting
+          python -m flake8 src/ tests/ || echo "⚠️ Flake8 issues found"
+
+          # Type checking
+          python -m mypy src/ || echo "⚠️ MyPy type issues found"
+
+          echo "✅ Code quality checks completed"
+
+      - name: 🔒 Security scan
+        run: |
+          echo "🔒 Running security scan..."
+
+          # Scan for secrets
+          if command -v gitleaks &> /dev/null; then
+            gitleaks detect --source . --verbose || echo "⚠️ Potential secrets detected"
+          fi
+
+          # Dependency vulnerability scan
+          python -m pip audit || echo "⚠️ Vulnerable dependencies found"
+
+          echo "✅ Security scan completed"
+
+  # Hot reload setup
+  setup-hot-reload:
+    name: 🔄 Setup Hot Reload
+    runs-on: starlord-runner
+    needs: [dev-setup, deploy-local-dev]
+    if: ${{ needs.dev-setup.outputs.mount-source == 'true' && needs.deploy-local-dev.result == 'success' }}
+    steps:
+      - name: 📋 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔄 Configure hot reload
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+
+          echo "🔄 Setting up hot reload for development..."
+
+          # Create file watcher script
+          cat > /tmp/bev-hot-reload.sh <<EOF
+          #!/bin/bash
+          # BEV Hot Reload Watcher
+
+          WATCH_DIR="${{ github.workspace }}/src"
+          COMPOSE_DIR="/tmp/dev-deployment-$DEV_ID"
+
+          echo "🔄 Watching for changes in \$WATCH_DIR"
+
+          # Install inotify-tools if not present
+          if ! command -v inotifywait &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y inotify-tools
+          fi
+
+          # Watch for changes and restart relevant services
+          inotifywait -m -r -e modify,create,delete \$WATCH_DIR --format '%w%f %e' | while read FILE EVENT; do
+            echo "[\$(date)] File changed: \$FILE (\$EVENT)"
+
+            # Determine which service to restart based on file path
+            if [[ "\$FILE" == *"/alternative_market/"* ]]; then
+              echo "🔄 Restarting dm-crawler service..."
+              docker-compose -f \$COMPOSE_DIR/docker-compose.dev.yml restart bev_dm_crawler_dev 2>/dev/null || true
+            elif [[ "\$FILE" == *"/security/"* ]]; then
+              echo "🔄 Restarting security services..."
+              docker-compose -f \$COMPOSE_DIR/docker-compose.dev.yml restart bev_tactical_intelligence_dev 2>/dev/null || true
+            elif [[ "\$FILE" == *"/autonomous/"* ]]; then
+              echo "🔄 Restarting AI services..."
+              docker-compose -f \$COMPOSE_DIR/docker-compose.dev.yml restart bev_autonomous_controller_dev 2>/dev/null || true
+            fi
+
+            sleep 2  # Debounce rapid changes
+          done
+          EOF
+
+          chmod +x /tmp/bev-hot-reload.sh
+
+          # Start hot reload in background
+          nohup /tmp/bev-hot-reload.sh > /tmp/hot-reload.log 2>&1 &
+          echo $! > /tmp/hot-reload.pid
+
+          echo "🔄 Hot reload configured and started"
+
+  # Development status report
+  dev-status-report:
+    name: 📊 Development Status Report
+    runs-on: starlord-runner
+    needs: [dev-setup, deploy-local-dev, deploy-remote-dev, dev-testing, setup-hot-reload]
+    if: always()
+    steps:
+      - name: 📊 Generate development status
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+
+          cat > /tmp/dev-status-$DEV_ID.json <<EOF
+          {
+            "dev_id": "$DEV_ID",
+            "status": "ready",
+            "timestamp": "$(date -Iseconds)",
+            "target_node": "${{ needs.dev-setup.outputs.target-node }}",
+            "services": "${{ needs.dev-setup.outputs.services-list }}",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "actor": "${{ github.actor }}",
+            "results": {
+              "local_deployment": "${{ needs.deploy-local-dev.result }}",
+              "remote_deployment": "${{ needs.deploy-remote-dev.result }}",
+              "testing": "${{ needs.dev-testing.result }}",
+              "hot_reload": "${{ needs.setup-hot-reload.result }}"
+            },
+            "configuration": {
+              "debug_mode": ${{ github.event.inputs.debug_mode || true }},
+              "hot_reload": ${{ github.event.inputs.hot_reload || true }},
+              "mount_source": ${{ needs.dev-setup.outputs.mount-source }}
+            }
+          }
+          EOF
+
+          echo "📊 Development Status Report:"
+          cat /tmp/dev-status-$DEV_ID.json | jq .
+
+      - name: 🛠️ Print development information
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+
+          echo "🛠️ Development Environment Ready!"
+          echo ""
+          echo "Development ID: $DEV_ID"
+          echo "Target Node: ${{ needs.dev-setup.outputs.target-node }}"
+          echo "Services: ${{ needs.dev-setup.outputs.services-list }}"
+          echo ""
+
+          if [[ "${{ needs.deploy-local-dev.result }}" == "success" ]]; then
+            echo "🏠 Local Development Access:"
+            echo "  PostgreSQL: localhost:5434"
+            echo "  Redis: localhost:6381"
+            if [[ "${{ needs.dev-setup.outputs.services-list }}" == *"neo4j"* ]]; then
+              echo "  Neo4j: http://localhost:7476"
+            fi
+            echo ""
+            echo "📱 Quick Commands:"
+            echo "  Status: bev-dev-status"
+            echo "  Logs: docker-compose -f /tmp/dev-deployment-$DEV_ID/docker-compose.dev.yml logs -f"
+            echo "  Stop: docker-compose -f /tmp/dev-deployment-$DEV_ID/docker-compose.dev.yml stop"
+          fi
+
+          if [[ "${{ needs.setup-hot-reload.result }}" == "success" ]]; then
+            echo ""
+            echo "🔄 Hot Reload Active:"
+            echo "  Log: tail -f /tmp/hot-reload.log"
+            echo "  Stop: kill \$(cat /tmp/hot-reload.pid)"
+          fi
+
+      - name: 💾 Store development session
+        run: |
+          DEV_ID="${{ needs.dev-setup.outputs.dev-id }}"
+
+          # Store session info in Vault for later reference
+          vault kv put secret/dev/sessions/$DEV_ID \
+            actor="${{ github.actor }}" \
+            timestamp="$(date -Iseconds)" \
+            target_node="${{ needs.dev-setup.outputs.target-node }}" \
+            services="${{ needs.dev-setup.outputs.services-list }}" \
+            status="active"
+
+          echo "💾 Development session stored for future reference"

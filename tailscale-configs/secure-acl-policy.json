@@ -1,0 +1,82 @@
+{
+  "tagOwners": {
+    "tag:personal": ["azharahmed954@gmail.com"],
+    "tag:development": ["azharahmed954@gmail.com"],
+    "tag:ai-server": ["azharahmed954@gmail.com"],
+    "tag:infrastructure": ["azharahmed954@gmail.com"]
+  },
+
+  "acls": [
+    {
+      "action": "accept",
+      "src": ["azharahmed954@gmail.com"],
+      "dst": ["*:22", "*:80", "*:443"]
+    },
+    {
+      "action": "accept",
+      "src": ["tag:personal"],
+      "dst": [
+        "tag:development:22",
+        "tag:development:3000",
+        "tag:development:3001",
+        "tag:development:8000",
+        "tag:development:8080",
+        "tag:development:9000"
+      ]
+    },
+    {
+      "action": "accept",
+      "src": ["tag:development"],
+      "dst": [
+        "tag:ai-server:8000",
+        "tag:ai-server:11434",
+        "tag:ai-server:7860",
+        "tag:infrastructure:*"
+      ]
+    },
+    {
+      "action": "accept",
+      "src": ["tag:personal", "tag:development"],
+      "dst": ["tag:development:*"]
+    },
+    {
+      "action": "deny",
+      "src": ["*"],
+      "dst": ["*:6379", "*:5432", "*:27017", "*:3306"]
+    }
+  ],
+
+  "nodeAttrs": [
+    {
+      "target": ["oracle1-vllm.tailcd97c5.ts.net"],
+      "attr": ["tag:ai-server"]
+    },
+    {
+      "target": ["starlord.tailcd97c5.ts.net", "thanos.tailcd97c5.ts.net"],
+      "attr": ["tag:development", "tag:infrastructure"]
+    },
+    {
+      "target": [
+        "azharmacmini.tailcd97c5.ts.net",
+        "azhars-macbook-air-2.tailcd97c5.ts.net",
+        "iphone172.tailcd97c5.ts.net"
+      ],
+      "attr": ["tag:personal"]
+    }
+  ],
+
+  "ssh": [
+    {
+      "action": "accept",
+      "src": ["azharahmed954@gmail.com"],
+      "dst": ["tag:development", "tag:infrastructure"],
+      "users": ["starlord", "ubuntu", "root"]
+    },
+    {
+      "action": "accept",
+      "src": ["tag:personal"],
+      "dst": ["tag:development"],
+      "users": ["starlord", "ubuntu"]
+    }
+  ]
+}

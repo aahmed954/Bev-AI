@@ -1,0 +1,247 @@
+{
+  "name": "BEV Intelligence Gathering",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyHour"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/agents/research_coordinator/investigate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$credentials.bevApiKey}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "topics",
+              "value": "={{JSON.stringify(['cybersecurity threats', 'AI breakthroughs', 'dark web activity', 'cryptocurrency trends', 'zero-day vulnerabilities'])}}"
+            },
+            {
+              "name": "depth",
+              "value": "comprehensive"
+            },
+            {
+              "name": "sources",
+              "value": "={{JSON.stringify(['academic', 'news', 'social', 'forums', 'dark_web'])}}"
+            }
+          ]
+        }
+      },
+      "name": "Research Coordinator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse and enrich intelligence data\nconst items = $input.all();\nconst enrichedData = [];\n\nfor (const item of items) {\n  const intelligence = item.json;\n  \n  // Extract entities\n  const entities = [];\n  if (intelligence.content) {\n    // Simple entity extraction (replace with NLP service)\n    const patterns = {\n      ips: /\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b/g,\n      urls: /https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b/g,\n      emails: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g,\n      hashes: /\\b[a-fA-F0-9]{32,64}\\b/g\n    };\n    \n    for (const [type, pattern] of Object.entries(patterns)) {\n      const matches = intelligence.content.match(pattern) || [];\n      entities.push(...matches.map(m => ({ type, value: m })));\n    }\n  }\n  \n  // Calculate threat score\n  let threatScore = 0;\n  const threatKeywords = ['vulnerability', 'exploit', 'breach', 'attack', 'malware', 'ransomware'];\n  \n  for (const keyword of threatKeywords) {\n    if (intelligence.content && intelligence.content.toLowerCase().includes(keyword)) {\n      threatScore += 10;\n    }\n  }\n  \n  // Add enriched data\n  enrichedData.push({\n    json: {\n      ...intelligence,\n      entities,\n      threatScore: Math.min(threatScore, 100),\n      timestamp: new Date().toISOString(),\n      processed: true\n    }\n  });\n}\n\nreturn enrichedData;"
+      },
+      "name": "Enrich Intelligence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "id": "c3d4e5f6-a7b8-9012-cdef-234567890123"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "collection": "intelligence_reports",
+        "specifyBodyAs": "json",
+        "jsonBody": "={{JSON.stringify($json)}}"
+      },
+      "name": "Store in Vector DB",
+      "type": "n8n-nodes-base.qdrant",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "id": "d4e5f6a7-b8c9-0123-defa-345678901234"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.threatScore}}",
+              "operation": "largerEqualNumber",
+              "value2": 70
+            }
+          ]
+        }
+      },
+      "name": "High Threat?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "id": "e5f6a7b8-c9d0-1234-efab-456789012345"
+    },
+    {
+      "parameters": {
+        "channel": "#security-alerts",
+        "text": "🚨 HIGH THREAT DETECTED",
+        "attachments": [
+          {
+            "color": "#ff0000",
+            "title": "Threat Intelligence Alert",
+            "fields": {
+              "values": [
+                {
+                  "short": true,
+                  "name": "Threat Score",
+                  "value": "={{$json.threatScore}}"
+                },
+                {
+                  "short": true,
+                  "name": "Source",
+                  "value": "={{$json.source}}"
+                },
+                {
+                  "short": false,
+                  "name": "Summary",
+                  "value": "={{$json.summary}}"
+                },
+                {
+                  "short": false,
+                  "name": "Entities",
+                  "value": "={{$json.entities.map(e => `${e.type}: ${e.value}`).join('\\n')}}"
+                }
+              ]
+            }
+          }
+        ],
+        "otherOptions": {}
+      },
+      "name": "Alert Security Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1250, 200],
+      "id": "f6a7b8c9-d0e1-2345-fabc-567890123456"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate daily intelligence report\nconst items = $input.all();\n\nconst report = {\n  date: new Date().toISOString().split('T')[0],\n  totalIntelligence: items.length,\n  sources: {},\n  threats: [],\n  entities: {},\n  summary: \"\"\n};\n\n// Aggregate by source\nfor (const item of items) {\n  const source = item.json.source || 'unknown';\n  report.sources[source] = (report.sources[source] || 0) + 1;\n  \n  // Collect high threats\n  if (item.json.threatScore >= 50) {\n    report.threats.push({\n      score: item.json.threatScore,\n      summary: item.json.summary,\n      source: source\n    });\n  }\n  \n  // Aggregate entities\n  for (const entity of (item.json.entities || [])) {\n    const type = entity.type;\n    if (!report.entities[type]) {\n      report.entities[type] = [];\n    }\n    if (!report.entities[type].includes(entity.value)) {\n      report.entities[type].push(entity.value);\n    }\n  }\n}\n\n// Sort threats by score\nreport.threats.sort((a, b) => b.score - a.score);\n\n// Generate summary\nreport.summary = `Intelligence Report: ${report.date}\\n` +\n  `Total Intelligence Collected: ${report.totalIntelligence}\\n` +\n  `High Priority Threats: ${report.threats.length}\\n` +\n  `Sources: ${Object.keys(report.sources).join(', ')}\\n` +\n  `Top Threat Score: ${report.threats[0]?.score || 0}`;\n\nreturn [{ json: report }];"
+      },
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 500],
+      "id": "a7b8c9d0-e1f2-3456-abcd-678901234567"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "binaryData": true,
+        "name": "={{`intelligence_report_${$json.date}.json`}}",
+        "resolveData": true,
+        "parents": {
+          "values": [
+            "1ABC2DEF3GHI4JKL5MNO6PQR7STU8VWX"
+          ]
+        }
+      },
+      "name": "Save to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 2,
+      "position": [1250, 500],
+      "id": "b8c9d0e1-f2a3-4567-bcde-789012345678"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Research Coordinator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Coordinator": {
+      "main": [
+        [
+          {
+            "node": "Enrich Intelligence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich Intelligence": {
+      "main": [
+        [
+          {
+            "node": "Store in Vector DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store in Vector DB": {
+      "main": [
+        [
+          {
+            "node": "High Threat?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Threat?": {
+      "main": [
+        [
+          {
+            "node": "Alert Security Team",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

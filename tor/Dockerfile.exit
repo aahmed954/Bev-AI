@@ -1,0 +1,163 @@
+# Tor Exit Node Container
+FROM alpine:3.18
+
+LABEL maintainer="Bev Security Team"
+LABEL description="Tor Exit Node - Third hop in 3-hop circuit"
+LABEL version="1.0.0"
+
+# Install Tor and dependencies
+RUN apk add --no-cache \
+    tor \
+    obfs4proxy \
+    torsocks \
+    curl \
+    iptables \
+    dumb-init \
+    su-exec
+
+# Create tor user and directories
+RUN adduser -D -s /bin/sh tor && \
+    mkdir -p /var/lib/tor /var/log/tor /etc/tor && \
+    chown -R tor:tor /var/lib/tor /var/log/tor
+
+# Copy configuration
+COPY torrc_node3 /etc/tor/torrc
+
+# Copy startup script
+COPY <<EOF /usr/local/bin/entrypoint.sh
+#!/bin/sh
+set -e
+
+# Generate Tor state directory if it doesn't exist
+if [ ! -d "/var/lib/tor/keys" ]; then
+    echo "Generating Tor keys..."
+    su-exec tor tor --verify-config
+fi
+
+# Set proper permissions
+chown -R tor:tor /var/lib/tor /var/log/tor
+chmod 700 /var/lib/tor
+chmod 755 /var/log/tor
+
+# Configure iptables for exit node security
+echo "Configuring exit node firewall rules..."
+
+# Allow Tor traffic
+iptables -A INPUT -p tcp --dport 9003 -j ACCEPT
+iptables -A INPUT -p tcp --dport 9032 -j ACCEPT
+
+# Allow established connections
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Allow loopback
+iptables -A INPUT -i lo -j ACCEPT
+
+# Drop other inbound traffic
+iptables -A INPUT -j DROP
+
+# Allow outbound traffic for exit functionality
+iptables -A OUTPUT -j ACCEPT
+
+echo "Firewall rules configured"
+
+# Start Tor as non-root user
+echo "Starting Tor Exit Node..."
+exec su-exec tor tor -f /etc/tor/torrc
+EOF
+
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Create comprehensive exit notice
+COPY <<EOF /etc/tor/tor-exit-notice.html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BEV Tor Exit Node</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>BEV Tor Exit Node</h1>
+
+    <div class="warning">
+        <h2>⚠️ Important Notice</h2>
+        <p><strong>This is a Tor Exit Node operated by BEV Security for research purposes.</strong></p>
+    </div>
+
+    <h2>What is this?</h2>
+    <p>This server is part of the Tor anonymity network. Tor helps protect users' privacy and security by routing internet traffic through multiple servers around the world.</p>
+
+    <h2>Traffic Information</h2>
+    <p>If you're seeing this because you've traced network activity to this IP address, please note:</p>
+    <ul>
+        <li>This server is an <strong>exit relay</strong> in the Tor network</li>
+        <li>Traffic originating from this IP is from Tor users, not from this server's operator</li>
+        <li>The actual user may be anywhere in the world</li>
+        <li>This server does not log or monitor user traffic</li>
+    </ul>
+
+    <h2>Abuse Reports</h2>
+    <p>If you have concerns about traffic from this IP address, please:</p>
+    <ul>
+        <li>Contact: security@bev.local</li>
+        <li>Include: Date, time, and details of the incident</li>
+        <li>Understand: We cannot identify individual users</li>
+    </ul>
+
+    <h2>Exit Policy</h2>
+    <p>This exit node allows:</p>
+    <ul>
+        <li>HTTP/HTTPS web traffic (ports 80, 443)</li>
+        <li>Secure email protocols (IMAPS, POP3S)</li>
+        <li>SSH connections (port 22)</li>
+        <li>DNS queries (port 53)</li>
+        <li>Limited other protocols</li>
+    </ul>
+
+    <p>This exit node blocks:</p>
+    <ul>
+        <li>SMTP email (port 25) to prevent spam</li>
+        <li>Database connections</li>
+        <li>Windows file sharing</li>
+        <li>Most peer-to-peer protocols</li>
+    </ul>
+
+    <h2>Legal Information</h2>
+    <p>This Tor exit node is operated in accordance with local laws and regulations. The operator:</p>
+    <ul>
+        <li>Does not monitor, log, or store user traffic</li>
+        <li>Cooperates with law enforcement within legal boundaries</li>
+        <li>Maintains this service for legitimate privacy and security research</li>
+    </ul>
+
+    <h2>More Information</h2>
+    <p>To learn more about Tor:</p>
+    <ul>
+        <li><a href="https://www.torproject.org/">Tor Project Official Website</a></li>
+        <li><a href="https://blog.torproject.org/">Tor Project Blog</a></li>
+        <li><a href="https://support.torproject.org/">Tor Support</a></li>
+    </ul>
+
+    <hr>
+    <p><small>Generated: $(date) | Node: BEVExitNode3 | Operator: BEV Security</small></p>
+</body>
+</html>
+EOF
+
+# Health check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:9032/tor/status-vote/current/consensus || exit 1
+
+# Expose ports
+EXPOSE 9003 9032 9053
+
+# Security hardening
+RUN rm -rf /tmp/* /var/cache/apk/*
+
+# Note: Exit nodes require root for iptables, but Tor runs as tor user
+WORKDIR /var/lib/tor
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["/usr/local/bin/entrypoint.sh"]

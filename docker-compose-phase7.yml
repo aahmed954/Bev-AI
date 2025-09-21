@@ -1,0 +1,213 @@
+version: '3.9'
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+networks:
+  bev_osint:
+    external: true
+
+volumes:
+  dm_crawler_data:
+  crypto_intel_data:
+  reputation_data:
+  economics_data:
+  ml_models:
+  logs:
+    external: true
+
+services:
+  # =============================================================
+  # PHASE 7 - ALTERNATIVE MARKET INTELLIGENCE
+  # =============================================================
+
+  # Decentralized Market Crawler with Tor
+  dm-crawler:
+    build:
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.dm_crawler
+    container_name: bev_dm_crawler
+    restart: always
+    depends_on:
+      - tor
+      - postgres
+      - kafka-1
+      - redis
+    environment:
+      POSTGRES_URI: ${POSTGRES_URI}
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
+      TOR_PROXY: ${TOR_PROXY}
+      HTTP_PROXY: socks5://tor:9050
+      HTTPS_PROXY: socks5://tor:9050
+      CRAWLER_WORKERS: 8
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_PERIOD: 3600
+      LOG_LEVEL: INFO
+      DM_SITES_CONFIG: /app/config/dm_sites.json
+      USER_AGENTS_CONFIG: /app/config/user_agents.json
+    volumes:
+      - dm_crawler_data:/app/data
+      - ./src/alternative_market/config:/app/config:ro
+      - logs:/app/logs
+    ports:
+      - "8001:8000"
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.24
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Cryptocurrency Transaction Analyzer
+  crypto-intel:
+    build:
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.crypto_analyzer
+    container_name: bev_crypto_intel
+    restart: always
+    depends_on:
+      - postgres
+      - elasticsearch
+      - kafka-1
+      - redis
+    environment:
+      POSTGRES_URI: ${POSTGRES_URI}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/3
+      BLOCKCHAIN_API_KEYS: ${BLOCKCHAIN_API_KEYS}
+      CHAINALYSIS_API_KEY: ${CHAINALYSIS_API_KEY}
+      ELLIPTIC_API_KEY: ${ELLIPTIC_API_KEY}
+      ANALYSIS_WORKERS: 4
+      BLOCKCHAIN_NETWORKS: bitcoin,ethereum,monero,zcash,dash
+      LOG_LEVEL: INFO
+    volumes:
+      - crypto_intel_data:/app/data
+      - ./src/alternative_market/config:/app/config:ro
+      - logs:/app/logs
+    ports:
+      - "8002:8000"
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.25
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '1.5'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Vendor Reputation Analyzer
+  reputation-analyzer:
+    build:
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.reputation_analyzer
+    container_name: bev_reputation_analyzer
+    restart: always
+    depends_on:
+      - postgres
+      - neo4j
+      - elasticsearch
+      - kafka-1
+    environment:
+      POSTGRES_URI: ${POSTGRES_URI}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      ML_MODEL_PATH: /app/models/reputation_model.pkl
+      SENTIMENT_MODEL_PATH: /app/models/sentiment_model.pkl
+      REPUTATION_THRESHOLD: 0.7
+      ANALYSIS_BATCH_SIZE: 100
+      LOG_LEVEL: INFO
+    volumes:
+      - reputation_data:/app/data
+      - ml_models:/app/models
+      - ./src/alternative_market/config:/app/config:ro
+      - logs:/app/logs
+    ports:
+      - "8003:8000"
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.26
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Market Economics and Prediction Processor
+  economics-processor:
+    build:
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.economics_processor
+    container_name: bev_economics_processor
+    restart: always
+    depends_on:
+      - postgres
+      - influxdb
+      - kafka-1
+      - redis
+    environment:
+      POSTGRES_URI: ${POSTGRES_URI}
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
+      INFLUXDB_ORG: bev-osint
+      INFLUXDB_BUCKET: economics
+      KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/4
+      PREDICTION_MODEL_PATH: /app/models/market_prediction.pkl
+      ECONOMIC_INDICATORS_API: ${ECONOMIC_INDICATORS_API}
+      PREDICTION_HORIZON_DAYS: 30
+      MODEL_RETRAIN_INTERVAL: 24
+      LOG_LEVEL: INFO
+    volumes:
+      - economics_data:/app/data
+      - ml_models:/app/models
+      - ./src/alternative_market/config:/app/config:ro
+      - logs:/app/logs
+    ports:
+      - "8004:8000"
+    networks:
+      bev_osint:
+        ipv4_address: 172.30.0.27
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '2.0'
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

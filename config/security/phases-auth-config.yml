@@ -1,0 +1,493 @@
+# Security Framework Extension for Phase 7-9 Services
+# Authentication, Authorization, TLS, and Audit Configuration
+
+# =============================================================================
+# API AUTHENTICATION CONFIGURATION
+# =============================================================================
+authentication:
+  # JWT Configuration for API endpoints
+  jwt:
+    secret_key: "${JWT_SECRET_KEY}"
+    algorithm: "HS256"
+    expiration: 3600  # 1 hour
+    issuer: "bev-osint-system"
+    audience: "bev-services"
+
+  # API Key Configuration for service-to-service communication
+  api_keys:
+    phase7_services:
+      dm_crawler: "${DM_CRAWLER_API_KEY}"
+      crypto_intel: "${CRYPTO_INTEL_API_KEY}"
+      reputation_analyzer: "${REPUTATION_ANALYZER_API_KEY}"
+      economics_processor: "${ECONOMICS_PROCESSOR_API_KEY}"
+
+    phase8_services:
+      tactical_intel: "${TACTICAL_INTEL_API_KEY}"
+      defense_automation: "${DEFENSE_AUTOMATION_API_KEY}"
+      opsec_enforcer: "${OPSEC_ENFORCER_API_KEY}"
+      intel_fusion: "${INTEL_FUSION_API_KEY}"
+
+    phase9_services:
+      autonomous_coordinator: "${AUTONOMOUS_COORDINATOR_API_KEY}"
+      adaptive_learning: "${ADAPTIVE_LEARNING_API_KEY}"
+      resource_manager: "${RESOURCE_MANAGER_API_KEY}"
+      knowledge_evolution: "${KNOWLEDGE_EVOLUTION_API_KEY}"
+
+  # mTLS Configuration for high-security communications
+  mtls:
+    enabled: true
+    ca_cert_path: "/etc/ssl/certs/bev-ca.crt"
+    cert_path: "/etc/ssl/certs/bev-service.crt"
+    key_path: "/etc/ssl/private/bev-service.key"
+    verify_peer: true
+    cipher_suites:
+      - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+      - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+      - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+
+# =============================================================================
+# AUTHORIZATION POLICIES
+# =============================================================================
+authorization:
+  # Role-Based Access Control (RBAC)
+  roles:
+    phase7_admin:
+      description: "Full access to Phase 7 market intelligence services"
+      permissions:
+        - "dm_crawler:*"
+        - "crypto_intel:*"
+        - "reputation_analyzer:*"
+        - "economics_processor:*"
+
+    phase7_operator:
+      description: "Operational access to Phase 7 services"
+      permissions:
+        - "dm_crawler:read"
+        - "dm_crawler:execute"
+        - "crypto_intel:read"
+        - "crypto_intel:analyze"
+        - "reputation_analyzer:read"
+        - "reputation_analyzer:analyze"
+        - "economics_processor:read"
+        - "economics_processor:predict"
+
+    phase8_admin:
+      description: "Full access to Phase 8 security operations"
+      permissions:
+        - "tactical_intel:*"
+        - "defense_automation:*"
+        - "opsec_enforcer:*"
+        - "intel_fusion:*"
+
+    phase8_operator:
+      description: "Operational access to Phase 8 services"
+      permissions:
+        - "tactical_intel:read"
+        - "tactical_intel:analyze"
+        - "defense_automation:read"
+        - "defense_automation:respond"
+        - "opsec_enforcer:read"
+        - "opsec_enforcer:enforce"
+        - "intel_fusion:read"
+        - "intel_fusion:correlate"
+
+    phase9_admin:
+      description: "Full access to Phase 9 autonomous systems"
+      permissions:
+        - "autonomous_coordinator:*"
+        - "adaptive_learning:*"
+        - "resource_manager:*"
+        - "knowledge_evolution:*"
+
+    phase9_operator:
+      description: "Operational access to Phase 9 services"
+      permissions:
+        - "autonomous_coordinator:read"
+        - "autonomous_coordinator:coordinate"
+        - "adaptive_learning:read"
+        - "adaptive_learning:train"
+        - "resource_manager:read"
+        - "resource_manager:optimize"
+        - "knowledge_evolution:read"
+        - "knowledge_evolution:evolve"
+
+    system_monitor:
+      description: "Read-only access for monitoring all phases"
+      permissions:
+        - "*:read"
+        - "*:health"
+        - "*:metrics"
+
+  # Service-to-Service Authorization Matrix
+  service_matrix:
+    dm_crawler:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "kafka:produce"
+        - "redis:read"
+        - "redis:write"
+        - "tor:proxy"
+
+    crypto_intel:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "elasticsearch:read"
+        - "elasticsearch:write"
+        - "kafka:produce"
+        - "kafka:consume"
+        - "redis:read"
+        - "redis:write"
+
+    reputation_analyzer:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "neo4j:read"
+        - "neo4j:write"
+        - "elasticsearch:read"
+        - "elasticsearch:write"
+        - "kafka:produce"
+        - "kafka:consume"
+
+    economics_processor:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "influxdb:read"
+        - "influxdb:write"
+        - "kafka:produce"
+        - "kafka:consume"
+        - "redis:read"
+        - "redis:write"
+
+    tactical_intel:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "neo4j:read"
+        - "neo4j:write"
+        - "elasticsearch:read"
+        - "elasticsearch:write"
+        - "kafka:produce"
+        - "kafka:consume"
+
+    defense_automation:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "kafka:produce"
+        - "kafka:consume"
+        - "redis:read"
+        - "redis:write"
+        - "tactical_intel:read"
+        - "opsec_enforcer:notify"
+
+    opsec_enforcer:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "kafka:produce"
+        - "kafka:consume"
+        - "redis:read"
+        - "redis:write"
+        - "tor:proxy"
+        - "defense_automation:notify"
+
+    intel_fusion:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "neo4j:read"
+        - "neo4j:write"
+        - "elasticsearch:read"
+        - "elasticsearch:write"
+        - "kafka:produce"
+        - "kafka:consume"
+        - "redis:read"
+        - "redis:write"
+        - "tactical_intel:read"
+
+    autonomous_coordinator:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "neo4j:read"
+        - "neo4j:write"
+        - "kafka:produce"
+        - "kafka:consume"
+        - "redis:read"
+        - "redis:write"
+        - "adaptive_learning:coordinate"
+        - "resource_manager:coordinate"
+        - "knowledge_evolution:coordinate"
+
+    adaptive_learning:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "elasticsearch:read"
+        - "elasticsearch:write"
+        - "kafka:produce"
+        - "kafka:consume"
+        - "redis:read"
+        - "redis:write"
+        - "autonomous_coordinator:report"
+
+    resource_manager:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "influxdb:read"
+        - "influxdb:write"
+        - "kafka:produce"
+        - "kafka:consume"
+        - "redis:read"
+        - "redis:write"
+        - "docker:manage"
+        - "autonomous_coordinator:report"
+
+    knowledge_evolution:
+      can_access:
+        - "postgres:read"
+        - "postgres:write"
+        - "neo4j:read"
+        - "neo4j:write"
+        - "elasticsearch:read"
+        - "elasticsearch:write"
+        - "kafka:produce"
+        - "kafka:consume"
+        - "autonomous_coordinator:report"
+
+# =============================================================================
+# TLS/SSL CONFIGURATION
+# =============================================================================
+tls:
+  # Service-specific TLS configuration
+  services:
+    dm_crawler:
+      port: 8443
+      cert_file: "/etc/ssl/certs/dm-crawler.crt"
+      key_file: "/etc/ssl/private/dm-crawler.key"
+
+    crypto_intel:
+      port: 8443
+      cert_file: "/etc/ssl/certs/crypto-intel.crt"
+      key_file: "/etc/ssl/private/crypto-intel.key"
+
+    reputation_analyzer:
+      port: 8443
+      cert_file: "/etc/ssl/certs/reputation-analyzer.crt"
+      key_file: "/etc/ssl/private/reputation-analyzer.key"
+
+    economics_processor:
+      port: 8443
+      cert_file: "/etc/ssl/certs/economics-processor.crt"
+      key_file: "/etc/ssl/private/economics-processor.key"
+
+    tactical_intel:
+      port: 8443
+      cert_file: "/etc/ssl/certs/tactical-intel.crt"
+      key_file: "/etc/ssl/private/tactical-intel.key"
+
+    defense_automation:
+      port: 8443
+      cert_file: "/etc/ssl/certs/defense-automation.crt"
+      key_file: "/etc/ssl/private/defense-automation.key"
+
+    opsec_enforcer:
+      port: 8443
+      cert_file: "/etc/ssl/certs/opsec-enforcer.crt"
+      key_file: "/etc/ssl/private/opsec-enforcer.key"
+
+    intel_fusion:
+      port: 8443
+      cert_file: "/etc/ssl/certs/intel-fusion.crt"
+      key_file: "/etc/ssl/private/intel-fusion.key"
+
+    autonomous_coordinator:
+      port: 8443
+      cert_file: "/etc/ssl/certs/autonomous-coordinator.crt"
+      key_file: "/etc/ssl/private/autonomous-coordinator.key"
+
+    adaptive_learning:
+      port: 8443
+      cert_file: "/etc/ssl/certs/adaptive-learning.crt"
+      key_file: "/etc/ssl/private/adaptive-learning.key"
+
+    resource_manager:
+      port: 8443
+      cert_file: "/etc/ssl/certs/resource-manager.crt"
+      key_file: "/etc/ssl/private/resource-manager.key"
+
+    knowledge_evolution:
+      port: 8443
+      cert_file: "/etc/ssl/certs/knowledge-evolution.crt"
+      key_file: "/etc/ssl/private/knowledge-evolution.key"
+
+  # TLS Security Settings
+  security:
+    min_version: "TLSv1.2"
+    max_version: "TLSv1.3"
+    prefer_server_cipher_suites: true
+    session_timeout: 300
+    session_cache_size: 20480
+
+# =============================================================================
+# AUDIT CONFIGURATION
+# =============================================================================
+audit:
+  # Audit logging configuration
+  logging:
+    enabled: true
+    level: "INFO"
+    file_path: "/var/log/bev-audit"
+    max_file_size: "100MB"
+    max_files: 30
+    format: "json"
+
+  # Events to audit
+  events:
+    authentication:
+      - "login_success"
+      - "login_failure"
+      - "token_issued"
+      - "token_expired"
+      - "api_key_used"
+
+    authorization:
+      - "access_granted"
+      - "access_denied"
+      - "permission_escalation"
+      - "role_assigned"
+      - "role_revoked"
+
+    data_access:
+      - "data_read"
+      - "data_write"
+      - "data_delete"
+      - "sensitive_data_access"
+      - "bulk_operations"
+
+    administrative:
+      - "config_change"
+      - "service_start"
+      - "service_stop"
+      - "user_created"
+      - "user_deleted"
+      - "emergency_access"
+
+    security:
+      - "security_violation"
+      - "intrusion_attempt"
+      - "anomaly_detected"
+      - "encryption_key_rotation"
+      - "certificate_expiry_warning"
+
+  # Audit data retention
+  retention:
+    authentication_logs: "1 year"
+    authorization_logs: "1 year"
+    data_access_logs: "2 years"
+    administrative_logs: "3 years"
+    security_logs: "5 years"
+
+# =============================================================================
+# ENCRYPTION CONFIGURATION
+# =============================================================================
+encryption:
+  # Data encryption at rest
+  at_rest:
+    algorithm: "AES-256-GCM"
+    key_derivation: "PBKDF2"
+    key_rotation_interval: "90 days"
+    key_storage: "vault"
+
+  # Data encryption in transit
+  in_transit:
+    force_https: true
+    force_tls: true
+    disable_http: true
+    hsts_enabled: true
+    hsts_max_age: 31536000
+
+  # Field-level encryption for sensitive data
+  field_level:
+    enabled: true
+    fields:
+      - "email"
+      - "phone"
+      - "address"
+      - "payment_info"
+      - "personal_id"
+      - "api_keys"
+      - "passwords"
+      - "tokens"
+
+# =============================================================================
+# SECURITY HEADERS CONFIGURATION
+# =============================================================================
+security_headers:
+  # HTTP security headers
+  headers:
+    Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    X-Frame-Options: "DENY"
+    X-Content-Type-Options: "nosniff"
+    X-XSS-Protection: "1; mode=block"
+    Referrer-Policy: "strict-origin-when-cross-origin"
+    Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+    Strict-Transport-Security: "max-age=31536000; includeSubDomains; preload"
+
+# =============================================================================
+# RATE LIMITING CONFIGURATION
+# =============================================================================
+rate_limiting:
+  # API rate limits
+  api_limits:
+    default: "1000/hour"
+    authenticated: "5000/hour"
+    admin: "10000/hour"
+
+  # Service-specific limits
+  service_limits:
+    dm_crawler: "100/minute"
+    crypto_intel: "500/minute"
+    reputation_analyzer: "200/minute"
+    economics_processor: "300/minute"
+    tactical_intel: "1000/minute"
+    defense_automation: "2000/minute"
+    opsec_enforcer: "500/minute"
+    intel_fusion: "800/minute"
+    autonomous_coordinator: "1500/minute"
+    adaptive_learning: "1000/minute"
+    resource_manager: "2000/minute"
+    knowledge_evolution: "500/minute"
+
+# =============================================================================
+# COMPLIANCE CONFIGURATION
+# =============================================================================
+compliance:
+  # Compliance frameworks
+  frameworks:
+    - "SOC2"
+    - "GDPR"
+    - "CCPA"
+    - "HIPAA"
+    - "PCI-DSS"
+
+  # Data classification
+  data_classification:
+    public: "No restrictions"
+    internal: "Internal use only"
+    confidential: "Restricted access"
+    restricted: "Highly sensitive, need-to-know basis"
+
+  # Privacy controls
+  privacy:
+    data_minimization: true
+    purpose_limitation: true
+    data_retention_limits: true
+    user_consent_required: true
+    right_to_deletion: true
+    data_portability: true

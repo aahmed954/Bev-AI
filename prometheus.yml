@@ -1,0 +1,292 @@
+# Prometheus Configuration for ORACLE1 ARM Cloud Server
+# BEV OSINT Framework - Service Discovery and Monitoring
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  scrape_timeout: 15s
+  external_labels:
+    cluster: 'oracle1'
+    platform: 'arm64'
+    region: 'cloud'
+    replica: '1'
+
+# Rule files for ARM-specific alerting
+rule_files:
+  - "alerts/arm_performance.yml"
+  - "alerts/oracle1_services.yml"
+  - "alerts/distributed_services.yml"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - "100.122.12.54:9093"  # THANOS alertmanager
+      timeout: 10s
+      api_version: v2
+
+# Remote write to THANOS for central aggregation
+remote_write:
+  - url: "http://100.122.12.54:9090/api/v1/write"
+    name: "thanos-central"
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'oracle1_.*'
+        action: keep
+    queue_config:
+      capacity: 10000
+      max_samples_per_send: 2000
+      batch_send_deadline: 10s
+      min_shards: 1
+      max_shards: 20
+
+# Scrape configurations
+scrape_configs:
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus-oracle1'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Node Exporter - ARM system metrics
+  - job_name: 'node-exporter-oracle1'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: node-exporter:9100
+
+  # Redis monitoring
+  - job_name: 'redis-oracle1'
+    static_configs:
+      - targets: ['redis-arm:6379']
+    scrape_interval: 30s
+    metrics_path: /metrics
+    params:
+      format: ['prometheus']
+
+  # MinIO cluster monitoring
+  - job_name: 'minio-cluster-oracle1'
+    static_configs:
+      - targets: 
+        - 'minio1:9000'
+        - 'minio2:9000'
+        - 'minio3:9000'
+    scrape_interval: 60s
+    metrics_path: /minio/v2/metrics/cluster
+    scheme: http
+
+  # InfluxDB cluster monitoring  
+  - job_name: 'influxdb-cluster-oracle1'
+    static_configs:
+      - targets:
+        - 'influxdb-primary:8086'
+        - 'influxdb-replica:8086'
+    scrape_interval: 60s
+    metrics_path: /metrics
+    scheme: http
+
+  # N8N instances monitoring
+  - job_name: 'n8n-instances-oracle1'
+    static_configs:
+      - targets:
+        - 'n8n:5678'
+        - 'n8n-advanced-1:5678'
+        - 'n8n-advanced-2:5678'
+        - 'n8n-advanced-3:5678'
+    scrape_interval: 60s
+    metrics_path: /metrics
+    scheme: http
+
+  # LiteLLM gateways monitoring
+  - job_name: 'litellm-gateways-oracle1'
+    static_configs:
+      - targets:
+        - 'litellm-gateway-1:4000'
+        - 'litellm-gateway-2:4000'
+        - 'litellm-gateway-3:4000'
+    scrape_interval: 60s
+    metrics_path: /metrics
+    scheme: http
+
+  # Request Multiplexer monitoring
+  - job_name: 'request-multiplexer-oracle1'
+    static_configs:
+      - targets: ['request-multiplexer:8080']
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: http
+
+  # Nginx monitoring via stub_status
+  - job_name: 'nginx-oracle1'
+    static_configs:
+      - targets: ['nginx:80']
+    scrape_interval: 30s
+    metrics_path: /nginx_status
+    scheme: http
+
+  # Docker containers monitoring via cAdvisor
+  - job_name: 'cadvisor-oracle1'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 60s
+    metrics_path: /metrics
+    honor_labels: true
+
+  # Celery workers monitoring (Redis-based)
+  - job_name: 'celery-workers-oracle1'
+    static_configs:
+      - targets: ['redis-arm:6379']
+    scrape_interval: 60s
+    metrics_path: /metrics
+    params:
+      format: ['prometheus']
+      check-keys: ['celery*']
+
+  # Custom BEV service metrics
+  - job_name: 'bev-services-oracle1'
+    static_configs:
+      - targets:
+        - 'research-crawler:8000'
+        - 'intel-processor:8001'
+        - 'proxy-manager:8888'
+        - 'genetic-optimizer:8002'
+        - 'knowledge-synthesis:8003'
+        - 'toolmaster-orchestrator:8004'
+    scrape_interval: 60s
+    metrics_path: /metrics
+    scheme: http
+
+  # ARM-specific system monitoring
+  - job_name: 'arm-system-oracle1'
+    static_configs:
+      - targets: ['localhost:9101']  # Custom ARM metrics exporter
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: http
+
+  # Edge workers monitoring
+  - job_name: 'edge-workers-oracle1'
+    static_configs:
+      - targets:
+        - 'edge-worker-1:8005'
+        - 'edge-worker-2:8006'
+        - 'edge-worker-3:8007'
+    scrape_interval: 60s
+    metrics_path: /metrics
+    scheme: http
+
+  # DRM researchers monitoring
+  - job_name: 'drm-researchers-oracle1'
+    static_configs:
+      - targets:
+        - 'drm-researcher-1:8008'
+        - 'drm-researcher-2:8009'
+    scrape_interval: 120s
+    metrics_path: /metrics
+    scheme: http
+
+  # Watermark analyzers monitoring
+  - job_name: 'watermark-analyzers-oracle1'
+    static_configs:
+      - targets:
+        - 'watermark-analyzer-1:8010'
+        - 'watermark-analyzer-2:8011'
+    scrape_interval: 120s
+    metrics_path: /metrics
+    scheme: http
+
+  # Crypto researchers monitoring
+  - job_name: 'crypto-researchers-oracle1'
+    static_configs:
+      - targets:
+        - 'crypto-researcher-1:8012'
+        - 'crypto-researcher-2:8013'
+    scrape_interval: 120s
+    metrics_path: /metrics
+    scheme: http
+
+  # Black market crawlers monitoring
+  - job_name: 'blackmarket-crawlers-oracle1'
+    static_configs:
+      - targets:
+        - 'blackmarket-crawler-1:8014'
+        - 'blackmarket-crawler-2:8015'
+    scrape_interval: 180s
+    metrics_path: /metrics
+    scheme: http
+
+  # Vendor profilers monitoring
+  - job_name: 'vendor-profilers-oracle1'
+    static_configs:
+      - targets:
+        - 'vendor-profiler-1:8016'
+        - 'vendor-profiler-2:8017'
+    scrape_interval: 180s
+    metrics_path: /metrics
+    scheme: http
+
+  # Transaction tracker monitoring
+  - job_name: 'transaction-tracker-oracle1'
+    static_configs:
+      - targets: ['transaction-tracker:8018']
+    scrape_interval: 120s
+    metrics_path: /metrics
+    scheme: http
+
+  # Multi-modal processors monitoring
+  - job_name: 'multimodal-processors-oracle1'
+    static_configs:
+      - targets:
+        - 'multimodal-processor-1:8019'
+        - 'multimodal-processor-2:8020'
+        - 'multimodal-processor-3:8021'
+        - 'multimodal-processor-4:8022'
+    scrape_interval: 90s
+    metrics_path: /metrics
+    scheme: http
+
+  # Health check scraping with blackbox exporter
+  - job_name: 'blackbox-http-oracle1'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - http://n8n:5678/healthz
+        - http://minio1:9000/minio/health/live
+        - http://minio2:9000/minio/health/live
+        - http://minio3:9000/minio/health/live
+        - http://influxdb-primary:8086/health
+        - http://influxdb-replica:8086/health
+        - http://litellm-gateway-1:4000/health
+        - http://litellm-gateway-2:4000/health
+        - http://litellm-gateway-3:4000/health
+        - http://request-multiplexer:8080/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+# Storage configuration optimized for ARM
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention.time: 30d
+    retention.size: 50GB
+    wal-compression: true
+    # ARM-optimized settings
+    min-block-duration: 2h
+    max-block-duration: 25h
+    no-lockfile: false

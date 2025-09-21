@@ -1,0 +1,183 @@
+# Tor Exit Node Configuration (Node 3)
+# Third hop in the 3-hop circuit - handles external connections
+
+## Basic Configuration
+SocksPort 0
+ControlPort 9053
+ControlListenAddress 127.0.0.1
+HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C
+
+## Data Directory
+DataDirectory /var/lib/tor
+
+## Logging
+Log notice file /var/log/tor/notices.log
+Log warn file /var/log/tor/warnings.log
+Log info file /var/log/tor/info.log
+
+## Exit Node Configuration
+ORPort 9003
+ORListenAddress 0.0.0.0:9003
+Nickname BEVExitNode3
+ContactInfo security@bev.local
+
+## Relay Configuration
+RelayBandwidthRate 20 MB
+RelayBandwidthBurst 40 MB
+MaxMemInQueues 2048 MB
+
+## Directory Configuration
+DirPort 9032
+DirListenAddress 0.0.0.0:9032
+
+## Exit Policy - Allow specific traffic for research purposes
+ExitPolicy accept *:80     # HTTP
+ExitPolicy accept *:443    # HTTPS
+ExitPolicy accept *:993    # IMAPS
+ExitPolicy accept *:995    # POP3S
+ExitPolicy accept *:22     # SSH (restricted)
+ExitPolicy accept *:21     # FTP
+ExitPolicy accept *:53     # DNS
+ExitPolicy accept *:6667   # IRC
+ExitPolicy accept *:8080   # HTTP alternate
+ExitPolicy reject *:25     # SMTP (no email to prevent spam)
+ExitPolicy reject *:119    # NNTP
+ExitPolicy reject *:135-139 # Windows shares
+ExitPolicy reject *:445    # SMB
+ExitPolicy reject *:1433   # MSSQL
+ExitPolicy reject *:3306   # MySQL
+ExitPolicy reject *:5432   # PostgreSQL
+ExitPolicy reject *:6379   # Redis
+ExitPolicy reject *:27017  # MongoDB
+ExitPolicy reject *:*      # Reject everything else
+
+## Reduced Exit Policy (more restrictive alternative)
+# ExitPolicy accept *:80
+# ExitPolicy accept *:443
+# ExitPolicy reject *:*
+
+## Security Hardening
+DisableAllSwap 1
+HardwareAccel 1
+SafeLogging 1
+ProtocolWarnings 1
+
+## Exit Node Specific Configuration
+ClientOnly 0
+PublishServerDescriptor 1
+AssumeReachable 1
+Address 0.0.0.0
+
+## Bandwidth Management
+MaxAdvertisedBandwidth 20 MB
+BandwidthRate 15 MB
+BandwidthBurst 30 MB
+MaxOnionQueueDelay 1750 msec
+
+## Connection Limits
+ConnLimit 3000
+MaxClientCircuitsPending 128
+MaxOnionsPending 300
+
+## Performance Optimizations
+NumCPUs 4
+DisableOOSCheck 0
+
+## Circuit Configuration
+CircuitIdleTimeout 30 minutes
+NewCircuitPeriod 30 seconds
+MaxCircuitDirtiness 10 minutes
+
+## DNS Configuration
+ServerDNSSearchDomains 0
+ServerDNSDetectHijacking 1
+ServerDNSTestAddresses 8.8.8.8,1.1.1.1,208.67.222.222,208.67.220.220
+ServerDNSAllowBrokenConfig 1
+ServerDNSAllowNonRFC953Hostnames 0
+
+## Exit Notice
+DirPortFrontPage /etc/tor/tor-exit-notice.html
+
+## Family Configuration
+MyFamily $BEVEntryNode1,$BEVMiddleRelay2,$BEVExitNode3
+
+## Network Configuration
+OutboundBindAddress 0.0.0.0
+IPv6Exit 1
+
+## GeoIP Configuration
+GeoIPFile /usr/share/tor/geoip
+GeoIPv6File /usr/share/tor/geoip6
+
+## Statistics (limited for exit node)
+CellStatistics 0
+DirReqStatistics 0
+EntryStatistics 0
+ExitPortStatistics 1
+ConnDirectionStatistics 0
+HiddenServiceStatistics 0
+
+## Exit Node Specific Policies
+ExitPolicyRejectPrivate 1
+ExitPolicyRejectLocalInterfaces 1
+
+## Circuit Building
+PathsNeededToBuildCircuits 0.25
+CircuitBuildTimeout 60 seconds
+LearnCircuitBuildTimeout 1
+
+## Traffic Management
+KeepalivePeriod 60 seconds
+HeartbeatPeriod 6 hours
+
+## Consensus Configuration
+UseMicrodescriptors 1
+FetchDirInfoExtraEarly 0
+FetchDirInfoEarly 0
+DownloadExtraInfo 1
+
+## Resource Management
+MaxMemInCellQueues 24 GB
+CircuitStreamTimeout 10 seconds
+
+## Transport Configuration
+ExtORPort auto
+ExtendedErrors 1
+
+## Connection Tracking
+TrackHostExits .bev.local,.onion
+TrackHostExitsExpire 1800
+
+## Guard Configuration
+GuardLifetime 3 months
+NumPrimaryGuards 3
+
+## Exit Streams
+MaxStreamsPerCircuit 0
+EnforceDistinctSubnets 1
+
+## Rate Limiting
+PerConnBWRate 0
+PerConnBWBurst 0
+RelayBandwidthRate 20 MB
+RelayBandwidthBurst 40 MB
+
+## Circuit Isolation
+IsolateDestAddr 1
+IsolateDestPort 0
+
+## Anti-censorship
+BridgeRelay 0
+PublishServerDescriptor 1
+
+## Dormant Mode
+DormantOnFirstStartup 0
+DormantTimeoutDisabledByIdleStreams 1
+
+## Circuit Padding
+CircuitPadding 1
+ReducedCircuitPadding 0
+
+## Exit Node Warning
+# This node allows exit traffic. Please ensure proper abuse handling
+# is in place and all legal requirements are met for your jurisdiction.

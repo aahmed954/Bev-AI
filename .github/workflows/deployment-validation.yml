@@ -1,0 +1,1510 @@
+name: Intelligent Deployment Validation & Health Gates
+
+on:
+  workflow_run:
+    workflows: ["Advanced Rolling Deployment - Zero Downtime"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      validation_type:
+        description: 'Validation Type'
+        required: true
+        type: choice
+        default: 'comprehensive'
+        options:
+          - quick
+          - comprehensive
+          - deep
+          - security
+          - performance
+          - integration
+      rollback_threshold:
+        description: 'Auto-Rollback Threshold (%)'
+        required: false
+        default: '15'
+        type: string
+      validation_timeout:
+        description: 'Validation Timeout (minutes)'
+        required: false
+        default: '30'
+        type: string
+      target_environment:
+        description: 'Target Environment'
+        required: false
+        type: choice
+        default: 'production'
+        options:
+          - development
+          - staging
+          - production
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes - continuous health validation
+
+env:
+  VALIDATION_TIMEOUT: ${{ github.event.inputs.validation_timeout || '30' }}
+  ROLLBACK_THRESHOLD: ${{ github.event.inputs.rollback_threshold || '15' }}
+  PROMETHEUS_URL: http://localhost:9090
+  GRAFANA_URL: http://localhost:3000
+  HEALTH_CHECK_RETRIES: 3
+  PERFORMANCE_BASELINE_WINDOW: 60  # minutes
+
+jobs:
+  deployment-readiness-check:
+    name: Deployment Readiness Assessment
+    runs-on: self-hosted
+    outputs:
+      deployment-state: ${{ steps.readiness.outputs.state }}
+      validation-strategy: ${{ steps.readiness.outputs.strategy }}
+      health-score: ${{ steps.readiness.outputs.score }}
+      critical-services: ${{ steps.readiness.outputs.critical }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Assess Deployment Readiness
+        id: readiness
+        run: |
+          echo "🔍 Assessing deployment readiness..."
+          
+          # Create deployment readiness assessment
+          python3 - << 'EOF' > deployment_readiness.py
+          import requests
+          import json
+          import subprocess
+          import time
+          import psutil
+          from datetime import datetime, timedelta
+          from typing import Dict, List, Any, Tuple
+          
+          class DeploymentReadinessAssessment:
+              def __init__(self):
+                  self.critical_services = [
+                      'bev_postgres',
+                      'bev_redis',
+                      'bev_prometheus',
+                      'bev_grafana',
+                      'bev_nginx'
+                  ]
+                  self.critical_endpoints = [
+                      'http://localhost:80',
+                      'http://localhost:3000',
+                      'http://localhost:9090'
+                  ]
+                  self.assessment_data = {}
+                  self.health_score = 0
+              
+              def assess_service_health(self) -> Dict[str, Any]:
+                  """Assess Docker service health"""
+                  try:
+                      result = subprocess.run(['docker', 'ps', '--format', 'json'], 
+                                            capture_output=True, text=True, timeout=10)
+                      
+                      if result.returncode != 0:
+                          return {'status': 'docker_unavailable', 'services': []}
+                      
+                      services = []
+                      running_services = 0
+                      healthy_services = 0
+                      critical_issues = []
+                      
+                      for line in result.stdout.strip().split('\n'):
+                          if line.strip():
+                              try:
+                                  service_data = json.loads(line)
+                                  service_name = service_data.get('Names', '')
+                                  service_state = service_data.get('State', '')
+                                  service_status = service_data.get('Status', '')
+                                  
+                                  services.append({
+                                      'name': service_name,
+                                      'state': service_state,
+                                      'status': service_status,
+                                      'is_critical': any(critical in service_name for critical in self.critical_services)
+                                  })
+                                  
+                                  if service_state == 'running':
+                                      running_services += 1
+                                      
+                                      # Check if service is healthy
+                                      if 'healthy' in service_status.lower() or service_state == 'running':
+                                          healthy_services += 1
+                                  
+                                  # Check critical services
+                                  if any(critical in service_name for critical in self.critical_services):
+                                      if service_state != 'running':
+                                          critical_issues.append(f"{service_name} not running")
+                                      elif 'unhealthy' in service_status.lower():
+                                          critical_issues.append(f"{service_name} unhealthy")
+                              
+                              except json.JSONDecodeError:
+                                  continue
+                      
+                      # Calculate service health score
+                      if len(services) > 0:
+                          service_health_score = (healthy_services / len(services)) * 100
+                      else:
+                          service_health_score = 0
+                      
+                      return {
+                          'total_services': len(services),
+                          'running_services': running_services,
+                          'healthy_services': healthy_services,
+                          'service_health_score': service_health_score,
+                          'critical_issues': critical_issues,
+                          'services': services
+                      }
+                  
+                  except Exception as e:
+                      return {'status': 'assessment_failed', 'error': str(e)}
+              
+              def assess_endpoint_health(self) -> Dict[str, Any]:
+                  """Assess endpoint responsiveness and health"""
+                  endpoint_results = {}
+                  total_response_time = 0
+                  successful_endpoints = 0
+                  
+                  for endpoint in self.critical_endpoints:
+                      endpoint_health = {
+                          'status': 'unknown',
+                          'response_time_ms': 0,
+                          'status_code': 0,
+                          'health_check': False
+                      }
+                      
+                      # Test health endpoint first
+                      try:
+                          start_time = time.time()
+                          response = requests.get(f"{endpoint}/health", timeout=10)
+                          response_time = (time.time() - start_time) * 1000
+                          
+                          endpoint_health.update({
+                              'status': 'healthy' if response.status_code == 200 else 'unhealthy',
+                              'response_time_ms': response_time,
+                              'status_code': response.status_code,
+                              'health_check': response.status_code == 200
+                          })
+                          
+                          if response.status_code == 200:
+                              successful_endpoints += 1
+                              total_response_time += response_time
+                          
+                      except requests.exceptions.RequestException:
+                          # Try base endpoint
+                          try:
+                              start_time = time.time()
+                              response = requests.get(endpoint, timeout=10)
+                              response_time = (time.time() - start_time) * 1000
+                              
+                              endpoint_health.update({
+                                  'status': 'partial' if response.status_code < 500 else 'unhealthy',
+                                  'response_time_ms': response_time,
+                                  'status_code': response.status_code,
+                                  'health_check': False
+                              })
+                              
+                              if response.status_code < 500:
+                                  successful_endpoints += 0.5
+                                  total_response_time += response_time
+                              
+                          except requests.exceptions.RequestException:
+                              endpoint_health['status'] = 'unreachable'
+                      
+                      endpoint_results[endpoint] = endpoint_health
+                  
+                  # Calculate endpoint health metrics
+                  endpoint_health_score = (successful_endpoints / len(self.critical_endpoints)) * 100
+                  avg_response_time = total_response_time / max(successful_endpoints, 1)
+                  
+                  return {
+                      'endpoint_health_score': endpoint_health_score,
+                      'average_response_time_ms': avg_response_time,
+                      'successful_endpoints': successful_endpoints,
+                      'total_endpoints': len(self.critical_endpoints),
+                      'endpoints': endpoint_results
+                  }
+              
+              def assess_system_performance(self) -> Dict[str, Any]:
+                  """Assess system performance metrics"""
+                  try:
+                      # System resource usage
+                      cpu_percent = psutil.cpu_percent(interval=1)
+                      memory = psutil.virtual_memory()
+                      disk = psutil.disk_usage('/')
+                      
+                      # Load average
+                      load_avg = psutil.getloadavg()
+                      
+                      # Performance scoring
+                      performance_score = 100
+                      
+                      # CPU performance impact
+                      if cpu_percent > 90:
+                          performance_score -= 30
+                      elif cpu_percent > 80:
+                          performance_score -= 20
+                      elif cpu_percent > 70:
+                          performance_score -= 10
+                      
+                      # Memory performance impact
+                      if memory.percent > 95:
+                          performance_score -= 30
+                      elif memory.percent > 90:
+                          performance_score -= 20
+                      elif memory.percent > 80:
+                          performance_score -= 10
+                      
+                      # Disk performance impact
+                      if disk.percent > 95:
+                          performance_score -= 20
+                      elif disk.percent > 90:
+                          performance_score -= 10
+                      
+                      # Load average impact (assuming 4-core system)
+                      if load_avg[0] > 8:  # 2x cores
+                          performance_score -= 20
+                      elif load_avg[0] > 6:  # 1.5x cores
+                          performance_score -= 10
+                      
+                      performance_score = max(performance_score, 0)
+                      
+                      return {
+                          'cpu_percent': cpu_percent,
+                          'memory_percent': memory.percent,
+                          'disk_percent': disk.percent,
+                          'load_average': load_avg,
+                          'performance_score': performance_score,
+                          'available_memory_gb': memory.available / (1024**3),
+                          'available_disk_gb': disk.free / (1024**3)
+                      }
+                  
+                  except Exception as e:
+                      return {'status': 'performance_assessment_failed', 'error': str(e)}
+              
+              def assess_deployment_metrics(self) -> Dict[str, Any]:
+                  """Assess deployment-specific metrics"""
+                  metrics = {
+                      'recent_deployments': 0,
+                      'deployment_success_rate': 100,
+                      'last_deployment_status': 'unknown',
+                      'time_since_last_deployment': 0
+                  }
+                  
+                  try:
+                      # Check for recent deployment artifacts
+                      deployment_files = [
+                          'deployment-record.json',
+                          'performance_report.json',
+                          'critical_regression_alert.json'
+                      ]
+                      
+                      for file in deployment_files:
+                          if subprocess.run(['test', '-f', file], capture_output=True).returncode == 0:
+                              try:
+                                  with open(file, 'r') as f:
+                                      data = json.load(f)
+                                      
+                                  if file == 'deployment-record.json':
+                                      metrics['last_deployment_status'] = data.get('status', 'unknown')
+                                      
+                                      # Calculate time since last deployment
+                                      if 'timestamp' in data:
+                                          deploy_time = datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00'))
+                                          time_diff = datetime.utcnow().replace(tzinfo=deploy_time.tzinfo) - deploy_time
+                                          metrics['time_since_last_deployment'] = time_diff.total_seconds() / 3600  # hours
+                                  
+                                  elif file == 'critical_regression_alert.json':
+                                      # Critical regression indicates deployment issues
+                                      metrics['deployment_success_rate'] = 50
+                                      metrics['last_deployment_status'] = 'degraded'
+                              
+                              except (json.JSONDecodeError, KeyError):
+                                  continue
+                      
+                      return metrics
+                  
+                  except Exception as e:
+                      return {'status': 'deployment_metrics_failed', 'error': str(e)}
+              
+              def assess_data_integrity(self) -> Dict[str, Any]:
+                  """Assess data integrity and database health"""
+                  integrity_results = {
+                      'database_connectivity': {},
+                      'data_integrity_score': 0,
+                      'backup_status': 'unknown'
+                  }
+                  
+                  # Database connectivity tests
+                  databases = {
+                      'postgresql': ['docker', 'exec', 'bev_postgres', 'pg_isready', '-U', 'researcher'],
+                      'redis': ['docker', 'exec', 'bev_redis', 'redis-cli', 'ping'],
+                      'neo4j': ['docker', 'exec', 'bev_neo4j', 'cypher-shell', '-u', 'neo4j', '-p', 'BevGraphMaster2024', 'RETURN 1;']
+                  }
+                  
+                  healthy_dbs = 0
+                  for db_name, command in databases.items():
+                      try:
+                          result = subprocess.run(command, capture_output=True, timeout=10)
+                          if result.returncode == 0:
+                              integrity_results['database_connectivity'][db_name] = 'healthy'
+                              healthy_dbs += 1
+                          else:
+                              integrity_results['database_connectivity'][db_name] = 'unhealthy'
+                      except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+                          integrity_results['database_connectivity'][db_name] = 'unreachable'
+                  
+                  # Data integrity score
+                  integrity_results['data_integrity_score'] = (healthy_dbs / len(databases)) * 100
+                  
+                  # Check backup status
+                  backup_paths = ['/opt/bev-backups', '${{ env.BACKUP_STORAGE_PATH }}']
+                  for path in backup_paths:
+                      if subprocess.run(['test', '-d', path], capture_output=True).returncode == 0:
+                          # Check for recent backups
+                          result = subprocess.run(['find', path, '-name', '*.tar.gz', '-mtime', '-1'], 
+                                                capture_output=True, text=True)
+                          if result.stdout.strip():
+                              integrity_results['backup_status'] = 'recent'
+                              break
+                          else:
+                              integrity_results['backup_status'] = 'stale'
+                  
+                  return integrity_results
+              
+              def calculate_overall_health_score(self) -> Tuple[int, str]:
+                  """Calculate overall health score and deployment state"""
+                  
+                  # Weight factors for different aspects
+                  weights = {
+                      'service_health': 0.3,
+                      'endpoint_health': 0.25,
+                      'performance': 0.2,
+                      'data_integrity': 0.15,
+                      'deployment_metrics': 0.1
+                  }
+                  
+                  scores = {}
+                  
+                  # Service health score
+                  service_data = self.assessment_data.get('service_health', {})
+                  scores['service_health'] = service_data.get('service_health_score', 0)
+                  
+                  # Endpoint health score
+                  endpoint_data = self.assessment_data.get('endpoint_health', {})
+                  scores['endpoint_health'] = endpoint_data.get('endpoint_health_score', 0)
+                  
+                  # Performance score
+                  performance_data = self.assessment_data.get('system_performance', {})
+                  scores['performance'] = performance_data.get('performance_score', 0)
+                  
+                  # Data integrity score
+                  integrity_data = self.assessment_data.get('data_integrity', {})
+                  scores['data_integrity'] = integrity_data.get('data_integrity_score', 0)
+                  
+                  # Deployment metrics score
+                  deployment_data = self.assessment_data.get('deployment_metrics', {})
+                  deployment_score = 100 if deployment_data.get('last_deployment_status') == 'success' else 50
+                  scores['deployment_metrics'] = deployment_score
+                  
+                  # Calculate weighted overall score
+                  overall_score = sum(scores[aspect] * weights[aspect] for aspect in weights)
+                  
+                  # Determine deployment state
+                  if overall_score >= 90:
+                      deployment_state = 'excellent'
+                  elif overall_score >= 80:
+                      deployment_state = 'good'
+                  elif overall_score >= 70:
+                      deployment_state = 'acceptable'
+                  elif overall_score >= 60:
+                      deployment_state = 'degraded'
+                  else:
+                      deployment_state = 'critical'
+                  
+                  return int(overall_score), deployment_state
+              
+              def determine_validation_strategy(self, health_score: int, deployment_state: str) -> str:
+                  """Determine appropriate validation strategy"""
+                  
+                  # Override with user input if provided
+                  user_validation = "${{ github.event.inputs.validation_type }}"
+                  if user_validation and user_validation != 'null':
+                      return user_validation
+                  
+                  # Auto-determine based on health score and state
+                  if deployment_state == 'critical':
+                      return 'deep'
+                  elif deployment_state == 'degraded':
+                      return 'comprehensive'
+                  elif deployment_state in ['good', 'excellent']:
+                      return 'quick'
+                  else:
+                      return 'comprehensive'
+              
+              def run_assessment(self) -> Dict[str, Any]:
+                  """Run comprehensive deployment readiness assessment"""
+                  print("🔍 Running deployment readiness assessment...")
+                  
+                  # Collect assessment data
+                  self.assessment_data['service_health'] = self.assess_service_health()
+                  self.assessment_data['endpoint_health'] = self.assess_endpoint_health()
+                  self.assessment_data['system_performance'] = self.assess_system_performance()
+                  self.assessment_data['deployment_metrics'] = self.assess_deployment_metrics()
+                  self.assessment_data['data_integrity'] = self.assess_data_integrity()
+                  
+                  # Calculate overall health
+                  health_score, deployment_state = self.calculate_overall_health_score()
+                  validation_strategy = self.determine_validation_strategy(health_score, deployment_state)
+                  
+                  # Identify critical services with issues
+                  critical_services = []
+                  service_data = self.assessment_data.get('service_health', {})
+                  for issue in service_data.get('critical_issues', []):
+                      critical_services.append(issue)
+                  
+                  # Compile assessment results
+                  assessment_result = {
+                      'timestamp': datetime.utcnow().isoformat(),
+                      'health_score': health_score,
+                      'deployment_state': deployment_state,
+                      'validation_strategy': validation_strategy,
+                      'critical_services': critical_services,
+                      'assessment_data': self.assessment_data,
+                      'recommendations': self.generate_recommendations(health_score, deployment_state)
+                  }
+                  
+                  # Save assessment
+                  with open('deployment_readiness.json', 'w') as f:
+                      json.dump(assessment_result, f, indent=2)
+                  
+                  # Print summary
+                  print(f"\n📊 Deployment Readiness Assessment:")
+                  print(f"  Health Score: {health_score}/100")
+                  print(f"  Deployment State: {deployment_state}")
+                  print(f"  Validation Strategy: {validation_strategy}")
+                  
+                  if critical_services:
+                      print(f"  ⚠️ Critical Issues: {len(critical_services)}")
+                      for issue in critical_services[:3]:  # Show first 3 issues
+                          print(f"    - {issue}")
+                  
+                  return assessment_result
+              
+              def generate_recommendations(self, health_score: int, deployment_state: str) -> List[str]:
+                  """Generate deployment recommendations"""
+                  recommendations = []
+                  
+                  if deployment_state == 'critical':
+                      recommendations.extend([
+                          "🚨 CRITICAL: Do not proceed with deployment",
+                          "Investigate critical service failures immediately",
+                          "Consider emergency recovery procedures",
+                          "Alert on-call team for immediate intervention"
+                      ])
+                  elif deployment_state == 'degraded':
+                      recommendations.extend([
+                          "⚠️ Proceed with caution - system degraded",
+                          "Implement enhanced monitoring during deployment",
+                          "Prepare for potential rollback",
+                          "Consider maintenance window for resolution"
+                      ])
+                  elif deployment_state == 'acceptable':
+                      recommendations.extend([
+                          "✅ Deployment can proceed with monitoring",
+                          "Monitor system performance closely",
+                          "Have rollback procedures ready",
+                          "Review performance after deployment"
+                      ])
+                  else:
+                      recommendations.extend([
+                          "✅ System in excellent condition for deployment",
+                          "Standard monitoring procedures sufficient",
+                          "Proceed with confidence"
+                      ])
+                  
+                  return recommendations
+          
+          if __name__ == "__main__":
+              assessment = DeploymentReadinessAssessment()
+              result = assessment.run_assessment()
+          EOF
+          
+          # Run deployment readiness assessment
+          python3 deployment_readiness.py
+          
+          # Set outputs from assessment
+          if [[ -f deployment_readiness.json ]]; then
+            assessment=$(cat deployment_readiness.json)
+            state=$(echo "$assessment" | jq -r '.deployment_state')
+            strategy=$(echo "$assessment" | jq -r '.validation_strategy')
+            score=$(echo "$assessment" | jq -r '.health_score')
+            critical=$(echo "$assessment" | jq -c '.critical_services')
+            
+            echo "state=$state" >> $GITHUB_OUTPUT
+            echo "strategy=$strategy" >> $GITHUB_OUTPUT
+            echo "score=$score" >> $GITHUB_OUTPUT
+            echo "critical=$critical" >> $GITHUB_OUTPUT
+            
+            echo "✅ Deployment readiness assessment completed"
+          else
+            echo "❌ Deployment readiness assessment failed"
+            echo "state=unknown" >> $GITHUB_OUTPUT
+            echo "strategy=comprehensive" >> $GITHUB_OUTPUT
+            echo "score=50" >> $GITHUB_OUTPUT
+            echo "critical=[]" >> $GITHUB_OUTPUT
+          fi
+
+  quick-validation:
+    name: Quick Health Validation
+    runs-on: self-hosted
+    needs: deployment-readiness-check
+    if: needs.deployment-readiness-check.outputs.validation-strategy == 'quick'
+    outputs:
+      validation-result: ${{ steps.quick.outputs.result }}
+      health-status: ${{ steps.quick.outputs.status }}
+    
+    steps:
+      - name: Quick Health Checks
+        id: quick
+        run: |
+          echo "⚡ Running quick health validation..."
+          
+          # Quick endpoint checks
+          endpoints=(
+            "http://localhost:80"
+            "http://localhost:3000"
+            "http://localhost:9090"
+          )
+          
+          healthy_count=0
+          total_count=${#endpoints[@]}
+          
+          for endpoint in "${endpoints[@]}"; do
+            if curl -s "$endpoint/health" >/dev/null 2>&1 || curl -s "$endpoint" >/dev/null 2>&1; then
+              echo "  ✅ $endpoint - Healthy"
+              ((healthy_count++))
+            else
+              echo "  ❌ $endpoint - Unhealthy"
+            fi
+          done
+          
+          # Quick service checks
+          critical_services=("bev_postgres" "bev_redis" "bev_prometheus")
+          service_healthy=0
+          
+          for service in "${critical_services[@]}"; do
+            if docker ps | grep -q "$service"; then
+              echo "  ✅ $service - Running"
+              ((service_healthy++))
+            else
+              echo "  ❌ $service - Not running"
+            fi
+          done
+          
+          # Calculate quick health score
+          endpoint_score=$((healthy_count * 100 / total_count))
+          service_score=$((service_healthy * 100 / ${#critical_services[@]}))
+          overall_score=$(((endpoint_score + service_score) / 2))
+          
+          if [[ $overall_score -ge 80 ]]; then
+            result="passed"
+            status="healthy"
+          elif [[ $overall_score -ge 60 ]]; then
+            result="warning"
+            status="degraded"
+          else
+            result="failed"
+            status="unhealthy"
+          fi
+          
+          echo "result=$result" >> $GITHUB_OUTPUT
+          echo "status=$status" >> $GITHUB_OUTPUT
+          
+          echo "📊 Quick validation score: $overall_score/100"
+          echo "✅ Quick validation completed: $result"
+
+  comprehensive-validation:
+    name: Comprehensive Health Validation
+    runs-on: self-hosted
+    needs: deployment-readiness-check
+    if: needs.deployment-readiness-check.outputs.validation-strategy == 'comprehensive'
+    outputs:
+      validation-result: ${{ steps.comprehensive.outputs.result }}
+      health-metrics: ${{ steps.comprehensive.outputs.metrics }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Comprehensive System Validation
+        id: comprehensive
+        run: |
+          echo "🔍 Running comprehensive health validation..."
+          
+          # Create comprehensive validation script
+          python3 - << 'EOF' > comprehensive_validation.py
+          import requests
+          import subprocess
+          import json
+          import time
+          import psutil
+          from datetime import datetime
+          from typing import Dict, List, Any
+          
+          class ComprehensiveValidation:
+              def __init__(self):
+                  self.validation_results = {}
+                  self.metrics = {}
+              
+              def validate_service_dependencies(self) -> Dict[str, Any]:
+                  """Validate service dependencies and connectivity"""
+                  print("🔗 Validating service dependencies...")
+                  
+                  dependency_tests = {
+                      'postgres_redis': self.test_postgres_redis_connectivity,
+                      'prometheus_targets': self.test_prometheus_targets,
+                      'grafana_datasources': self.test_grafana_datasources,
+                      'neo4j_connectivity': self.test_neo4j_connectivity
+                  }
+                  
+                  results = {}
+                  for test_name, test_func in dependency_tests.items():
+                      try:
+                          results[test_name] = test_func()
+                      except Exception as e:
+                          results[test_name] = {'status': 'failed', 'error': str(e)}
+                  
+                  return results
+              
+              def test_postgres_redis_connectivity(self) -> Dict[str, Any]:
+                  """Test PostgreSQL and Redis connectivity"""
+                  # PostgreSQL test
+                  pg_result = subprocess.run(['docker', 'exec', 'bev_postgres', 'psql', 
+                                            '-U', 'researcher', '-d', 'osint', '-c', 'SELECT 1;'], 
+                                           capture_output=True, timeout=10)
+                  
+                  # Redis test
+                  redis_result = subprocess.run(['docker', 'exec', 'bev_redis', 'redis-cli', 
+                                               'set', 'health_check', 'ok'], 
+                                              capture_output=True, timeout=10)
+                  
+                  return {
+                      'postgresql': 'healthy' if pg_result.returncode == 0 else 'unhealthy',
+                      'redis': 'healthy' if redis_result.returncode == 0 else 'unhealthy',
+                      'status': 'passed' if pg_result.returncode == 0 and redis_result.returncode == 0 else 'failed'
+                  }
+              
+              def test_prometheus_targets(self) -> Dict[str, Any]:
+                  """Test Prometheus target connectivity"""
+                  try:
+                      response = requests.get('http://localhost:9090/api/v1/targets', timeout=10)
+                      if response.status_code == 200:
+                          targets = response.json()
+                          
+                          active_targets = 0
+                          total_targets = 0
+                          
+                          for target in targets.get('data', {}).get('activeTargets', []):
+                              total_targets += 1
+                              if target.get('health') == 'up':
+                                  active_targets += 1
+                          
+                          return {
+                              'active_targets': active_targets,
+                              'total_targets': total_targets,
+                              'health_percentage': (active_targets / max(total_targets, 1)) * 100,
+                              'status': 'passed' if active_targets > 0 else 'failed'
+                          }
+                      else:
+                          return {'status': 'failed', 'error': f'HTTP {response.status_code}'}
+                  except Exception as e:
+                      return {'status': 'failed', 'error': str(e)}
+              
+              def test_grafana_datasources(self) -> Dict[str, Any]:
+                  """Test Grafana datasource connectivity"""
+                  try:
+                      response = requests.get('http://localhost:3000/api/datasources', 
+                                            timeout=10, auth=('admin', 'admin'))
+                      if response.status_code == 200:
+                          datasources = response.json()
+                          
+                          healthy_datasources = 0
+                          for ds in datasources:
+                              # Test datasource
+                              test_response = requests.get(
+                                  f"http://localhost:3000/api/datasources/{ds['id']}/health",
+                                  timeout=5, auth=('admin', 'admin')
+                              )
+                              if test_response.status_code == 200:
+                                  healthy_datasources += 1
+                          
+                          return {
+                              'healthy_datasources': healthy_datasources,
+                              'total_datasources': len(datasources),
+                              'status': 'passed' if healthy_datasources > 0 else 'failed'
+                          }
+                      else:
+                          return {'status': 'failed', 'error': f'HTTP {response.status_code}'}
+                  except Exception as e:
+                      return {'status': 'failed', 'error': str(e)}
+              
+              def test_neo4j_connectivity(self) -> Dict[str, Any]:
+                  """Test Neo4j connectivity"""
+                  try:
+                      result = subprocess.run(['docker', 'exec', 'bev_neo4j', 'cypher-shell', 
+                                             '-u', 'neo4j', '-p', 'BevGraphMaster2024', 
+                                             'RETURN 1 as test;'], 
+                                            capture_output=True, timeout=15)
+                      
+                      return {
+                          'connectivity': 'healthy' if result.returncode == 0 else 'unhealthy',
+                          'status': 'passed' if result.returncode == 0 else 'failed'
+                      }
+                  except Exception as e:
+                      return {'status': 'failed', 'error': str(e)}
+              
+              def validate_performance_metrics(self) -> Dict[str, Any]:
+                  """Validate system performance metrics"""
+                  print("📊 Validating performance metrics...")
+                  
+                  # System metrics
+                  cpu_percent = psutil.cpu_percent(interval=2)
+                  memory = psutil.virtual_memory()
+                  disk = psutil.disk_usage('/')
+                  load_avg = psutil.getloadavg()
+                  
+                  # Response time tests
+                  response_times = {}
+                  endpoints = [
+                      'http://localhost:80',
+                      'http://localhost:3000',
+                      'http://localhost:9090'
+                  ]
+                  
+                  for endpoint in endpoints:
+                      try:
+                          start_time = time.time()
+                          response = requests.get(f"{endpoint}/health", timeout=10)
+                          response_time = (time.time() - start_time) * 1000
+                          response_times[endpoint] = {
+                              'response_time_ms': response_time,
+                              'status_code': response.status_code
+                          }
+                      except Exception as e:
+                          response_times[endpoint] = {
+                              'response_time_ms': 10000,
+                              'error': str(e)
+                          }
+                  
+                  # Performance scoring
+                  performance_issues = []
+                  performance_score = 100
+                  
+                  if cpu_percent > 85:
+                      performance_issues.append(f"High CPU usage: {cpu_percent:.1f}%")
+                      performance_score -= 20
+                  
+                  if memory.percent > 90:
+                      performance_issues.append(f"High memory usage: {memory.percent:.1f}%")
+                      performance_score -= 20
+                  
+                  if disk.percent > 90:
+                      performance_issues.append(f"High disk usage: {disk.percent:.1f}%")
+                      performance_score -= 15
+                  
+                  avg_response_time = sum(rt.get('response_time_ms', 10000) 
+                                        for rt in response_times.values()) / len(response_times)
+                  
+                  if avg_response_time > 2000:
+                      performance_issues.append(f"Slow response times: {avg_response_time:.0f}ms")
+                      performance_score -= 25
+                  elif avg_response_time > 1000:
+                      performance_issues.append(f"Elevated response times: {avg_response_time:.0f}ms")
+                      performance_score -= 10
+                  
+                  return {
+                      'cpu_percent': cpu_percent,
+                      'memory_percent': memory.percent,
+                      'disk_percent': disk.percent,
+                      'load_average': load_avg,
+                      'average_response_time_ms': avg_response_time,
+                      'response_times': response_times,
+                      'performance_score': max(performance_score, 0),
+                      'performance_issues': performance_issues,
+                      'status': 'passed' if performance_score >= 70 else 'failed'
+                  }
+              
+              def validate_data_consistency(self) -> Dict[str, Any]:
+                  """Validate data consistency and integrity"""
+                  print("🗄️ Validating data consistency...")
+                  
+                  consistency_results = {}
+                  
+                  # PostgreSQL consistency checks
+                  try:
+                      # Check for active connections
+                      pg_result = subprocess.run(['docker', 'exec', 'bev_postgres', 'psql', 
+                                                '-U', 'researcher', '-d', 'osint', '-c', 
+                                                'SELECT count(*) FROM pg_stat_activity;'], 
+                                               capture_output=True, text=True, timeout=10)
+                      
+                      if pg_result.returncode == 0:
+                          consistency_results['postgresql_connections'] = 'healthy'
+                      else:
+                          consistency_results['postgresql_connections'] = 'unhealthy'
+                  
+                  except Exception:
+                      consistency_results['postgresql_connections'] = 'error'
+                  
+                  # Redis consistency checks
+                  try:
+                      redis_info = subprocess.run(['docker', 'exec', 'bev_redis', 'redis-cli', 'info'], 
+                                                capture_output=True, text=True, timeout=10)
+                      
+                      if redis_info.returncode == 0 and 'connected_clients' in redis_info.stdout:
+                          consistency_results['redis_info'] = 'healthy'
+                      else:
+                          consistency_results['redis_info'] = 'unhealthy'
+                  
+                  except Exception:
+                      consistency_results['redis_info'] = 'error'
+                  
+                  # Overall consistency score
+                  healthy_checks = sum(1 for result in consistency_results.values() if result == 'healthy')
+                  total_checks = len(consistency_results)
+                  consistency_score = (healthy_checks / max(total_checks, 1)) * 100
+                  
+                  return {
+                      'consistency_checks': consistency_results,
+                      'consistency_score': consistency_score,
+                      'status': 'passed' if consistency_score >= 80 else 'failed'
+                  }
+              
+              def validate_security_posture(self) -> Dict[str, Any]:
+                  """Validate basic security posture"""
+                  print("🔒 Validating security posture...")
+                  
+                  security_checks = {}
+                  
+                  # Check for running containers with security issues
+                  try:
+                      docker_ps = subprocess.run(['docker', 'ps', '--format', 
+                                                'table {{.Names}}\t{{.Ports}}'], 
+                                               capture_output=True, text=True)
+                      
+                      exposed_ports = []
+                      for line in docker_ps.stdout.split('\n')[1:]:
+                          if line.strip() and '0.0.0.0' in line:
+                              exposed_ports.append(line.split()[0])
+                      
+                      security_checks['exposed_containers'] = len(exposed_ports)
+                      security_checks['container_exposure'] = 'acceptable' if len(exposed_ports) <= 5 else 'concerning'
+                  
+                  except Exception:
+                      security_checks['container_exposure'] = 'unknown'
+                  
+                  # Check for default passwords (basic check)
+                  default_password_check = {
+                      'grafana_default': False,  # Would check if admin/admin still works
+                      'neo4j_default': False     # Would check default Neo4j credentials
+                  }
+                  
+                  # Simple Grafana check
+                  try:
+                      grafana_response = requests.get('http://localhost:3000/api/admin/stats', 
+                                                    auth=('admin', 'admin'), timeout=5)
+                      default_password_check['grafana_default'] = grafana_response.status_code == 200
+                  except:
+                      pass
+                  
+                  security_checks['default_passwords'] = default_password_check
+                  
+                  # Security score
+                  security_issues = 0
+                  if security_checks.get('container_exposure') == 'concerning':
+                      security_issues += 1
+                  if any(default_password_check.values()):
+                      security_issues += 1
+                  
+                  security_score = max(100 - (security_issues * 30), 0)
+                  
+                  return {
+                      'security_checks': security_checks,
+                      'security_score': security_score,
+                      'status': 'passed' if security_score >= 70 else 'failed'
+                  }
+              
+              def run_comprehensive_validation(self) -> Dict[str, Any]:
+                  """Run comprehensive validation suite"""
+                  print("🔍 Running comprehensive validation suite...")
+                  
+                  # Run all validation components
+                  self.validation_results['service_dependencies'] = self.validate_service_dependencies()
+                  self.validation_results['performance_metrics'] = self.validate_performance_metrics()
+                  self.validation_results['data_consistency'] = self.validate_data_consistency()
+                  self.validation_results['security_posture'] = self.validate_security_posture()
+                  
+                  # Calculate overall validation score
+                  component_scores = []
+                  failed_components = []
+                  
+                  for component, results in self.validation_results.items():
+                      if isinstance(results, dict):
+                          if 'status' in results:
+                              if results['status'] == 'passed':
+                                  component_scores.append(100)
+                              else:
+                                  component_scores.append(0)
+                                  failed_components.append(component)
+                          else:
+                              # For components with sub-results
+                              sub_scores = [r.get('status') == 'passed' for r in results.values() 
+                                          if isinstance(r, dict) and 'status' in r]
+                              if sub_scores:
+                                  component_score = (sum(sub_scores) / len(sub_scores)) * 100
+                                  component_scores.append(component_score)
+                                  if component_score < 70:
+                                      failed_components.append(component)
+                  
+                  overall_score = sum(component_scores) / max(len(component_scores), 1)
+                  
+                  # Determine overall result
+                  if overall_score >= 85:
+                      overall_result = 'passed'
+                  elif overall_score >= 70:
+                      overall_result = 'warning'
+                  else:
+                      overall_result = 'failed'
+                  
+                  # Compile metrics for output
+                  self.metrics = {
+                      'overall_score': round(overall_score, 1),
+                      'failed_components': failed_components,
+                      'total_components': len(self.validation_results),
+                      'validation_timestamp': datetime.utcnow().isoformat()
+                  }
+                  
+                  validation_summary = {
+                      'result': overall_result,
+                      'overall_score': overall_score,
+                      'failed_components': failed_components,
+                      'validation_results': self.validation_results,
+                      'metrics': self.metrics,
+                      'timestamp': datetime.utcnow().isoformat()
+                  }
+                  
+                  # Save results
+                  with open('comprehensive_validation.json', 'w') as f:
+                      json.dump(validation_summary, f, indent=2)
+                  
+                  print(f"\n📊 Comprehensive Validation Results:")
+                  print(f"  Overall Score: {overall_score:.1f}/100")
+                  print(f"  Result: {overall_result}")
+                  
+                  if failed_components:
+                      print(f"  Failed Components: {', '.join(failed_components)}")
+                  
+                  return validation_summary
+          
+          if __name__ == "__main__":
+              validator = ComprehensiveValidation()
+              result = validator.run_comprehensive_validation()
+          EOF
+          
+          # Run comprehensive validation
+          python3 comprehensive_validation.py
+          
+          # Set outputs
+          if [[ -f comprehensive_validation.json ]]; then
+            result=$(cat comprehensive_validation.json | jq -r '.result')
+            metrics=$(cat comprehensive_validation.json | jq -c '.metrics')
+            
+            echo "result=$result" >> $GITHUB_OUTPUT
+            echo "metrics=$metrics" >> $GITHUB_OUTPUT
+            
+            echo "✅ Comprehensive validation completed: $result"
+          else
+            echo "❌ Comprehensive validation failed"
+            echo "result=failed" >> $GITHUB_OUTPUT
+            echo "metrics={}" >> $GITHUB_OUTPUT
+          fi
+
+  deep-validation:
+    name: Deep System Validation
+    runs-on: self-hosted
+    needs: deployment-readiness-check
+    if: needs.deployment-readiness-check.outputs.validation-strategy == 'deep'
+    outputs:
+      validation-result: ${{ steps.deep.outputs.result }}
+      detailed-analysis: ${{ steps.deep.outputs.analysis }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deep System Analysis
+        id: deep
+        run: |
+          echo "🔬 Running deep system validation..."
+          
+          # Extended timeout for deep validation
+          timeout_minutes="${{ env.VALIDATION_TIMEOUT }}"
+          
+          # Run comprehensive validation first
+          python3 comprehensive_validation.py
+          
+          # Additional deep validation checks
+          echo "🧪 Running additional deep validation checks..."
+          
+          # Load testing
+          echo "⚡ Load testing critical endpoints..."
+          python3 - << 'EOF'
+          import concurrent.futures
+          import requests
+          import time
+          import statistics
+          
+          def load_test_endpoint(endpoint, duration=60, concurrent_users=10):
+              """Load test an endpoint"""
+              print(f"Load testing {endpoint} for {duration}s with {concurrent_users} users")
+              
+              results = []
+              start_time = time.time()
+              
+              def make_request():
+                  try:
+                      response_start = time.time()
+                      response = requests.get(endpoint, timeout=10)
+                      response_time = (time.time() - response_start) * 1000
+                      return {
+                          'response_time': response_time,
+                          'status_code': response.status_code,
+                          'success': response.status_code < 500
+                      }
+                  except Exception as e:
+                      return {
+                          'response_time': 10000,
+                          'status_code': 0,
+                          'success': False,
+                          'error': str(e)
+                      }
+              
+              with concurrent.futures.ThreadPoolExecutor(max_workers=concurrent_users) as executor:
+                  futures = []
+                  
+                  while time.time() - start_time < duration:
+                      # Submit requests
+                      for _ in range(concurrent_users):
+                          future = executor.submit(make_request)
+                          futures.append(future)
+                      
+                      time.sleep(1)  # 1 second between batches
+                  
+                  # Collect results
+                  for future in concurrent.futures.as_completed(futures):
+                      results.append(future.result())
+              
+              # Analyze results
+              if results:
+                  response_times = [r['response_time'] for r in results if r['success']]
+                  success_rate = sum(1 for r in results if r['success']) / len(results)
+                  
+                  if response_times:
+                      avg_response = statistics.mean(response_times)
+                      p95_response = statistics.quantiles(response_times, n=20)[18] if len(response_times) >= 20 else max(response_times)
+                  else:
+                      avg_response = 10000
+                      p95_response = 10000
+                  
+                  return {
+                      'endpoint': endpoint,
+                      'total_requests': len(results),
+                      'success_rate': success_rate,
+                      'avg_response_time': avg_response,
+                      'p95_response_time': p95_response,
+                      'passed': success_rate >= 0.95 and avg_response < 2000
+                  }
+              
+              return {'endpoint': endpoint, 'passed': False}
+          
+          # Load test critical endpoints
+          endpoints = [
+              'http://localhost:80/health',
+              'http://localhost:3000/api/health', 
+              'http://localhost:9090/-/healthy'
+          ]
+          
+          load_test_results = []
+          for endpoint in endpoints:
+              result = load_test_endpoint(endpoint, duration=30, concurrent_users=5)
+              load_test_results.append(result)
+              print(f"  {endpoint}: {'✅' if result.get('passed') else '❌'}")
+          
+          # Save load test results
+          import json
+          with open('load_test_results.json', 'w') as f:
+              json.dump(load_test_results, f, indent=2)
+          
+          print("✅ Load testing completed")
+          EOF
+          
+          # Memory leak detection
+          echo "🔍 Memory leak detection..."
+          initial_memory=$(free -m | awk 'NR==2{printf "%.1f", $3/1024}')
+          
+          # Monitor memory for 5 minutes
+          for i in {1..5}; do
+            current_memory=$(free -m | awk 'NR==2{printf "%.1f", $3/1024}')
+            echo "  Memory usage: ${current_memory}GB (initial: ${initial_memory}GB)"
+            sleep 60
+          done
+          
+          final_memory=$(free -m | awk 'NR==2{printf "%.1f", $3/1024}')
+          memory_growth=$(echo "$final_memory - $initial_memory" | bc)
+          
+          if (( $(echo "$memory_growth > 0.5" | bc -l) )); then
+            echo "⚠️ Potential memory leak detected: ${memory_growth}GB growth"
+            memory_leak_status="warning"
+          else
+            echo "✅ No significant memory growth detected"
+            memory_leak_status="passed"
+          fi
+          
+          # Log analysis
+          echo "📋 Analyzing system logs..."
+          log_analysis_results=""
+          
+          # Check for error patterns in logs
+          error_count=$(docker logs bev_postgres 2>&1 | grep -i error | wc -l || echo "0")
+          warning_count=$(docker logs bev_postgres 2>&1 | grep -i warning | wc -l || echo "0")
+          
+          if [[ $error_count -gt 10 ]]; then
+            log_analysis_results="high_error_rate"
+          elif [[ $error_count -gt 5 ]]; then
+            log_analysis_results="moderate_error_rate"
+          else
+            log_analysis_results="normal_error_rate"
+          fi
+          
+          # Compile deep validation results
+          if [[ -f comprehensive_validation.json ]] && [[ -f load_test_results.json ]]; then
+            # Combine all results
+            comprehensive_result=$(cat comprehensive_validation.json | jq -r '.result')
+            load_test_passed=$(cat load_test_results.json | jq '[.[] | select(.passed == true)] | length')
+            total_load_tests=$(cat load_test_results.json | jq 'length')
+            
+            # Overall deep validation result
+            if [[ "$comprehensive_result" == "passed" ]] && 
+               [[ $load_test_passed -eq $total_load_tests ]] && 
+               [[ "$memory_leak_status" != "warning" ]] && 
+               [[ "$log_analysis_results" == "normal_error_rate" ]]; then
+              deep_result="passed"
+            elif [[ "$comprehensive_result" == "warning" ]] || 
+                 [[ $load_test_passed -lt $total_load_tests ]] || 
+                 [[ "$memory_leak_status" == "warning" ]]; then
+              deep_result="warning"
+            else
+              deep_result="failed"
+            fi
+            
+            # Create detailed analysis
+            analysis=$(cat << EOF
+          {
+            "comprehensive_validation": "$comprehensive_result",
+            "load_testing": {
+              "passed_tests": $load_test_passed,
+              "total_tests": $total_load_tests,
+              "success_rate": $(echo "scale=2; $load_test_passed * 100 / $total_load_tests" | bc)
+            },
+            "memory_analysis": {
+              "status": "$memory_leak_status",
+              "memory_growth_gb": $memory_growth,
+              "initial_memory_gb": $initial_memory,
+              "final_memory_gb": $final_memory
+            },
+            "log_analysis": {
+              "status": "$log_analysis_results",
+              "error_count": $error_count,
+              "warning_count": $warning_count
+            }
+          }
+          EOF
+            )
+            
+            echo "result=$deep_result" >> $GITHUB_OUTPUT
+            echo "analysis=$analysis" >> $GITHUB_OUTPUT
+            
+            echo "✅ Deep validation completed: $deep_result"
+          else
+            echo "❌ Deep validation failed - missing result files"
+            echo "result=failed" >> $GITHUB_OUTPUT
+            echo "analysis={}" >> $GITHUB_OUTPUT
+          fi
+
+  rollback-decision:
+    name: Rollback Decision Engine
+    runs-on: self-hosted
+    needs: [deployment-readiness-check, quick-validation, comprehensive-validation, deep-validation]
+    if: always()
+    outputs:
+      rollback-required: ${{ steps.decision.outputs.rollback }}
+      rollback-reason: ${{ steps.decision.outputs.reason }}
+    
+    steps:
+      - name: Rollback Decision Analysis
+        id: decision
+        run: |
+          echo "🤔 Analyzing rollback requirements..."
+          
+          # Collect all validation results
+          readiness_score="${{ needs.deployment-readiness-check.outputs.health-score }}"
+          readiness_state="${{ needs.deployment-readiness-check.outputs.deployment-state }}"
+          
+          quick_result="${{ needs.quick-validation.outputs.validation-result }}"
+          comprehensive_result="${{ needs.comprehensive-validation.outputs.validation-result }}"
+          deep_result="${{ needs.deep-validation.outputs.validation-result }}"
+          
+          rollback_threshold="${{ env.ROLLBACK_THRESHOLD }}"
+          
+          echo "📊 Validation Results Summary:"
+          echo "  Readiness Score: $readiness_score/100"
+          echo "  Readiness State: $readiness_state"
+          echo "  Quick Validation: $quick_result"
+          echo "  Comprehensive Validation: $comprehensive_result"
+          echo "  Deep Validation: $deep_result"
+          echo "  Rollback Threshold: $rollback_threshold%"
+          
+          # Rollback decision logic
+          rollback_required=false
+          rollback_reason=""
+          
+          # Critical conditions requiring immediate rollback
+          if [[ "$readiness_state" == "critical" ]]; then
+            rollback_required=true
+            rollback_reason="Critical system state detected"
+          elif [[ "$quick_result" == "failed" ]] && [[ -n "$quick_result" ]]; then
+            rollback_required=true
+            rollback_reason="Quick validation failed"
+          elif [[ "$comprehensive_result" == "failed" ]] && [[ -n "$comprehensive_result" ]]; then
+            rollback_required=true
+            rollback_reason="Comprehensive validation failed"
+          elif [[ "$deep_result" == "failed" ]] && [[ -n "$deep_result" ]]; then
+            rollback_required=true
+            rollback_reason="Deep validation failed"
+          elif [[ -n "$readiness_score" ]] && [[ $readiness_score -lt $rollback_threshold ]]; then
+            rollback_required=true
+            rollback_reason="Health score below rollback threshold ($readiness_score < $rollback_threshold)"
+          fi
+          
+          # Warning conditions (no rollback but alert)
+          if [[ "$rollback_required" == "false" ]]; then
+            if [[ "$comprehensive_result" == "warning" ]] || [[ "$deep_result" == "warning" ]]; then
+              rollback_reason="Warning conditions detected - monitor closely"
+            elif [[ $readiness_score -lt 80 ]] && [[ -n "$readiness_score" ]]; then
+              rollback_reason="Moderate health score - enhanced monitoring recommended"
+            else
+              rollback_reason="All validations passed - system healthy"
+            fi
+          fi
+          
+          echo "rollback=$rollback_required" >> $GITHUB_OUTPUT
+          echo "reason=$rollback_reason" >> $GITHUB_OUTPUT
+          
+          if [[ "$rollback_required" == "true" ]]; then
+            echo "🚨 ROLLBACK REQUIRED: $rollback_reason"
+          else
+            echo "✅ No rollback required: $rollback_reason"
+          fi
+
+  execute-rollback:
+    name: Execute Automatic Rollback
+    runs-on: self-hosted
+    needs: rollback-decision
+    if: needs.rollback-decision.outputs.rollback-required == 'true'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Execute Emergency Rollback
+        run: |
+          echo "🚨 Executing automatic rollback..."
+          echo "Reason: ${{ needs.rollback-decision.outputs.rollback-reason }}"
+          
+          # Trigger disaster recovery workflow
+          gh workflow run disaster-recovery.yml \
+            --field action=emergency-restore \
+            --field emergency_level=high \
+            --field backup_type=full || {
+            echo "❌ Failed to trigger automatic rollback via workflow"
+            
+            # Manual emergency rollback
+            echo "🆘 Attempting manual emergency rollback..."
+            
+            # Use emergency procedures script if available
+            if [[ -f emergency_procedures.sh ]]; then
+              ./emergency_procedures.sh recover || {
+                echo "❌ Emergency procedures failed"
+                exit 1
+              }
+            else
+              echo "❌ No emergency procedures available"
+              exit 1
+            fi
+          }
+          
+          echo "✅ Automatic rollback initiated"
+
+  validation-reporting:
+    name: Validation Reporting & Notifications
+    runs-on: ubuntu-latest
+    needs: [deployment-readiness-check, quick-validation, comprehensive-validation, deep-validation, rollback-decision, execute-rollback]
+    if: always()
+    
+    steps:
+      - name: Generate Validation Report
+        run: |
+          echo "📋 Generating deployment validation report..."
+          
+          # Create comprehensive validation report
+          cat > validation_report.md << 'EOF'
+          # Deployment Validation Report
+          
+          **Timestamp**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Validation Type**: ${{ github.event.inputs.validation_type || 'auto-determined' }}
+          **Target Environment**: ${{ github.event.inputs.target_environment || 'production' }}
+          **Rollback Threshold**: ${{ env.ROLLBACK_THRESHOLD }}%
+          
+          ## System Readiness Assessment
+          
+          **Health Score**: ${{ needs.deployment-readiness-check.outputs.health-score }}/100
+          **Deployment State**: ${{ needs.deployment-readiness-check.outputs.deployment-state }}
+          **Validation Strategy**: ${{ needs.deployment-readiness-check.outputs.validation-strategy }}
+          
+          ## Validation Results
+          
+          EOF
+          
+          # Add validation results based on what ran
+          if [[ "${{ needs.quick-validation.result }}" != "skipped" ]]; then
+            cat >> validation_report.md << EOF
+          ### Quick Validation
+          **Result**: ${{ needs.quick-validation.outputs.validation-result }}
+          **Health Status**: ${{ needs.quick-validation.outputs.health-status }}
+          
+          EOF
+          fi
+          
+          if [[ "${{ needs.comprehensive-validation.result }}" != "skipped" ]]; then
+            cat >> validation_report.md << EOF
+          ### Comprehensive Validation
+          **Result**: ${{ needs.comprehensive-validation.outputs.validation-result }}
+          **Metrics**: ${{ needs.comprehensive-validation.outputs.health-metrics }}
+          
+          EOF
+          fi
+          
+          if [[ "${{ needs.deep-validation.result }}" != "skipped" ]]; then
+            cat >> validation_report.md << EOF
+          ### Deep Validation
+          **Result**: ${{ needs.deep-validation.outputs.validation-result }}
+          **Analysis**: ${{ needs.deep-validation.outputs.detailed-analysis }}
+          
+          EOF
+          fi
+          
+          # Rollback decision
+          cat >> validation_report.md << EOF
+          ## Rollback Decision
+          
+          **Rollback Required**: ${{ needs.rollback-decision.outputs.rollback-required }}
+          **Reason**: ${{ needs.rollback-decision.outputs.rollback-reason }}
+          
+          EOF
+          
+          if [[ "${{ needs.execute-rollback.result }}" != "skipped" ]]; then
+            cat >> validation_report.md << EOF
+          ### Rollback Execution
+          **Status**: ${{ needs.execute-rollback.result }}
+          
+          EOF
+          fi
+          
+          # Recommendations
+          cat >> validation_report.md << 'EOF'
+          ## Recommendations
+          
+          EOF
+          
+          rollback_required="${{ needs.rollback-decision.outputs.rollback-required }}"
+          health_score="${{ needs.deployment-readiness-check.outputs.health-score }}"
+          
+          if [[ "$rollback_required" == "true" ]]; then
+            cat >> validation_report.md << 'EOF'
+          - 🚨 **IMMEDIATE ACTION REQUIRED**: Rollback was executed
+          - Monitor system closely for next 2 hours
+          - Investigate root cause of validation failures
+          - Do not attempt redeployment until issues are resolved
+          EOF
+          elif [[ "$health_score" -lt 80 ]] && [[ -n "$health_score" ]]; then
+            cat >> validation_report.md << 'EOF'
+          - ⚠️ **Enhanced monitoring required**
+          - Review system performance and resource usage
+          - Consider maintenance window for optimization
+          - Monitor validation trends over time
+          EOF
+          else
+            cat >> validation_report.md << 'EOF'
+          - ✅ **System validation successful**
+          - Continue with standard monitoring procedures
+          - Document any minor issues for trend analysis
+          - Consider this validation as baseline for future deployments
+          EOF
+          fi
+          
+          echo ""
+          echo "📋 Deployment Validation Report:"
+          cat validation_report.md
+
+      - name: Upload Validation Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deployment-validation-results
+          path: |
+            validation_report.md
+            deployment_readiness.json
+            comprehensive_validation.json
+            load_test_results.json
+          retention-days: 30
+
+      - name: Validation Summary
+        run: |
+          echo "🎯 Deployment Validation Summary"
+          echo "================================="
+          
+          validation_type="${{ github.event.inputs.validation_type || 'auto-determined' }}"
+          health_score="${{ needs.deployment-readiness-check.outputs.health-score }}"
+          rollback_required="${{ needs.rollback-decision.outputs.rollback-required }}"
+          
+          echo "🎯 Validation Type: $validation_type"
+          echo "📊 Health Score: $health_score/100"
+          echo "🔄 Rollback Required: $rollback_required"
+          
+          # Overall status
+          if [[ "$rollback_required" == "true" ]]; then
+            echo "🚨 VALIDATION FAILED - Rollback executed"
+            echo "💥 System issues detected requiring immediate attention"
+          elif [[ "$health_score" -ge 85 ]] && [[ -n "$health_score" ]]; then
+            echo "✅ VALIDATION PASSED - System healthy"
+            echo "🎉 Deployment validation successful"
+          elif [[ "$health_score" -ge 70 ]] && [[ -n "$health_score" ]]; then
+            echo "⚠️ VALIDATION WARNING - Monitor system"
+            echo "📊 System functional but requires attention"
+          else
+            echo "❓ VALIDATION INCONCLUSIVE - Review required"
+            echo "🔍 Manual assessment recommended"
+          fi
+          
+          echo ""
+          echo "📁 Validation artifacts uploaded for detailed analysis"

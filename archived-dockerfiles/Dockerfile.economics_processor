@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+LABEL maintainer="BEV DevOps"
+WORKDIR /app
+COPY src/alternative_market/economics_processor.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONUNBUFFERED=1
+HEALTHCHECK CMD ["python", "economics_processor.py", "--healthcheck"]
+CMD ["python", "economics_processor.py"]
+EXPOSE 8083

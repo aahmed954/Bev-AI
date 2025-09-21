@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  vault:
+    image: hashicorp/vault:1.15
+    platform: linux/amd64
+    container_name: bev_vault_starlord
+    restart: always
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_TOKEN:-dev-token-12345}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      VAULT_ADDR: http://0.0.0.0:8200
+      VAULT_API_ADDR: http://100.122.12.35:8200
+    volumes:
+      - vault_data:/vault/file
+      - vault_logs:/vault/logs
+      - ./config/vault:/vault/config
+    ports:
+      - "8200:8200"
+    command: server
+    networks:
+      - bev_network
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  bev_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  vault_data:
+    driver: local
+  vault_logs:
+    driver: local

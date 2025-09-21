@@ -1,0 +1,62 @@
+# Core dependencies
+fastapi>=0.68.0
+uvicorn>=0.15.0
+redis>=4.0.0
+neo4j>=4.4.0
+psutil>=5.8.0
+numpy>=1.21.0
+pandas>=1.3.0
+scikit-learn>=1.0.0
+networkx>=2.6.0
+
+# Deep Learning and ML
+torch==2.1.0+cu121
+torch-geometric==2.4.0
+transformers>=4.12.0
+sentence-transformers>=2.1.0
+optuna>=2.10.0
+
+# NLP and Text Processing
+spacy>=3.4.0
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.4.0/en_core_web_sm-3.4.0.tar.gz
+
+# Data Processing and Visualization
+umap-learn>=0.5.0
+plotly>=5.0.0
+seaborn>=0.11.0
+
+# Additional ML Libraries
+xgboost>=1.5.0
+lightgbm>=3.3.0
+catboost>=1.0.0
+
+# Time Series and Forecasting
+prophet>=1.0.0
+
+# Graph Processing
+igraph>=0.9.0
+
+# Development and Testing
+pytest>=6.2.0
+pytest-asyncio>=0.15.0
+black>=21.0.0
+flake8>=3.9.0
+mypy>=0.910
+
+# Performance and Monitoring
+prometheus-client>=0.12.0
+psutil>=5.8.0
+
+# Configuration and Utilities
+pyyaml>=5.4.0
+python-dotenv>=0.19.0
+aiofiles>=0.7.0
+
+# GPU Support (optional)
+# torch-audio>=0.10.0
+# torch-vision>=0.11.0
+
+# Jupyter and Notebooks (for development)
+# jupyter>=1.0.0
+# notebook>=6.4.0
+# ipywidgets>=7.6.0

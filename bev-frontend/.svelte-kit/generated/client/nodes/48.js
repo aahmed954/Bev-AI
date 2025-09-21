@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/workflows/n8n/+page.svelte";

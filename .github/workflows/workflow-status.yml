@@ -1,0 +1,95 @@
+name: Workflow Status - Badge Generation
+
+on:
+  workflow_run:
+    workflows: 
+      - "CI - Pull Request Validation"
+      - "Build Validation - Docker Services Matrix"
+      - "Security Scanning - SAST/DAST/Container Security"
+      - "Code Quality - Formatting, Linting, and Documentation"
+      - "Deploy Pipeline - Production Ready Deployment"
+    types: [completed]
+
+jobs:
+  update-badges:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Generate Workflow Status Badges
+      run: |
+        echo "Generating workflow status badges for README"
+        
+        # Create badges directory
+        mkdir -p .github/badges
+        
+        # Generate badge URLs for each workflow
+        cat > .github/badges/workflow-badges.md << 'EOF'
+        # BEV OSINT Framework - CI/CD Status
+
+        ## Workflow Status Badges
+
+        [![CI Pipeline](https://github.com/${{ github.repository }}/actions/workflows/ci.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/ci.yml)
+        [![Build Validation](https://github.com/${{ github.repository }}/actions/workflows/build-validation.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/build-validation.yml)
+        [![Security Scan](https://github.com/${{ github.repository }}/actions/workflows/security-scan.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/security-scan.yml)
+        [![Code Quality](https://github.com/${{ github.repository }}/actions/workflows/code-quality.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/code-quality.yml)
+        [![Deploy Pipeline](https://github.com/${{ github.repository }}/actions/workflows/deploy-pipeline.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/deploy-pipeline.yml)
+
+        ## Quick Status Overview
+
+        | Workflow | Status | Last Run | Description |
+        |----------|--------|----------|-------------|
+        | CI Pipeline | ![CI Status](https://github.com/${{ github.repository }}/actions/workflows/ci.yml/badge.svg) | [View](https://github.com/${{ github.repository }}/actions/workflows/ci.yml) | Pull request validation and testing |
+        | Build Validation | ![Build Status](https://github.com/${{ github.repository }}/actions/workflows/build-validation.yml/badge.svg) | [View](https://github.com/${{ github.repository }}/actions/workflows/build-validation.yml) | Docker services matrix building |
+        | Security Scanning | ![Security Status](https://github.com/${{ github.repository }}/actions/workflows/security-scan.yml/badge.svg) | [View](https://github.com/${{ github.repository }}/actions/workflows/security-scan.yml) | SAST/DAST/Container security |
+        | Code Quality | ![Quality Status](https://github.com/${{ github.repository }}/actions/workflows/code-quality.yml/badge.svg) | [View](https://github.com/${{ github.repository }}/actions/workflows/code-quality.yml) | Code formatting and documentation |
+        | Deploy Pipeline | ![Deploy Status](https://github.com/${{ github.repository }}/actions/workflows/deploy-pipeline.yml/badge.svg) | [View](https://github.com/${{ github.repository }}/actions/workflows/deploy-pipeline.yml) | Production deployment automation |
+
+        ## Integration with README
+
+        Add these badges to your main README.md file:
+
+        ```markdown
+        # BEV OSINT Framework
+
+        [![CI Pipeline](https://github.com/${{ github.repository }}/actions/workflows/ci.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/ci.yml)
+        [![Build Validation](https://github.com/${{ github.repository }}/actions/workflows/build-validation.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/build-validation.yml)
+        [![Security Scan](https://github.com/${{ github.repository }}/actions/workflows/security-scan.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/security-scan.yml)
+        [![Code Quality](https://github.com/${{ github.repository }}/actions/workflows/code-quality.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/code-quality.yml)
+        [![Deploy Pipeline](https://github.com/${{ github.repository }}/actions/workflows/deploy-pipeline.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/deploy-pipeline.yml)
+
+        Enterprise-grade OSINT research platform with comprehensive AI-powered analysis capabilities.
+        ```
+
+        EOF
+
+    - name: Commit Badge Configuration
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: "Update workflow status badges"
+        file_pattern: .github/badges/workflow-badges.md
+
+  workflow-summary:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Generate Workflow Summary
+      run: |
+        echo "## 🚀 BEV OSINT Framework CI/CD Pipeline" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Latest Workflow Status" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Workflow | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| CI Pipeline | [![CI](https://github.com/${{ github.repository }}/actions/workflows/ci.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/ci.yml) |" >> $GITHUB_STEP_SUMMARY
+        echo "| Build Validation | [![Build](https://github.com/${{ github.repository }}/actions/workflows/build-validation.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/build-validation.yml) |" >> $GITHUB_STEP_SUMMARY
+        echo "| Security Scanning | [![Security](https://github.com/${{ github.repository }}/actions/workflows/security-scan.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/security-scan.yml) |" >> $GITHUB_STEP_SUMMARY
+        echo "| Code Quality | [![Quality](https://github.com/${{ github.repository }}/actions/workflows/code-quality.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/code-quality.yml) |" >> $GITHUB_STEP_SUMMARY
+        echo "| Deploy Pipeline | [![Deploy](https://github.com/${{ github.repository }}/actions/workflows/deploy-pipeline.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/deploy-pipeline.yml) |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Quick Links" >> $GITHUB_STEP_SUMMARY
+        echo "- [View All Workflows](https://github.com/${{ github.repository }}/actions)" >> $GITHUB_STEP_SUMMARY
+        echo "- [Security Alerts](https://github.com/${{ github.repository }}/security)" >> $GITHUB_STEP_SUMMARY
+        echo "- [Pipeline Documentation](.github/README.md)" >> $GITHUB_STEP_SUMMARY

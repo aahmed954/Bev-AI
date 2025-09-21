@@ -1,0 +1,99 @@
+# BEV OSINT Framework - Processing Core Node
+# Development Override Configuration
+# This file provides development-specific overrides for docker-compose.yml
+
+version: '3.8'
+
+services:
+  # Development overrides for IntelOwl Django
+  intelowl-django:
+    environment:
+      # Enable debug mode for development
+      - DJANGO_DEBUG=True
+      # Reduce worker count for development
+      - WORKERS=2
+      - THREADS_PER_WORKER=2
+      # Allow all hosts in development
+      - DJANGO_ALLOWED_HOSTS=*
+    volumes:
+      # Add source code volume for live development
+      - ../../src:/opt/bev_src:rw
+      # Mount custom analyzers for development
+      - ../../intelowl/custom_analyzers:/opt/deploy/intelowl/custom_analyzers:rw
+      - ../../intelowl/custom_connectors:/opt/deploy/intelowl/custom_connectors:rw
+    # Remove resource limits for development
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+
+  # Development overrides for Celery Worker
+  intelowl-celery-worker:
+    environment:
+      # Reduce workers for development
+      - CELERY_WORKER_CONCURRENCY=4
+    volumes:
+      # Add source code volume for live development
+      - ../../src:/opt/bev_src:rw
+    # Reduce replicas and resources for development
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+
+  # Development overrides for Celery Beat
+  intelowl-celery-beat:
+    volumes:
+      # Add source code volume for live development
+      - ../../src:/opt/bev_src:rw
+
+  # Development overrides for Cytoscape Server
+  cytoscape-server:
+    build:
+      target: development
+    environment:
+      # Enable development mode
+      - NODE_ENV=development
+      # Enable debug logging
+      - LOG_LEVEL=debug
+    volumes:
+      # Mount source for live development
+      - ./cytoscape:/app:rw
+      # Mount node_modules to prevent overwrite
+      - /app/node_modules
+    command: npm run dev
+    # Remove resource limits for development
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  # Development overrides for MCP Server
+  mcp-server:
+    environment:
+      # Enable debug logging
+      - LOG_LEVEL=DEBUG
+      # Reduce rate limiting for development
+      - API_RATE_LIMIT=1000
+    volumes:
+      # Add development config
+      - ../../src/mcp_server:/app:rw
+    # Remove resource limits for development
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  # Development overrides for Nginx
+  intelowl-nginx:
+    # Remove resource limits for development
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'

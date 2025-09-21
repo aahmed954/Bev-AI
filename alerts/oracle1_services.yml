@@ -1,0 +1,282 @@
+# ORACLE1 Service-Specific Alerts
+# BEV OSINT Framework - Service health monitoring
+
+groups:
+  - name: oracle1_services
+    interval: 30s
+    rules:
+      # Redis ARM instance monitoring
+      - alert: RedisARMDown
+        expr: up{job="redis-oracle1"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: redis
+          platform: arm64
+        annotations:
+          summary: "Redis ARM instance is down"
+          description: "Redis ARM instance on ORACLE1 has been down for more than 2 minutes"
+
+      - alert: RedisARMMemoryHigh
+        expr: redis_memory_used_bytes{instance=~".*redis-arm.*"} / redis_memory_max_bytes{instance=~".*redis-arm.*"} > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          platform: arm64
+        annotations:
+          summary: "Redis ARM memory usage is high"
+          description: "Redis ARM instance memory usage is above 80% for more than 5 minutes. Current: {{ $value | humanizePercentage }}"
+
+      # N8N cluster monitoring
+      - alert: N8NInstanceDown
+        expr: up{job="n8n-instances-oracle1"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          service: n8n
+          platform: arm64
+        annotations:
+          summary: "N8N instance is down on ORACLE1"
+          description: "N8N instance {{ $labels.instance }} has been down for more than 3 minutes"
+
+      - alert: N8NWorkflowExecutionHigh
+        expr: rate(n8n_workflow_executions_total{instance=~".*oracle1.*"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: n8n
+          platform: arm64
+        annotations:
+          summary: "N8N workflow execution rate is high"
+          description: "N8N workflow executions are above 10/minute for more than 5 minutes on {{ $labels.instance }}"
+
+      # MinIO cluster monitoring
+      - alert: MinIONodeDown
+        expr: up{job="minio-cluster-oracle1"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          service: minio
+          platform: arm64
+        annotations:
+          summary: "MinIO node is down on ORACLE1"
+          description: "MinIO node {{ $labels.instance }} has been down for more than 3 minutes"
+
+      - alert: MinIODiskUsageHigh
+        expr: minio_disk_storage_used_percent{instance=~".*oracle1.*"} > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: minio
+          platform: arm64
+        annotations:
+          summary: "MinIO disk usage is high"
+          description: "MinIO disk usage is above 80% on {{ $labels.instance }}. Current: {{ $value }}%"
+
+      - alert: MinIOAPIRequestErrors
+        expr: rate(minio_http_requests_total{code!~"2..",instance=~".*oracle1.*"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: minio
+          platform: arm64
+        annotations:
+          summary: "MinIO API error rate is high"
+          description: "MinIO API error rate is above 0.1/second for more than 5 minutes on {{ $labels.instance }}"
+
+      # LiteLLM gateway monitoring
+      - alert: LiteLLMGatewayDown
+        expr: up{job="litellm-gateways-oracle1"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          service: litellm
+          platform: arm64
+        annotations:
+          summary: "LiteLLM gateway is down on ORACLE1"
+          description: "LiteLLM gateway {{ $labels.instance }} has been down for more than 3 minutes"
+
+      - alert: LiteLLMResponseTimeHigh
+        expr: histogram_quantile(0.95, rate(litellm_request_duration_seconds_bucket{instance=~".*oracle1.*"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: litellm
+          platform: arm64
+        annotations:
+          summary: "LiteLLM response time is high"
+          description: "95th percentile response time is above 10 seconds for more than 5 minutes on {{ $labels.instance }}"
+
+      - alert: LiteLLMTokenUsageHigh
+        expr: rate(litellm_tokens_total{instance=~".*oracle1.*"}[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: litellm
+          platform: arm64
+        annotations:
+          summary: "LiteLLM token usage is high"
+          description: "LiteLLM token usage rate is above 1000 tokens/minute for more than 5 minutes on {{ $labels.instance }}"
+
+      # InfluxDB cluster monitoring
+      - alert: InfluxDBDown
+        expr: up{job="influxdb-cluster-oracle1"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          service: influxdb
+          platform: arm64
+        annotations:
+          summary: "InfluxDB instance is down on ORACLE1"
+          description: "InfluxDB instance {{ $labels.instance }} has been down for more than 3 minutes"
+
+      - alert: InfluxDBWriteFailures
+        expr: rate(influxdb_write_errors_total{instance=~".*oracle1.*"}[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: influxdb
+          platform: arm64
+        annotations:
+          summary: "InfluxDB write failures detected"
+          description: "InfluxDB write error rate is above 0.01/second for more than 5 minutes on {{ $labels.instance }}"
+
+      - alert: InfluxDBQueryTimeHigh
+        expr: histogram_quantile(0.95, rate(influxdb_query_duration_seconds_bucket{instance=~".*oracle1.*"}[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: influxdb
+          platform: arm64
+        annotations:
+          summary: "InfluxDB query time is high"
+          description: "95th percentile query time is above 30 seconds for more than 5 minutes on {{ $labels.instance }}"
+
+      # Request Multiplexer monitoring
+      - alert: RequestMultiplexerDown
+        expr: up{job="request-multiplexer-oracle1"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: multiplexer
+          platform: arm64
+        annotations:
+          summary: "Request Multiplexer is down"
+          description: "Request Multiplexer has been down for more than 2 minutes on ORACLE1"
+
+      - alert: RequestMultiplexerLatencyHigh
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="request-multiplexer-oracle1"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: multiplexer
+          platform: arm64
+        annotations:
+          summary: "Request Multiplexer latency is high"
+          description: "95th percentile latency is above 5 seconds for more than 5 minutes"
+
+      # Nginx monitoring
+      - alert: NginxDown
+        expr: up{job="nginx-oracle1"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: nginx
+          platform: arm64
+        annotations:
+          summary: "Nginx is down on ORACLE1"
+          description: "Nginx load balancer has been down for more than 2 minutes"
+
+      - alert: NginxConnectionsHigh
+        expr: nginx_connections_current{state="active",instance=~".*oracle1.*"} > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: nginx
+          platform: arm64
+        annotations:
+          summary: "Nginx active connections are high"
+          description: "Nginx active connections are above 1000 for more than 5 minutes. Current: {{ $value }}"
+
+      # Celery workers monitoring
+      - alert: CeleryWorkerDown
+        expr: up{job="celery-workers-oracle1"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: celery
+          platform: arm64
+        annotations:
+          summary: "Celery worker is down"
+          description: "Celery worker {{ $labels.instance }} has been down for more than 5 minutes"
+
+      - alert: CeleryQueueBacklog
+        expr: celery_queue_length{instance=~".*oracle1.*"} > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: celery
+          platform: arm64
+        annotations:
+          summary: "Celery queue backlog is high"
+          description: "Celery queue length is above 100 for more than 10 minutes on {{ $labels.instance }}"
+
+      # BEV service monitoring
+      - alert: BEVServiceDown
+        expr: up{job="bev-services-oracle1"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: bev
+          platform: arm64
+        annotations:
+          summary: "BEV service is down"
+          description: "BEV service {{ $labels.instance }} has been down for more than 5 minutes"
+
+      - alert: BEVServiceResponseTimeHigh
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="bev-services-oracle1"}[5m])) > 30
+        for: 10m
+        labels:
+          severity: warning
+          service: bev
+          platform: arm64
+        annotations:
+          summary: "BEV service response time is high"
+          description: "95th percentile response time is above 30 seconds for more than 10 minutes on {{ $labels.instance }}"
+
+      # Edge workers monitoring
+      - alert: EdgeWorkerDown
+        expr: up{job="edge-workers-oracle1"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: edge_worker
+          platform: arm64
+        annotations:
+          summary: "Edge worker is down"
+          description: "Edge worker {{ $labels.instance }} has been down for more than 5 minutes"
+
+      # Specialized researchers monitoring
+      - alert: ResearcherServiceDown
+        expr: up{job=~".*-researchers-oracle1|.*-analyzers-oracle1|.*-crawlers-oracle1"} == 0
+        for: 10m
+        labels:
+          severity: warning
+          service: researcher
+          platform: arm64
+        annotations:
+          summary: "Researcher service is down"
+          description: "Researcher service {{ $labels.job }}/{{ $labels.instance }} has been down for more than 10 minutes"
+
+      # Multi-modal processors monitoring
+      - alert: MultimodalProcessorDown
+        expr: up{job="multimodal-processors-oracle1"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: multimodal
+          platform: arm64
+        annotations:
+          summary: "Multi-modal processor is down"
+          description: "Multi-modal processor {{ $labels.instance }} has been down for more than 5 minutes"
