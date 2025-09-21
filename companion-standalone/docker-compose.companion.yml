@@ -1,0 +1,449 @@
+version: '3.8'
+
+# Standalone AI Companion Deployment for STARLORD
+# Completely isolated companion ecosystem with optional core platform integration
+# Auto-start/stop capability with systemd service
+
+x-common-healthcheck: &common-healthcheck
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+
+x-gpu-config: &gpu-config
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            device_ids: ['0']  # RTX 4090 exclusive access
+            capabilities: [gpu]
+
+x-companion-network: &companion-network
+  networks:
+    - companion_net
+
+networks:
+  companion_net:
+    driver: bridge
+    name: companion_network
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/16
+          gateway: 172.30.0.1
+
+volumes:
+  # Companion-specific isolated storage
+  companion_postgres_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /opt/companion/data/postgres
+  companion_redis_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /opt/companion/data/redis
+  companion_models:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /opt/companion/models
+  companion_assets:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /opt/companion/assets
+  companion_logs:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /opt/companion/logs
+  companion_config:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /opt/companion/config
+
+services:
+  # Companion Database (Isolated)
+  companion-postgres:
+    image: postgres:15-alpine
+    container_name: companion_postgres
+    hostname: companion-postgres
+    restart: unless-stopped
+    <<: *companion-network
+    environment:
+      POSTGRES_DB: companion
+      POSTGRES_USER: companion_user
+      POSTGRES_PASSWORD: ${COMPANION_POSTGRES_PASSWORD:-companion_secure_pass_2024}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    volumes:
+      - companion_postgres_data:/var/lib/postgresql/data
+      - ./companion-standalone/init/postgres:/docker-entrypoint-initdb.d:ro
+      - companion_logs:/var/log/postgresql
+    ports:
+      - "15432:5432"  # Different port to avoid conflicts
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD-SHELL", "pg_isready -U companion_user -d companion"]
+    command: >
+      postgres
+      -c log_destination=stderr,csvlog
+      -c logging_collector=on
+      -c log_directory=/var/log/postgresql
+      -c log_filename=companion-%Y-%m-%d.log
+      -c log_rotation_age=1d
+      -c log_rotation_size=100MB
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+
+  # Companion Redis (Isolated)
+  companion-redis:
+    image: redis:7-alpine
+    container_name: companion_redis
+    hostname: companion-redis
+    restart: unless-stopped
+    <<: *companion-network
+    volumes:
+      - companion_redis_data:/data
+      - ./companion-standalone/config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - companion_logs:/var/log/redis
+    ports:
+      - "16379:6379"  # Different port to avoid conflicts
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD", "redis-cli", "ping"]
+    sysctls:
+      net.core.somaxconn: 1024
+
+  # Companion Core Engine (AI Personality & Memory)
+  companion-core:
+    build:
+      context: ./companion-standalone/core
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: 3.11
+        CUDA_VERSION: 12.1
+    image: companion-core:latest
+    container_name: companion_core
+    hostname: companion-core
+    restart: unless-stopped
+    <<: *companion-network
+    <<: *gpu-config
+    depends_on:
+      companion-postgres:
+        condition: service_healthy
+      companion-redis:
+        condition: service_healthy
+    environment:
+      # Core Configuration
+      COMPANION_MODE: standalone
+      COMPANION_NAME: "AI Companion"
+      COMPANION_VERSION: "2.0.0"
+
+      # Database Configuration
+      DATABASE_URL: postgresql://companion_user:${COMPANION_POSTGRES_PASSWORD:-companion_secure_pass_2024}@companion-postgres:5432/companion
+      REDIS_URL: redis://companion-redis:6379/0
+
+      # GPU Configuration
+      CUDA_VISIBLE_DEVICES: "0"
+      PYTORCH_CUDA_ALLOC_CONF: max_split_size_mb:512
+
+      # Performance Configuration
+      MAX_CONCURRENT_SESSIONS: 10
+      MEMORY_LIMIT_GB: 8
+      GPU_MEMORY_FRACTION: 0.8
+
+      # Security Configuration
+      COMPANION_SECRET_KEY: ${COMPANION_SECRET_KEY:-companion_ultra_secure_key_2024}
+      ENCRYPTION_KEY: ${COMPANION_ENCRYPTION_KEY:-companion_encryption_key_2024}
+
+      # Optional Core Platform Integration
+      CORE_PLATFORM_ENABLED: ${CORE_PLATFORM_ENABLED:-false}
+      CORE_PLATFORM_HOST: ${CORE_PLATFORM_HOST:-172.21.0.1}
+      CORE_PLATFORM_API_KEY: ${CORE_PLATFORM_API_KEY:-}
+
+      # Feature Flags
+      VOICE_SYNTHESIS_ENABLED: true
+      AVATAR_RENDERING_ENABLED: true
+      EMOTIONAL_INTELLIGENCE_ENABLED: true
+      AUTONOMOUS_RESEARCH_ENABLED: true
+    volumes:
+      - companion_models:/app/models
+      - companion_assets:/app/assets
+      - companion_config:/app/config
+      - companion_logs:/app/logs
+    ports:
+      - "18000:8000"  # Main API port
+      - "18001:8001"  # WebSocket port
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    shm_size: 2gb
+
+  # Voice Synthesis Service (GPU Accelerated)
+  companion-voice:
+    build:
+      context: ./companion-standalone/voice
+      dockerfile: Dockerfile
+      args:
+        CUDA_VERSION: 12.1
+    image: companion-voice:latest
+    container_name: companion_voice
+    hostname: companion-voice
+    restart: unless-stopped
+    <<: *companion-network
+    <<: *gpu-config
+    depends_on:
+      companion-core:
+        condition: service_healthy
+    environment:
+      CUDA_VISIBLE_DEVICES: "0"
+      VOICE_ENGINE: tortoise-tts
+      VOICE_QUALITY: high
+      VOICE_CACHE_SIZE: 1000
+      BATCH_SIZE: 4
+      MAX_SEQUENCE_LENGTH: 512
+      EMOTION_SYNTHESIS_ENABLED: true
+    volumes:
+      - companion_models:/app/models
+      - companion_assets:/app/voice_assets
+      - companion_logs:/app/logs
+    ports:
+      - "18002:8000"
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+
+  # Live2D Avatar Controller (GPU Accelerated)
+  companion-avatar:
+    build:
+      context: ./companion-standalone/avatar
+      dockerfile: Dockerfile
+      args:
+        CUDA_VERSION: 12.1
+    image: companion-avatar:latest
+    container_name: companion_avatar
+    hostname: companion-avatar
+    restart: unless-stopped
+    <<: *companion-network
+    <<: *gpu-config
+    depends_on:
+      companion-core:
+        condition: service_healthy
+    environment:
+      CUDA_VISIBLE_DEVICES: "0"
+      AVATAR_ENGINE: live2d
+      AVATAR_QUALITY: ultra
+      EMOTION_SYNC_ENABLED: true
+      REAL_TIME_RENDERING: true
+      PHYSICS_SIMULATION: true
+      FACIAL_TRACKING: true
+    volumes:
+      - companion_models:/app/models
+      - companion_assets:/app/avatar_assets
+      - companion_logs:/app/logs
+    ports:
+      - "18003:8000"
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+
+  # Web Interface & Frontend
+  companion-frontend:
+    build:
+      context: ./companion-standalone/frontend
+      dockerfile: Dockerfile
+    image: companion-frontend:latest
+    container_name: companion_frontend
+    hostname: companion-frontend
+    restart: unless-stopped
+    <<: *companion-network
+    depends_on:
+      companion-core:
+        condition: service_healthy
+      companion-voice:
+        condition: service_healthy
+      companion-avatar:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      REACT_APP_API_BASE: http://companion-core:8000
+      REACT_APP_WS_BASE: ws://companion-core:8001
+      REACT_APP_VOICE_API: http://companion-voice:8000
+      REACT_APP_AVATAR_API: http://companion-avatar:8000
+      REACT_APP_COMPANION_NAME: "AI Companion"
+      REACT_APP_THEME: "cyberpunk"
+    volumes:
+      - companion_logs:/var/log/nginx
+    ports:
+      - "18080:80"   # Main web interface
+      - "18443:443"  # HTTPS (with self-signed cert)
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+
+  # Memory & Context Manager
+  companion-memory:
+    build:
+      context: ./companion-standalone/memory
+      dockerfile: Dockerfile
+    image: companion-memory:latest
+    container_name: companion_memory
+    hostname: companion-memory
+    restart: unless-stopped
+    <<: *companion-network
+    depends_on:
+      companion-postgres:
+        condition: service_healthy
+      companion-redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://companion_user:${COMPANION_POSTGRES_PASSWORD:-companion_secure_pass_2024}@companion-postgres:5432/companion
+      REDIS_URL: redis://companion-redis:6379/1
+      MEMORY_RETENTION_DAYS: 365
+      CONTEXT_WINDOW_SIZE: 32000
+      SEMANTIC_SEARCH_ENABLED: true
+      PRIVACY_MODE: strict
+    volumes:
+      - companion_models:/app/models
+      - companion_logs:/app/logs
+    ports:
+      - "18004:8000"
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+
+  # Integration Gateway (Optional Core Platform Connection)
+  companion-gateway:
+    build:
+      context: ./companion-standalone/gateway
+      dockerfile: Dockerfile
+    image: companion-gateway:latest
+    container_name: companion_gateway
+    hostname: companion-gateway
+    restart: unless-stopped
+    <<: *companion-network
+    depends_on:
+      companion-core:
+        condition: service_healthy
+    environment:
+      GATEWAY_MODE: ${COMPANION_GATEWAY_MODE:-standalone}
+      CORE_PLATFORM_DETECTION: auto
+      HEALTH_CHECK_INTERVAL: 30
+      FAILOVER_ENABLED: true
+
+      # Core Platform Integration (Optional)
+      THANOS_HOST: ${THANOS_HOST:-172.21.0.10}
+      ORACLE1_HOST: ${ORACLE1_HOST:-172.21.0.20}
+      OSINT_API_ENDPOINT: ${OSINT_API_ENDPOINT:-}
+
+      # Graceful Degradation
+      STANDALONE_FALLBACK: true
+      INTEGRATION_TIMEOUT: 5
+    volumes:
+      - companion_config:/app/config
+      - companion_logs:/app/logs
+    ports:
+      - "18005:8000"
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+
+  # Resource Monitor & Manager
+  companion-monitor:
+    build:
+      context: ./companion-standalone/monitor
+      dockerfile: Dockerfile
+    image: companion-monitor:latest
+    container_name: companion_monitor
+    hostname: companion-monitor
+    restart: unless-stopped
+    <<: *companion-network
+    depends_on:
+      - companion-core
+    environment:
+      MONITOR_INTERVAL: 10
+      GPU_MONITORING: true
+      MEMORY_MONITORING: true
+      PERFORMANCE_MONITORING: true
+      ALERT_ENABLED: true
+
+      # Resource Limits
+      GPU_TEMP_THRESHOLD: 83
+      GPU_MEMORY_THRESHOLD: 90
+      SYSTEM_MEMORY_THRESHOLD: 85
+
+      # Auto-scaling
+      AUTO_SCALE_ENABLED: true
+      SCALE_DOWN_IDLE_TIME: 300
+      SCALE_UP_THRESHOLD: 80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - companion_logs:/app/logs
+      - /sys:/host/sys:ro
+      - /proc:/host/proc:ro
+    ports:
+      - "18006:8000"
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    privileged: true
+
+  # Prometheus Metrics (Standalone)
+  companion-prometheus:
+    image: prom/prometheus:latest
+    container_name: companion_prometheus
+    hostname: companion-prometheus
+    restart: unless-stopped
+    <<: *companion-network
+    volumes:
+      - ./companion-standalone/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - companion_logs:/prometheus/logs
+    ports:
+      - "19090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/"]
+
+  # Grafana Dashboard (Standalone)
+  companion-grafana:
+    image: grafana/grafana:latest
+    container_name: companion_grafana
+    hostname: companion-grafana
+    restart: unless-stopped
+    <<: *companion-network
+    depends_on:
+      - companion-prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${COMPANION_GRAFANA_PASSWORD:-companion_admin_2024}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - ./companion-standalone/config/grafana:/etc/grafana/provisioning:ro
+      - companion_logs:/var/log/grafana
+    ports:
+      - "19000:3000"
+    healthcheck:
+      <<: *common-healthcheck
+      test: ["CMD-SHELL", "curl -f localhost:3000/api/health || exit 1"]

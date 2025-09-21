@@ -10,8 +10,8 @@ scikit-learn>=1.0.0
 networkx>=2.6.0
 
 # Deep Learning and ML
-torch>=1.10.0
-torch-geometric>=2.0.0
+torch==2.1.0+cu121
+torch-geometric==2.4.0
 transformers>=4.12.0
 sentence-transformers>=2.1.0
 optuna>=2.10.0

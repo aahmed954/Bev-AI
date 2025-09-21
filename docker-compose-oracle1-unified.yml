@@ -14,20 +14,30 @@ x-arm-resources: &arm-resources
   deploy:
     resources:
       limits:
-        memory: 1G
-        cpus: '0.5'
+        memory: 400M
+        cpus: '0.07'
       reservations:
-        memory: 256M
-        cpus: '0.1'
+        memory: 128M
+        cpus: '0.02'
 
 x-arm-small-resources: &arm-small-resources
   deploy:
     resources:
       limits:
-        memory: 512M
-        cpus: '0.25'
+        memory: 200M
+        cpus: '0.04'
       reservations:
-        memory: 128M
+        memory: 64M
+        cpus: '0.01'
+
+x-arm-monitoring-resources: &arm-monitoring-resources
+  deploy:
+    resources:
+      limits:
+        memory: 1G
+        cpus: '0.2'
+      reservations:
+        memory: 512M
         cpus: '0.05'
 
 networks:
@@ -83,6 +93,17 @@ volumes:
   transaction_data:
   multimodal_data:
 
+  # Monitoring infrastructure volumes
+  prometheus_data:
+  prometheus_config:
+  grafana_data:
+  grafana_config:
+  alertmanager_data:
+  alertmanager_config:
+  vault_data:
+  vault_config:
+  vault_tls:
+
 services:
   # =============================================================================
   # EXISTING ORACLE1 FOUNDATION
@@ -91,6 +112,7 @@ services:
   # Lightweight Redis for distributed coordination
   redis-arm:
     image: redis:7-alpine
+    platform: linux/arm64
     container_name: bev_redis_oracle
     ports:
       - "6379:6379"
@@ -111,6 +133,7 @@ services:
   # N8N workflow automation (ARM)
   n8n:
     image: n8nio/n8n:latest
+    platform: linux/arm64
     container_name: bev_n8n
     environment:
       N8N_BASIC_AUTH_ACTIVE: "true"
@@ -134,6 +157,7 @@ services:
   # Nginx load balancer
   nginx:
     image: nginx:alpine
+    platform: linux/arm64
     container_name: bev_nginx
     ports:
       - "80:80"
@@ -215,6 +239,7 @@ services:
   # InfluxDB cluster - Primary instance
   influxdb-primary:
     image: influxdb:2.7-alpine
+    platform: linux/arm64
     container_name: bev_influxdb_primary
     ports:
       - "8086:8086"
@@ -240,6 +265,7 @@ services:
   # InfluxDB cluster - Replica instance
   influxdb-replica:
     image: influxdb:2.7-alpine
+    platform: linux/arm64
     container_name: bev_influxdb_replica
     ports:
       - "8087:8086"
@@ -262,6 +288,7 @@ services:
   # Telegraf metrics collection from THANOS
   telegraf:
     image: telegraf:1.28-alpine
+    platform: linux/arm64
     container_name: bev_telegraf
     environment:
       INFLUXDB_URL: http://influxdb-primary:8086
@@ -284,6 +311,7 @@ services:
   # Node Exporter for ARM system metrics
   node-exporter:
     image: prom/node-exporter:latest
+    platform: linux/arm64
     container_name: bev_node_exporter
     ports:
       - "9100:9100"
@@ -304,12 +332,177 @@ services:
       - external_thanos
 
   # =============================================================================
+  # MONITORING INFRASTRUCTURE - ARM64 OPTIMIZED
+  # =============================================================================
+
+  # Prometheus Server - ARM64 compatible with THANOS integration
+  prometheus:
+    image: prom/prometheus:latest
+    platform: linux/arm64
+    container_name: bev_prometheus_oracle
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=15GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--web.external-url=http://100.96.197.84:9090'
+      - '--log.level=info'
+      - '--query.max-concurrency=50'
+      - '--query.timeout=2m'
+      - '--storage.remote.flush-deadline=1m'
+    environment:
+      PROMETHEUS_REPLICA: oracle1
+      THANOS_RECEIVER_ENDPOINT: http://100.122.12.54:19291/api/v1/receive
+      ALERTMANAGER_HOST: alertmanager
+      ALERTMANAGER_PORT: "9093"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
+      - prometheus_config:/etc/prometheus/config:ro
+    restart: always
+    logging: *default-logging
+    <<: *arm-monitoring-resources
+    networks:
+      - bev_oracle
+      - external_thanos
+    depends_on:
+      - redis-arm
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana Dashboard Server - ARM64 compatible
+  grafana:
+    image: grafana/grafana:latest
+    platform: linux/arm64
+    container_name: bev_grafana_oracle
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel,grafana-piechart-panel
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SMTP_ENABLED: "false"
+      GF_ALERTING_ENABLED: "true"
+      GF_UNIFIED_ALERTING_ENABLED: "true"
+      GF_FEATURE_TOGGLES_ENABLE: prometheusAzureOverrideAudience
+      GF_SERVER_ROOT_URL: http://100.96.197.84:3000
+      GF_DATABASE_TYPE: sqlite3
+      GF_DATABASE_PATH: /var/lib/grafana/grafana.db
+      GF_SESSION_PROVIDER: file
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./config/grafana-dashboards.json:/etc/grafana/provisioning/dashboards/dashboards.json:ro
+      - grafana_config:/etc/grafana/provisioning:ro
+    restart: always
+    logging: *default-logging
+    <<: *arm-monitoring-resources
+    networks:
+      - bev_oracle
+      - external_thanos
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AlertManager - ARM64 compatible notification management
+  alertmanager:
+    image: prom/alertmanager:latest
+    platform: linux/arm64
+    container_name: bev_alertmanager_oracle
+    ports:
+      - "9093:9093"
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://100.96.197.84:9093'
+      - '--web.route-prefix=/'
+      - '--cluster.listen-address=0.0.0.0:9094'
+      - '--cluster.peer=100.122.12.54:9094'
+      - '--log.level=info'
+    environment:
+      ALERTMANAGER_CLUSTER_PEER: 100.122.12.54:9094
+    volumes:
+      - alertmanager_data:/alertmanager
+      - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_config:/etc/alertmanager:ro
+    restart: always
+    logging: *default-logging
+    <<: *arm-small-resources
+    networks:
+      - bev_oracle
+      - external_thanos
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9093/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Vault Coordination Service - ARM64 compatible secrets management
+  vault:
+    image: hashicorp/vault:latest
+    platform: linux/arm64
+    container_name: bev_vault_oracle
+    ports:
+      - "8200:8200"
+      - "8201:8201"
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_ROOT_TOKEN:-vault-root-token}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      VAULT_CLUSTER_ADDR: https://100.96.197.84:8201
+      VAULT_API_ADDR: https://100.96.197.84:8200
+      VAULT_DISABLE_MLOCK: "true"
+      VAULT_LOG_LEVEL: INFO
+      VAULT_PATH: /vault/data
+      VAULT_CONFIG_PATH: /vault/config
+    volumes:
+      - vault_data:/vault/data
+      - vault_config:/vault/config
+      - ./config/vault.hcl:/vault/config/vault.hcl:ro
+      - vault_tls:/vault/tls:ro
+    restart: always
+    logging: *default-logging
+    <<: *arm-monitoring-resources
+    networks:
+      - bev_oracle
+      - external_thanos
+    depends_on:
+      - redis-arm
+    healthcheck:
+      test: ["CMD-SHELL", "vault status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
   # PHASE 2 - CELERY WORKERS & MINIO STORAGE
   # =============================================================================
 
   # MinIO cluster - Node 1
   minio1:
     image: minio/minio:latest
+    platform: linux/arm64
     container_name: bev_minio1
     ports:
       - "9001:9000"
@@ -335,6 +528,7 @@ services:
   # MinIO cluster - Node 2
   minio2:
     image: minio/minio:latest
+    platform: linux/arm64
     container_name: bev_minio2
     ports:
       - "9002:9000"
@@ -357,6 +551,7 @@ services:
   # MinIO cluster - Node 3
   minio3:
     image: minio/minio:latest
+    platform: linux/arm64
     container_name: bev_minio3
     ports:
       - "9003:9000"
@@ -465,6 +660,7 @@ services:
   # LiteLLM Gateway - Node 1
   litellm-gateway-1:
     image: ghcr.io/berriai/litellm:main-latest
+    platform: linux/arm64
     container_name: bev_litellm_1
     ports:
       - "5000:4000"
@@ -483,6 +679,7 @@ services:
   # LiteLLM Gateway - Node 2
   litellm-gateway-2:
     image: ghcr.io/berriai/litellm:main-latest
+    platform: linux/arm64
     container_name: bev_litellm_2
     ports:
       - "5001:4000"
@@ -501,6 +698,7 @@ services:
   # LiteLLM Gateway - Node 3
   litellm-gateway-3:
     image: ghcr.io/berriai/litellm:main-latest
+    platform: linux/arm64
     container_name: bev_litellm_3
     ports:
       - "5002:4000"
@@ -816,6 +1014,7 @@ services:
   # N8N Advanced Instance 1
   n8n-advanced-1:
     image: n8nio/n8n:latest
+    platform: linux/arm64
     container_name: bev_n8n_advanced_1
     environment:
       N8N_BASIC_AUTH_ACTIVE: "true"
@@ -840,6 +1039,7 @@ services:
   # N8N Advanced Instance 2
   n8n-advanced-2:
     image: n8nio/n8n:latest
+    platform: linux/arm64
     container_name: bev_n8n_advanced_2
     environment:
       N8N_BASIC_AUTH_ACTIVE: "true"
@@ -864,6 +1064,7 @@ services:
   # N8N Advanced Instance 3
   n8n-advanced-3:
     image: n8nio/n8n:latest
+    platform: linux/arm64
     container_name: bev_n8n_advanced_3
     environment:
       N8N_BASIC_AUTH_ACTIVE: "true"
@@ -888,6 +1089,7 @@ services:
   # MinIO Storage Expansion for Live2D models
   minio-expansion:
     image: minio/minio:latest
+    platform: linux/arm64
     container_name: bev_minio_expansion
     ports:
       - "9004:9000"

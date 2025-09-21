@@ -27,8 +27,8 @@ services:
   # Autonomous Operations Coordinator
   autonomous-coordinator:
     build:
-      context: ./phase9/autonomous-coordinator
-      dockerfile: Dockerfile
+      context: ./src/autonomous
+      dockerfile: Dockerfile.enhanced_autonomous_controller
     container_name: bev_autonomous_coordinator
     restart: always
     depends_on:
@@ -53,7 +53,7 @@ services:
     volumes:
       - autonomous_data:/app/data
       - ml_models:/app/models
-      - ./phase9/autonomous-coordinator/config:/app/config:ro
+      - ./src/autonomous/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8009:8000"
@@ -80,8 +80,8 @@ services:
   # Adaptive Learning System
   adaptive-learning:
     build:
-      context: ./phase9/adaptive-learning
-      dockerfile: Dockerfile
+      context: ./src/autonomous
+      dockerfile: Dockerfile.adaptive_learning
     container_name: bev_adaptive_learning
     restart: always
     depends_on:
@@ -105,7 +105,7 @@ services:
     volumes:
       - adaptive_learning_data:/app/data
       - ml_models:/app/models
-      - ./phase9/adaptive-learning/config:/app/config:ro
+      - ./src/autonomous/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8010:8000"
@@ -132,8 +132,8 @@ services:
   # Dynamic Resource Manager
   resource-manager:
     build:
-      context: ./phase9/resource-manager
-      dockerfile: Dockerfile
+      context: ./src/autonomous
+      dockerfile: Dockerfile.resource_optimizer
     container_name: bev_resource_manager
     restart: always
     depends_on:
@@ -158,7 +158,7 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - resource_manager_data:/app/data
-      - ./phase9/resource-manager/config:/app/config:ro
+      - ./src/autonomous/config:/app/config:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - logs:/app/logs
     ports:
@@ -181,8 +181,8 @@ services:
   # Knowledge Evolution System
   knowledge-evolution:
     build:
-      context: ./phase9/knowledge-evolution
-      dockerfile: Dockerfile
+      context: ./src/autonomous
+      dockerfile: Dockerfile.knowledge_evolution
     container_name: bev_knowledge_evolution
     restart: always
     depends_on:
@@ -207,7 +207,7 @@ services:
     volumes:
       - knowledge_evolution_data:/app/data
       - ml_models:/app/models
-      - ./phase9/knowledge-evolution/config:/app/config:ro
+      - ./src/autonomous/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8012:8000"

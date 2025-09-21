@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+LABEL maintainer="BEV DevOps"
+WORKDIR /app
+COPY src/security/opsec_enforcer.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONUNBUFFERED=1
+HEALTHCHECK CMD ["python", "opsec_enforcer.py", "--healthcheck"]
+CMD ["python", "opsec_enforcer.py"]
+EXPOSE 8092

@@ -1,0 +1,106 @@
+# ARM64-optimized Celery Worker Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="celery-worker"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="celery_worker"
+
+# Install ARM64-optimized system packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        celery[redis] \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        numpy \
+        pandas \
+        scipy \
+        scikit-learn \
+        transformers \
+        torch \
+        kombu
+
+# Copy source code
+COPY src/pipeline/ ./pipeline/
+COPY src/agents/ ./agents/
+COPY src/infrastructure/ ./infrastructure/
+COPY docker/celery-pipeline/ ./celery-pipeline/
+
+# Create main celery worker entry point
+RUN echo '#!/usr/bin/env python3\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from celery import Celery\n\
+from pipeline.edge_computing_module import EdgeComputingModule\n\
+from pipeline.genetic_prompt_optimizer import GeneticPromptOptimizer\n\
+from pipeline.knowledge_synthesis_engine import KnowledgeSynthesisEngine\n\
+from pipeline.toolmaster_orchestrator import ToolmasterOrchestrator\n\
+\n\
+# Get worker type from environment\n\
+worker_type = os.environ.get("WORKER_TYPE", "edge_computing")\n\
+broker_url = os.environ.get("CELERY_BROKER_URL", "redis://redis-arm:6379/0")\n\
+\n\
+# Create Celery app\n\
+app = Celery("bev_worker", broker=broker_url)\n\
+\n\
+# Configure worker based on type\n\
+if worker_type == "edge_computing":\n\
+    from celery_pipeline.edge_worker import EdgeWorker\n\
+    worker = EdgeWorker()\n\
+elif worker_type == "genetic_optimization":\n\
+    from celery_pipeline.genetic_worker import GeneticWorker\n\
+    worker = GeneticWorker()\n\
+elif worker_type == "knowledge_synthesis":\n\
+    from celery_pipeline.knowledge_worker import KnowledgeWorker\n\
+    worker = KnowledgeWorker()\n\
+elif worker_type == "toolmaster":\n\
+    from celery_pipeline.toolmaster_worker import ToolmasterWorker\n\
+    worker = ToolmasterWorker()\n\
+else:\n\
+    raise ValueError(f"Unknown worker type: {worker_type}")\n\
+\n\
+if __name__ == "__main__":\n\
+    worker.start()\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import redis; r=redis.Redis(host='"'"'redis-arm'"'"'); r.ping()" || exit 1
+
+# Run celery worker
+CMD ["python", "main.py"]

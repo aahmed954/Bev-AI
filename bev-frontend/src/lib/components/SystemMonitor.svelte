@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { io, Socket } from 'socket.io-client';
   import * as echarts from 'echarts';
-  import { invoke } from '@tauri-apps/api/tauri';
+  import { invoke } from '@tauri-apps/api/core';
   
   let socket: Socket;
   let bandwidthChart: echarts.ECharts;

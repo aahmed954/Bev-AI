@@ -17,7 +17,7 @@
   
   async function checkProxyStatus() {
     try {
-      const { invoke } = await import('@tauri-apps/api/tauri');
+      const { invoke } = await import('@tauri-apps/api/core');
       const status = await invoke('get_proxy_status');
       // Update status based on response
       proxyStatus = 'connected';
@@ -31,7 +31,7 @@
   
   async function newCircuit() {
     try {
-      const { invoke } = await import('@tauri-apps/api/tauri');
+      const { invoke } = await import('@tauri-apps/api/core');
       await invoke('new_tor_circuit');
       await checkProxyStatus();
     } catch (error) {

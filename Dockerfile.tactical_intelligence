@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+LABEL maintainer="BEV DevOps"
+WORKDIR /app
+COPY src/security/tactical_intelligence.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONUNBUFFERED=1
+HEALTHCHECK CMD ["python", "tactical_intelligence.py", "--healthcheck"]
+CMD ["python", "tactical_intelligence.py"]
+EXPOSE 8090

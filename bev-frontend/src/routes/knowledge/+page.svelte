@@ -1,5 +1,17 @@
 <!-- BEV Knowledge & RAG Intelligence Platform -->
 <script lang="ts">
+  import { endpoints, websockets, getEndpoint, getWebSocket } from "$lib/config/endpoints";
+
+  // Distributed endpoint helpers
+  const getServiceHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
+
+  const getWebSocketHost = () => {
+    const service = typeof window !== "undefined" && window.location.hostname;
+    return service === "localhost" ? "localhost" : service;
+  };
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import Card from '$lib/components/ui/Card.svelte';
@@ -120,7 +132,7 @@
   function connectWebSocket() {
     try {
       connectionStatus = 'connecting';
-      websocket = new WebSocket('ws://localhost:3021/knowledge-stream');
+      websocket = new WebSocket('ws://${getWebSocketHost()}:3021/knowledge-stream');
 
       websocket.onopen = () => {
         connectionStatus = 'connected';

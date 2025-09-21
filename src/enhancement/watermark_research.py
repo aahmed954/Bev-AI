@@ -609,4 +609,3 @@ if __name__ == "__main__":
     
     # Batch processing
     # batch_results = pipeline.batch_process("./watermarked/", "./cleaned/")
-    # print(f"Processed {len(batch_results)} images")

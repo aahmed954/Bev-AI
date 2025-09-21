@@ -1,0 +1,91 @@
+# ARM64-optimized Request Multiplexer Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="request-multiplexer"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="request_multiplexer"
+
+# Install ARM64-optimized system packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for high-performance networking
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        fastapi \
+        uvicorn \
+        websockets \
+        aioredis \
+        load-balancer \
+        circuit-breaker
+
+# Copy source code
+COPY src/pipeline/ ./pipeline/
+COPY src/infrastructure/ ./infrastructure/
+
+# Create main request multiplexer entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from pipeline.request_multiplexer import RequestMultiplexer\n\
+from pipeline.request_multiplexer_service import RequestMultiplexerService\n\
+\n\
+async def main():\n\
+    # Get configuration from environment\n\
+    litellm_endpoints = os.environ.get("LITELLM_ENDPOINTS", "").split(",")\n\
+    redis_host = os.environ.get("REDIS_HOST", "redis-arm")\n\
+    \n\
+    # Create multiplexer service\n\
+    multiplexer = RequestMultiplexerService(\n\
+        endpoints=litellm_endpoints,\n\
+        redis_host=redis_host\n\
+    )\n\
+    \n\
+    print(f"Starting Request Multiplexer with endpoints: {litellm_endpoints}")\n\
+    await multiplexer.start_server(host="0.0.0.0", port=8080)\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Run request multiplexer
+CMD ["python", "main.py"]

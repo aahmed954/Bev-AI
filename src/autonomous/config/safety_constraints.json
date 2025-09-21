@@ -1,0 +1,26 @@
+{
+  "safety_constraints": [
+    {
+      "constraint_id": "max_resource_usage",
+      "description": "Prevent excessive resource consumption",
+      "limits": {
+        "cpu_percent": 90,
+        "memory_gb": 16,
+        "disk_gb": 100
+      },
+      "enforcement": "hard_limit"
+    },
+    {
+      "constraint_id": "operation_boundaries",
+      "description": "Define safe operational boundaries",
+      "limits": {
+        "max_concurrent_operations": 50,
+        "max_operation_duration": 3600,
+        "max_data_processing_gb": 10
+      },
+      "enforcement": "soft_limit"
+    }
+  ],
+  "fail_safe_mode": true,
+  "emergency_shutdown_threshold": 0.95
+}

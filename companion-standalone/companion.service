@@ -1,0 +1,70 @@
+# Systemd Service for Standalone AI Companion
+# Auto-start/stop capability for STARLORD companion deployment
+# Location: /etc/systemd/system/companion.service
+
+[Unit]
+Description=Standalone AI Companion Service
+Documentation=https://github.com/starlord/bev-companion
+After=docker.service
+Wants=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/starlord/Projects/Bev/companion-standalone
+User=starlord
+Group=docker
+
+# Environment Configuration
+Environment=COMPOSE_PROJECT_NAME=companion
+Environment=COMPANION_MODE=standalone
+Environment=GPU_DEVICE=0
+
+# Pre-start validation and setup
+ExecStartPre=/bin/bash -c 'echo "Starting AI Companion deployment validation..."'
+ExecStartPre=/usr/bin/docker --version
+ExecStartPre=/usr/bin/nvidia-smi
+ExecStartPre=/bin/bash /home/starlord/Projects/Bev/companion-standalone/scripts/pre-start-checks.sh
+
+# Resource preparation
+ExecStartPre=/bin/bash /home/starlord/Projects/Bev/companion-standalone/scripts/prepare-resources.sh
+
+# Start companion services
+ExecStart=/usr/bin/docker-compose -f docker-compose.companion.yml up -d
+
+# Health validation after start
+ExecStartPost=/bin/sleep 30
+ExecStartPost=/bin/bash /home/starlord/Projects/Bev/companion-standalone/scripts/health-check.sh
+
+# Stop companion services
+ExecStop=/usr/bin/docker-compose -f docker-compose.companion.yml down
+
+# Cleanup resources after stop
+ExecStopPost=/bin/bash /home/starlord/Projects/Bev/companion-standalone/scripts/cleanup-resources.sh
+
+# Reload configuration
+ExecReload=/usr/bin/docker-compose -f docker-compose.companion.yml restart
+
+# Restart policy
+Restart=on-failure
+RestartSec=30
+TimeoutStartSec=300
+TimeoutStopSec=180
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=companion
+
+[Install]
+WantedBy=multi-user.target
+Alias=ai-companion.service

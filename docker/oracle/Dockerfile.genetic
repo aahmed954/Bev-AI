@@ -1,0 +1,99 @@
+# ARM64-optimized Genetic Optimization Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="genetic-optimizer"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="genetic_optimizer"
+
+# Install ARM64-optimized system packages including ML dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for ML/genetic algorithms
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        numpy \
+        pandas \
+        scipy \
+        scikit-learn \
+        deap \
+        genetic-algorithm \
+        evolutionary \
+        nltk \
+        transformers \
+        torch \
+        minio
+
+# Copy source code
+COPY src/pipeline/ ./pipeline/
+COPY src/agents/ ./agents/
+COPY src/infrastructure/ ./infrastructure/
+
+# Create main genetic optimizer entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import sys\n\
+sys.path.append("/app")\n\
+from pipeline.genetic_prompt_optimizer import GeneticPromptOptimizer\n\
+\n\
+async def main():\n\
+    optimizer = GeneticPromptOptimizer(\n\
+        redis_host=os.environ.get("REDIS_HOST", "redis-arm"),\n\
+        minio_endpoint=os.environ.get("MINIO_ENDPOINT", "minio1:9000"),\n\
+        minio_access_key=os.environ.get("MINIO_ACCESS_KEY", "admin"),\n\
+        minio_secret_key=os.environ.get("MINIO_SECRET_KEY", "admin123456")\n\
+    )\n\
+    \n\
+    print("Starting Genetic Prompt Optimizer...")\n\
+    await optimizer.start_optimization_service()\n\
+\n\
+if __name__ == "__main__":\n\
+    import os\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Download NLTK data for genetic optimization
+RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8002/health || exit 1
+
+# Run genetic optimizer
+CMD ["python", "main.py"]

@@ -4,8 +4,8 @@
  * Security-first approach with command validation
  */
 
-import { invoke as tauriInvoke } from '@tauri-apps/api/tauri';
-import type { InvokeArgs } from '@tauri-apps/api/tauri';
+import { invoke as tauriInvoke } from '@tauri-apps/api/core';
+import type { InvokeArgs } from '@tauri-apps/api/core';
 
 // Command types for type-safe IPC
 export enum IPCCommand {

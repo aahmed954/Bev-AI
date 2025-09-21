@@ -27,8 +27,8 @@ services:
   # Tactical Intelligence Processor
   tactical-intel:
     build:
-      context: ./phase8/tactical-intel
-      dockerfile: Dockerfile
+      context: ./src/security
+      dockerfile: Dockerfile.tactical_intelligence
     container_name: bev_tactical_intel
     restart: always
     depends_on:
@@ -50,7 +50,7 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - tactical_intel_data:/app/data
-      - ./phase8/tactical-intel/config:/app/config:ro
+      - ./src/security/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8005:8000"
@@ -72,8 +72,8 @@ services:
   # Automated Threat Response
   defense-automation:
     build:
-      context: ./phase8/defense-automation
-      dockerfile: Dockerfile
+      context: ./src/security
+      dockerfile: Dockerfile.defense_automation
     container_name: bev_defense_automation
     restart: always
     depends_on:
@@ -93,7 +93,7 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - defense_automation_data:/app/data
-      - ./phase8/defense-automation/config:/app/config:ro
+      - ./src/security/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8006:8000"
@@ -115,8 +115,8 @@ services:
   # Operational Security Enforcement
   opsec-enforcer:
     build:
-      context: ./phase8/opsec-enforcer
-      dockerfile: Dockerfile
+      context: ./src/security
+      dockerfile: Dockerfile.opsec_enforcer
     container_name: bev_opsec_enforcer
     restart: always
     depends_on:
@@ -138,7 +138,7 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - opsec_data:/app/data
-      - ./phase8/opsec-enforcer/config:/app/config:ro
+      - ./src/security/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8007:8000"
@@ -160,8 +160,8 @@ services:
   # Multi-Source Intelligence Correlation
   intel-fusion:
     build:
-      context: ./phase8/intel-fusion
-      dockerfile: Dockerfile
+      context: ./src/security
+      dockerfile: Dockerfile.intel_fusion
     container_name: bev_intel_fusion
     restart: always
     depends_on:
@@ -187,7 +187,7 @@ services:
     volumes:
       - intel_fusion_data:/app/data
       - ml_models:/app/models
-      - ./phase8/intel-fusion/config:/app/config:ro
+      - ./src/security/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8008:8000"

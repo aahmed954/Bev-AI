@@ -1,3 +1,4 @@
+from typing import Dict, List, Optional, Any
 
 
 class TextAnalyzer:
@@ -458,14 +459,11 @@ if __name__ == "__main__":
     
     # Example usage
     # result = intelligence.process_document("document.pdf")
-    # print(json.dumps(result, indent=2))
     
     # Compare documents
     # comparison = intelligence.compare_documents("doc1.pdf", "doc2.pdf")
-    # print(f"Similarity: {comparison['similarity']:.2%}")
     
     # Batch processing
     # results = intelligence.batch_analyze("./documents/", "*.pdf")
-    # print(f"Analyzed {len(results)} documents")
     
     print("Document Intelligence System initialized - Extracting knowledge from everything!")

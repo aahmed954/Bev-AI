@@ -14,8 +14,8 @@
     "windows": [
       {
         "title": "BEV OSINT Framework",
-        "width": 1600,
-        "height": 1000,
+        "width": 1920,
+        "height": 1080,
         "resizable": true,
         "fullscreen": false,
         "alwaysOnTop": false,
@@ -23,11 +23,15 @@
         "transparent": false,
         "skipTaskbar": false,
         "fileDropEnabled": false,
-        "center": true
+        "center": true,
+        "webPreferences": {
+          "allowRunningInsecureContent": true,
+          "experimentalFeatures": true
+        }
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://localhost; connect-src 'self' http://localhost:3010 http://localhost:9150 ws://localhost:*",
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://localhost; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'",
       "freezePrototype": true,
       "dangerousRemoteDomainIpcAccess": [],
       "dangerousDisableAssetCspModification": false,
@@ -46,12 +50,59 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "resources": [
+      "assets/*",
+      "shaders/*"
     ]
   },
   "plugins": {
     "shell": {
       "open": false,
       "scope": []
+    },
+    "fs": {
+      "scope": [
+        "**",
+        "$APPDATA/BEV/*",
+        "$LOCALDATA/BEV/*"
+      ]
+    },
+    "http": {
+      "scope": [
+        "http://localhost:*",
+        "https://localhost:*"
+      ]
+    }
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "fs": {
+        "all": true,
+        "scope": [
+          "**",
+          "$APPDATA/BEV/*",
+          "$LOCALDATA/BEV/*"
+        ]
+      },
+      "http": {
+        "all": true,
+        "scope": [
+          "http://localhost:*",
+          "https://localhost:*"
+        ]
+      },
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "window": {
+        "all": true
+      },
+      "globalShortcut": {
+        "all": true
+      }
     }
   }
 }

@@ -1,0 +1,100 @@
+# ARM64-optimized Message Queue Infrastructure Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="message-queue-infrastructure"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="mq_infrastructure"
+
+# Install ARM64-optimized system packages for message queuing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for message queuing
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        celery \
+        kombu \
+        amqp \
+        pika \
+        kafka-python \
+        zmq \
+        message-queue \
+        queue-manager
+
+# Copy source code
+COPY src/pipeline/ ./pipeline/
+COPY src/infrastructure/ ./infrastructure/
+
+# Create main message queue infrastructure entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from pipeline.message_queue_infrastructure import MessageQueueInfrastructure\n\
+from infrastructure.message_queue_manager import MessageQueueManager\n\
+\n\
+async def main():\n\
+    # Get configuration from environment\n\
+    redis_host = os.environ.get("REDIS_HOST", "redis-arm")\n\
+    celery_broker_url = os.environ.get("CELERY_BROKER_URL", "redis://redis-arm:6379/4")\n\
+    \n\
+    # Create message queue services\n\
+    mq_infrastructure = MessageQueueInfrastructure(\n\
+        redis_host=redis_host,\n\
+        broker_url=celery_broker_url\n\
+    )\n\
+    \n\
+    mq_manager = MessageQueueManager(\n\
+        redis_host=redis_host\n\
+    )\n\
+    \n\
+    print("Starting Message Queue Infrastructure...")\n\
+    await asyncio.gather(\n\
+        mq_infrastructure.start_queue_management(),\n\
+        mq_manager.start_queue_monitoring()\n\
+    )\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8006
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8006/health || exit 1
+
+# Run message queue infrastructure
+CMD ["python", "main.py"]

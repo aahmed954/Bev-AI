@@ -65,7 +65,7 @@
     let clusters: AddressCluster[] = [];
     let priceData: Map<string, PriceData> = new Map();
     let selectedWallet: Wallet | null = null;
-    let searchAddress = '';
+    let searchAddressInput = '';
     let selectedCurrency = 'BTC';
     let timeRange = '24h';
     let showOnlyFlagged = false;

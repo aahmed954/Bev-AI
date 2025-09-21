@@ -683,6 +683,5 @@ if __name__ == "__main__":
     # result = doc_ocr.process_pdf("document.pdf")
     # cleaned = post_processor.clean_text(result)
     # corrected = post_processor.spell_correct(cleaned)
-    # print(corrected)
     
     print("OCR Processing Pipeline initialized - Extracting text from everything!")

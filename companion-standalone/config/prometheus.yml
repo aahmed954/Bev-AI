@@ -1,0 +1,57 @@
+# Prometheus configuration for AI Companion monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "companion_rules.yml"
+
+scrape_configs:
+  # Companion core service
+  - job_name: 'companion-core'
+    static_configs:
+      - targets: ['companion-core:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Voice synthesis service
+  - job_name: 'companion-voice'
+    static_configs:
+      - targets: ['companion-voice:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Avatar rendering service
+  - job_name: 'companion-avatar'
+    static_configs:
+      - targets: ['companion-avatar:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Memory service
+  - job_name: 'companion-memory'
+    static_configs:
+      - targets: ['companion-memory:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Integration gateway
+  - job_name: 'companion-gateway'
+    static_configs:
+      - targets: ['companion-gateway:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Resource monitor
+  - job_name: 'companion-monitor'
+    static_configs:
+      - targets: ['companion-monitor:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # System metrics (node exporter equivalent)
+  - job_name: 'companion-system'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+    scrape_interval: 30s

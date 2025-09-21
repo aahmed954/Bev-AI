@@ -1,0 +1,77 @@
+# ARM64-optimized Research Coordinator Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="research-coordinator"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="research_coordinator"
+
+# Install ARM64-optimized system packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+COPY src/agents/requirements.txt ./requirements-agents.txt 2>/dev/null || echo "# No agents requirements" > ./requirements-agents.txt
+
+# Install Python dependencies with ARM64 optimization
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements-agents.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        celery \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx
+
+# Copy source code
+COPY src/agents/ ./agents/
+COPY src/infrastructure/ ./infrastructure/
+COPY src/pipeline/ ./pipeline/
+
+# Create main research coordinator entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import sys\n\
+sys.path.append("/app")\n\
+from agents.research_coordinator import ResearchCoordinator\n\
+\n\
+async def main():\n\
+    coordinator = ResearchCoordinator()\n\
+    await coordinator.start()\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run research coordinator
+CMD ["python", "main.py"]

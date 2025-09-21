@@ -1,0 +1,40 @@
+# OSINT Integration Layer Requirements
+
+# Core async framework
+asyncio==3.4.3
+uvloop==0.19.0
+
+# Web framework and WebSocket
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+websockets==12.0
+httpx==0.25.2
+
+# Database drivers
+asyncpg==0.29.0          # PostgreSQL async driver
+neo4j==5.14.0           # Neo4j graph database
+redis[hiredis]==5.0.1   # Redis with C parser for speed
+qdrant-client==1.7.0    # Vector database client
+
+# Message queuing
+aiokafka==0.10.0        # Kafka async client
+aio-pika==9.3.1         # RabbitMQ async client
+nats-py==2.5.0          # NATS streaming client
+
+# Data processing
+numpy==1.24.3
+pandas==2.1.3
+pydantic==2.5.0
+
+# Monitoring and logging
+prometheus-client==0.19.0
+python-json-logger==2.0.7
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# Type checking
+typing-extensions==4.8.0
+mypy==1.7.0

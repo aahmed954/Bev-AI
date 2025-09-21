@@ -27,9 +27,9 @@ import PyPDF2
 from PyPDF2 import PdfReader, PdfWriter
 
 # Office documents
-import python-docx import Document
+from docx import Document
 from openpyxl import load_workbook
-import python-pptx
+from pptx import Presentation
 
 # Audio/Video metadata  
 from mutagen import File as MutagenFile
@@ -803,14 +803,11 @@ if __name__ == "__main__":
     
     # Single file
     # result = scrubber.scrub_file("document.pdf", "document_clean.pdf")
-    # print(f"Scrubbed: {result}")
     
     # Batch processing
     # results = scrubber.batch_scrub("./input/", "./output/")
-    # print(f"Processed {len(results)} files")
     
     # Deep forensic scrub
     # forensic = deep_scrubber.forensic_wipe("sensitive.jpg")
-    # print(f"Forensic wipe complete: {forensic}")
     
     print("Metadata Scrubber initialized - All identifying traces will be eliminated!")

@@ -55,12 +55,13 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /home/starlord/Bev/logs
+      device: /home/starlord/Projects/Bev/logs
 
 services:
   # PostgreSQL with pgvector
   postgres:
     image: pgvector/pgvector:pg16
+    platform: linux/amd64
     container_name: bev_postgres
     restart: always
     environment:
@@ -93,18 +94,19 @@ services:
   # Neo4j Graph Database
   neo4j:
     image: neo4j:5.14-enterprise
+    platform: linux/amd64
     container_name: bev_neo4j
     restart: always
     environment:
       NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
-      NEO4J_ACCEPT_LICENSE_AGREEMENT: yes
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
       NEO4J_server_memory_heap_initial__size: 2G
       NEO4J_server_memory_heap_max__size: 4G
       NEO4J_server_memory_pagecache__size: 2G
       NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
       NEO4J_dbms_security_procedures_allowlist: apoc.*,gds.*
-      NEO4J_apoc_export_file_enabled: true
-      NEO4J_apoc_import_file_enabled: true
+      NEO4J_apoc_export_file_enabled: "true"
+      NEO4J_apoc_import_file_enabled: "true"
       NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
       NEO4J_dbms_connector_bolt_listen__address: 0.0.0.0:7687
       NEO4J_dbms_connector_http_listen__address: 0.0.0.0:7474
@@ -125,6 +127,7 @@ services:
   # Redis Cluster Node 1
   redis-node-1:
     image: redis:7-alpine
+    platform: linux/amd64
     container_name: bev_redis_1
     restart: always
     command: >
@@ -152,6 +155,7 @@ services:
   # Redis Cluster Node 2
   redis-node-2:
     image: redis:7-alpine
+    platform: linux/amd64
     container_name: bev_redis_2
     restart: always
     command: >
@@ -179,6 +183,7 @@ services:
   # Redis Cluster Node 3
   redis-node-3:
     image: redis:7-alpine
+    platform: linux/amd64
     container_name: bev_redis_3
     restart: always
     command: >
@@ -206,6 +211,7 @@ services:
   # Redis Standalone for IntelOwl
   redis:
     image: redis:7-alpine
+    platform: linux/amd64
     container_name: bev_redis_standalone
     restart: always
     command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 1gb --maxmemory-policy allkeys-lru
@@ -221,6 +227,7 @@ services:
   # RabbitMQ Node 1
   rabbitmq-1:
     image: rabbitmq:3-management
+    platform: linux/amd64
     container_name: bev_rabbitmq_1
     hostname: rabbitmq-1
     restart: always
@@ -244,6 +251,7 @@ services:
   # RabbitMQ Node 2
   rabbitmq-2:
     image: rabbitmq:3-management
+    platform: linux/amd64
     container_name: bev_rabbitmq_2
     hostname: rabbitmq-2
     restart: always
@@ -267,6 +275,7 @@ services:
   # RabbitMQ Node 3
   rabbitmq-3:
     image: rabbitmq:3-management
+    platform: linux/amd64
     container_name: bev_rabbitmq_3
     hostname: rabbitmq-3
     restart: always
@@ -290,6 +299,7 @@ services:
   # Zookeeper for Kafka
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    platform: linux/amd64
     container_name: bev_zookeeper
     restart: always
     environment:
@@ -312,6 +322,7 @@ services:
   # Kafka Broker 1
   kafka-1:
     image: confluentinc/cp-kafka:7.5.0
+    platform: linux/amd64
     container_name: bev_kafka_1
     restart: always
     depends_on:
@@ -343,6 +354,7 @@ services:
   # Kafka Broker 2
   kafka-2:
     image: confluentinc/cp-kafka:7.5.0
+    platform: linux/amd64
     container_name: bev_kafka_2
     restart: always
     depends_on:
@@ -374,6 +386,7 @@ services:
   # Kafka Broker 3
   kafka-3:
     image: confluentinc/cp-kafka:7.5.0
+    platform: linux/amd64
     container_name: bev_kafka_3
     restart: always
     depends_on:
@@ -405,6 +418,7 @@ services:
   # Elasticsearch
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    platform: linux/amd64
     container_name: bev_elasticsearch
     restart: always
     environment:
@@ -441,6 +455,7 @@ services:
   # InfluxDB
   influxdb:
     image: influxdb:2.7
+    platform: linux/amd64
     container_name: bev_influxdb
     restart: always
     environment:
@@ -451,8 +466,8 @@ services:
       DOCKER_INFLUXDB_INIT_BUCKET: metrics
       DOCKER_INFLUXDB_INIT_RETENTION: 30d
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
-      INFLUXDB_DATA_QUERY_LOG_ENABLED: false
-      INFLUXDB_HTTP_LOG_ENABLED: false
+      INFLUXDB_DATA_QUERY_LOG_ENABLED: "false"
+      INFLUXDB_HTTP_LOG_ENABLED: "false"
     volumes:
       - influxdb_data:/var/lib/influxdb2
       - ./influxdb/config:/etc/influxdb2
@@ -467,6 +482,7 @@ services:
   # Tor SOCKS5 Proxy with Control Port
   tor:
     image: dperson/torproxy:latest
+    platform: linux/amd64
     container_name: bev_tor
     restart: always
     environment:
@@ -510,6 +526,7 @@ services:
   # IntelOwl Celery Beat
   intelowl-celery-beat:
     image: intelowlproject/intelowl:v5.2.0
+    platform: linux/amd64
     container_name: bev_intelowl_celery_beat
     restart: always
     depends_on:
@@ -542,7 +559,7 @@ services:
   # IntelOwl Celery Worker
   intelowl-celery-worker:
     image: intelowlproject/intelowl:v5.2.0
-    container_name: bev_intelowl_celery_worker
+    platform: linux/amd64
     restart: always
     depends_on:
       - intelowl-postgres
@@ -591,6 +608,7 @@ services:
   # IntelOwl Django/API
   intelowl-django:
     image: intelowlproject/intelowl:v5.2.0
+    platform: linux/amd64
     container_name: bev_intelowl_django
     restart: always
     depends_on:
@@ -598,6 +616,7 @@ services:
       - redis
       - rabbitmq-1
     environment:
+      - DJANGO_ALLOWED_HOSTS=0.0.0.0,*
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - POSTGRES_HOST=${INTELOWL_POSTGRES_HOST}
       - POSTGRES_DB=${INTELOWL_POSTGRES_DB}
@@ -640,6 +659,7 @@ services:
   # IntelOwl Nginx with Cytoscape
   intelowl-nginx:
     image: nginx:alpine
+    platform: linux/amd64
     container_name: bev_intelowl_nginx
     restart: always
     depends_on:
@@ -697,6 +717,7 @@ services:
   # Prometheus
   prometheus:
     image: prom/prometheus:v2.47.0
+    platform: linux/amd64
     container_name: bev_prometheus
     restart: always
     command:
@@ -712,6 +733,8 @@ services:
       - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
       - logs:/var/log/prometheus
+    environment:
+      - --web.listen-address=0.0.0.0:9090
     ports:
       - "9090:9090"
     networks:
@@ -731,15 +754,17 @@ services:
   # Grafana
   grafana:
     image: grafana/grafana:10.2.0
+    platform: linux/amd64
     container_name: bev_grafana
     restart: always
     environment:
+      GF_SERVER_HTTP_ADDR: 0.0.0.0
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
-      GF_ANALYTICS_REPORTING_ENABLED: false
-      GF_ANALYTICS_CHECK_FOR_UPDATES: false
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_LOG_LEVEL: warn
     volumes:
       - grafana_data:/var/lib/grafana
@@ -765,6 +790,7 @@ services:
   # Node Exporter
   node-exporter:
     image: prom/node-exporter:v1.6.1
+    platform: linux/amd64
     container_name: bev_node_exporter
     restart: always
     command:
@@ -790,6 +816,7 @@ services:
   # Airflow Scheduler
   airflow-scheduler:
     image: apache/airflow:2.7.2-python3.11
+    platform: linux/amd64
     container_name: bev_airflow_scheduler
     restart: always
     depends_on:
@@ -827,6 +854,7 @@ services:
   # Airflow Webserver
   airflow-webserver:
     image: apache/airflow:2.7.2-python3.11
+    platform: linux/amd64
     container_name: bev_airflow_webserver
     restart: always
     depends_on:
@@ -872,6 +900,7 @@ services:
   # Airflow Worker 1
   airflow-worker-1:
     image: apache/airflow:2.7.2-python3.11
+    platform: linux/amd64
     container_name: bev_airflow_worker_1
     restart: always
     depends_on:
@@ -903,6 +932,7 @@ services:
   # Airflow Worker 2
   airflow-worker-2:
     image: apache/airflow:2.7.2-python3.11
+    platform: linux/amd64
     container_name: bev_airflow_worker_2
     restart: always
     depends_on:
@@ -934,6 +964,7 @@ services:
   # Airflow Worker 3
   airflow-worker-3:
     image: apache/airflow:2.7.2-python3.11
+    platform: linux/amd64
     container_name: bev_airflow_worker_3
     restart: always
     depends_on:
@@ -1009,6 +1040,7 @@ services:
       context: ./thanos/phase2/analyzer
       dockerfile: Dockerfile
     container_name: bev_doc_analyzer_1
+    runtime: nvidia
     restart: always
     depends_on:
       - redis
@@ -1025,7 +1057,7 @@ services:
       WORKER_ID: 1
       CONCURRENT_JOBS: 3
       NLP_MODEL: en_core_web_sm
-      ENABLE_GPU: false
+      ENABLE_GPU: "true"
     volumes:
       - document_analyzer_data:/app/data
       - ./thanos/phase2/analyzer/models:/app/models:ro
@@ -1038,6 +1070,11 @@ services:
       resources:
         limits:
           memory: 6G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # Document Analyzer Worker 2
   doc-analyzer-2:
@@ -1045,6 +1082,7 @@ services:
       context: ./thanos/phase2/analyzer
       dockerfile: Dockerfile
     container_name: bev_doc_analyzer_2
+    runtime: nvidia
     restart: always
     depends_on:
       - redis
@@ -1061,7 +1099,7 @@ services:
       WORKER_ID: 2
       CONCURRENT_JOBS: 3
       NLP_MODEL: en_core_web_sm
-      ENABLE_GPU: false
+      ENABLE_GPU: "true"
     volumes:
       - document_analyzer_data:/app/data
       - ./thanos/phase2/analyzer/models:/app/models:ro
@@ -1074,6 +1112,11 @@ services:
       resources:
         limits:
           memory: 6G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # Document Analyzer Worker 3
   doc-analyzer-3:
@@ -1081,6 +1124,7 @@ services:
       context: ./thanos/phase2/analyzer
       dockerfile: Dockerfile
     container_name: bev_doc_analyzer_3
+    runtime: nvidia
     restart: always
     depends_on:
       - redis
@@ -1097,7 +1141,7 @@ services:
       WORKER_ID: 3
       CONCURRENT_JOBS: 3
       NLP_MODEL: en_core_web_sm
-      ENABLE_GPU: false
+      ENABLE_GPU: "true"
     volumes:
       - document_analyzer_data:/app/data
       - ./thanos/phase2/analyzer/models:/app/models:ro
@@ -1110,6 +1154,11 @@ services:
       resources:
         limits:
           memory: 6G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # ================================================
   # PHASE 3: Intelligence Swarm Layer
@@ -1121,6 +1170,7 @@ services:
       context: ./thanos/phase3/swarm
       dockerfile: Dockerfile
     container_name: bev_swarm_master_1
+    runtime: nvidia
     restart: always
     depends_on:
       - redis
@@ -1158,6 +1208,11 @@ services:
       resources:
         limits:
           memory: 4G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # Swarm Master 2
   swarm-master-2:
@@ -1165,6 +1220,7 @@ services:
       context: ./thanos/phase3/swarm
       dockerfile: Dockerfile
     container_name: bev_swarm_master_2
+    runtime: nvidia
     restart: always
     depends_on:
       - redis
@@ -1202,6 +1258,11 @@ services:
       resources:
         limits:
           memory: 4G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # Research Coordinator
   research-coordinator:
@@ -1225,7 +1286,7 @@ services:
       RESEARCH_DEPTH: advanced
       PARALLEL_STREAMS: 8
       CORRELATION_THRESHOLD: 0.6
-      AUTO_PIVOT: true
+      AUTO_PIVOT: "true"
     volumes:
       - ./thanos/phase3/coordinator/research_templates:/app/templates:ro
       - logs:/var/log/coordinator
@@ -1265,7 +1326,7 @@ services:
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       ELASTICSEARCH_URL: http://elasticsearch:9200
       MEMORY_RETENTION_DAYS: 365
-      COMPRESSION_ENABLED: true
+      COMPRESSION_ENABLED: "true"
       VECTOR_DIMENSIONS: 1536
       SIMILARITY_THRESHOLD: 0.8
     volumes:
@@ -1303,9 +1364,9 @@ services:
       POSTGRES_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/osint
       OPTIMIZATION_LEVEL: aggressive
       PARALLEL_JOBS: 6
-      AUTO_REFACTOR: true
-      SAFETY_CHECKS: true
-      BACKUP_ENABLED: true
+      AUTO_REFACTOR: "true"
+      SAFETY_CHECKS: "true"
+      BACKUP_ENABLED: "true"
     volumes:
       - code_data:/app/data
       - ./thanos/phase3/optimizer/templates:/app/templates:ro
@@ -1344,8 +1405,8 @@ services:
       NEO4J_URI: ${NEO4J_URI}
       NEO4J_USER: ${NEO4J_USER}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
-      TOOL_REGISTRY_URL: http://localhost:8007/tools
-      AUTO_DISCOVERY: true
+      TOOL_REGISTRY_URL: http://0.0.0.0:8007/tools
+      AUTO_DISCOVERY: "true"
       HEALTH_CHECK_INTERVAL: 60
       LOAD_BALANCING: round_robin
     volumes:
@@ -1375,6 +1436,7 @@ services:
   # HashiCorp Vault
   vault:
     image: vault:1.15.2
+    platform: linux/amd64
     container_name: bev_vault
     restart: always
     cap_add:
@@ -1392,10 +1454,10 @@ services:
           "listener": {
             "tcp": {
               "address": "0.0.0.0:8200",
-              "tls_disable": true
+              "tls_disable": "true"
             }
           },
-          "ui": true,
+          "ui": "true",
           "api_addr": "http://0.0.0.0:8200"
         }
     volumes:
@@ -1438,7 +1500,7 @@ services:
       SECURITY_LEVEL: high
       MONITORING_MODE: active
       THREAT_RESPONSE: automatic
-      INCIDENT_ESCALATION: true
+      INCIDENT_ESCALATION: "true"
     volumes:
       - guardian_data:/app/data
       - ./thanos/phase4/guardian/rules:/app/rules:ro
@@ -1479,7 +1541,7 @@ services:
       SECURITY_LEVEL: high
       MONITORING_MODE: active
       THREAT_RESPONSE: automatic
-      INCIDENT_ESCALATION: true
+      INCIDENT_ESCALATION: "true"
     volumes:
       - guardian_data:/app/data
       - ./thanos/phase4/guardian/rules:/app/rules:ro
@@ -1503,6 +1565,7 @@ services:
   # Tor Node 1
   tor-node-1:
     image: torproject/tor:latest
+    platform: linux/amd64
     container_name: bev_tor_node_1
     restart: always
     environment:
@@ -1530,6 +1593,7 @@ services:
   # Tor Node 2
   tor-node-2:
     image: torproject/tor:latest
+    platform: linux/amd64
     container_name: bev_tor_node_2
     restart: always
     environment:
@@ -1557,6 +1621,7 @@ services:
   # Tor Node 3
   tor-node-3:
     image: torproject/tor:latest
+    platform: linux/amd64
     container_name: bev_tor_node_3
     restart: always
     environment:
@@ -1598,9 +1663,9 @@ services:
       ELASTICSEARCH_URL: http://elasticsearch:9200
       IDS_MODE: active
       ALERT_THRESHOLD: medium
-      AUTO_BLOCK: true
-      WHITELIST_ENABLED: true
-      ML_DETECTION: true
+      AUTO_BLOCK: "true"
+      WHITELIST_ENABLED: "true"
+      ML_DETECTION: "true"
     volumes:
       - ids_data:/app/data
       - ./thanos/phase4/ids/rules:/app/rules:ro
@@ -1638,9 +1703,9 @@ services:
       INFLUXDB_URL: http://influxdb:8086
       INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
       ANALYSIS_MODE: realtime
-      PACKET_CAPTURE: true
-      DPI_ENABLED: true
-      GEOLOCATION: true
+      PACKET_CAPTURE: "true"
+      DPI_ENABLED: "true"
+      GEOLOCATION: "true"
     volumes:
       - ./thanos/phase4/traffic/captures:/app/captures
       - security_logs:/var/log/traffic
@@ -1680,8 +1745,8 @@ services:
       INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
       ML_MODEL: isolation_forest
       SENSITIVITY: high
-      REAL_TIME: true
-      AUTO_LEARNING: true
+      REAL_TIME: "true"
+      AUTO_LEARNING: "true"
     volumes:
       - ./thanos/phase4/anomaly/models:/app/models
       - security_logs:/var/log/anomaly
@@ -1729,7 +1794,7 @@ services:
       AUTONOMY_LEVEL: supervised
       DECISION_CONFIDENCE: 0.85
       LEARNING_RATE: adaptive
-      SAFETY_OVERRIDE: true
+      SAFETY_OVERRIDE: "true"
     volumes:
       - autonomous_data:/app/data
       - ./thanos/phase5/controller/policies:/app/policies:ro
@@ -1774,7 +1839,7 @@ services:
       AUTONOMY_LEVEL: supervised
       DECISION_CONFIDENCE: 0.85
       LEARNING_RATE: adaptive
-      SAFETY_OVERRIDE: true
+      SAFETY_OVERRIDE: "true"
     volumes:
       - autonomous_data:/app/data
       - ./thanos/phase5/controller/policies:/app/policies:ro
@@ -1812,8 +1877,8 @@ services:
       VOICE_ENGINE: espeak
       TTS_VOICE: en-us
       EMOTION_ENGINE: facial_expressions
-      GESTURE_SYNC: true
-      REAL_TIME_RESPONSE: true
+      GESTURE_SYNC: "true"
+      REAL_TIME_RESPONSE: "true"
     volumes:
       - live2d_data:/app/data
       - avatar_assets:/app/assets
@@ -1850,7 +1915,7 @@ services:
       REACT_APP_AVATAR_API: http://172.21.0.53:8000
       REACT_APP_WEBSOCKET_URL: ws://172.21.0.53:9001
       REACT_APP_TITLE: "Bev - OSINT Intelligence Avatar"
-      GENERATE_SOURCEMAP: false
+      GENERATE_SOURCEMAP: "false"
     volumes:
       - ./thanos/phase5/live2d/frontend/public:/app/public
       - logs:/var/log/frontend

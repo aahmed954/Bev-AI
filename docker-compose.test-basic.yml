@@ -1,0 +1,66 @@
+version: '3.9'
+
+networks:
+  bev_test:
+    driver: bridge
+
+volumes:
+  postgres_test_data:
+  redis_test_data:
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: bev_postgres_test
+    environment:
+      POSTGRES_DB: osint
+      POSTGRES_USER: bev
+      POSTGRES_PASSWORD: testpass123
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - bev_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bev -d osint"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: bev_redis_test
+    environment:
+      REDIS_PASSWORD: testpass123
+    command: redis-server --requirepass testpass123
+    volumes:
+      - redis_test_data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - bev_test
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "testpass123", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  neo4j:
+    image: neo4j:5.11
+    container_name: bev_neo4j_test
+    environment:
+      NEO4J_AUTH: neo4j/testpass123
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_apoc_export_file_enabled: "true"
+      NEO4J_apoc_import_file_enabled: "true"
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+    networks:
+      - bev_test
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "testpass123", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

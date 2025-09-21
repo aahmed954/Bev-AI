@@ -27,8 +27,8 @@ services:
   # Decentralized Market Crawler with Tor
   dm-crawler:
     build:
-      context: ./phase7/dm-crawler
-      dockerfile: Dockerfile
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.dm_crawler
     container_name: bev_dm_crawler
     restart: always
     depends_on:
@@ -51,7 +51,7 @@ services:
       USER_AGENTS_CONFIG: /app/config/user_agents.json
     volumes:
       - dm_crawler_data:/app/data
-      - ./phase7/dm-crawler/config:/app/config:ro
+      - ./src/alternative_market/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8001:8000"
@@ -73,8 +73,8 @@ services:
   # Cryptocurrency Transaction Analyzer
   crypto-intel:
     build:
-      context: ./phase7/crypto-intel
-      dockerfile: Dockerfile
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.crypto_analyzer
     container_name: bev_crypto_intel
     restart: always
     depends_on:
@@ -95,7 +95,7 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - crypto_intel_data:/app/data
-      - ./phase7/crypto-intel/config:/app/config:ro
+      - ./src/alternative_market/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8002:8000"
@@ -117,8 +117,8 @@ services:
   # Vendor Reputation Analyzer
   reputation-analyzer:
     build:
-      context: ./phase7/reputation-analyzer
-      dockerfile: Dockerfile
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.reputation_analyzer
     container_name: bev_reputation_analyzer
     restart: always
     depends_on:
@@ -141,7 +141,7 @@ services:
     volumes:
       - reputation_data:/app/data
       - ml_models:/app/models
-      - ./phase7/reputation-analyzer/config:/app/config:ro
+      - ./src/alternative_market/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8003:8000"
@@ -163,8 +163,8 @@ services:
   # Market Economics and Prediction Processor
   economics-processor:
     build:
-      context: ./phase7/economics-processor
-      dockerfile: Dockerfile
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.economics_processor
     container_name: bev_economics_processor
     restart: always
     depends_on:
@@ -188,7 +188,7 @@ services:
     volumes:
       - economics_data:/app/data
       - ml_models:/app/models
-      - ./phase7/economics-processor/config:/app/config:ro
+      - ./src/alternative_market/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8004:8000"

@@ -129,8 +129,8 @@ services:
       NEO4J_server_memory_pagecache__size: 2G
       NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
       NEO4J_dbms_security_procedures_allowlist: apoc.*,gds.*
-      NEO4J_apoc_export_file_enabled: true
-      NEO4J_apoc_import_file_enabled: true
+      NEO4J_apoc_export_file_enabled: "true"
+      NEO4J_apoc_import_file_enabled: "true"
       NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
       NEO4J_dbms_connector_bolt_listen__address: 0.0.0.0:7687
       NEO4J_dbms_connector_http_listen__address: 0.0.0.0:7474
@@ -477,8 +477,8 @@ services:
       DOCKER_INFLUXDB_INIT_BUCKET: metrics
       DOCKER_INFLUXDB_INIT_RETENTION: 30d
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
-      INFLUXDB_DATA_QUERY_LOG_ENABLED: false
-      INFLUXDB_HTTP_LOG_ENABLED: false
+      INFLUXDB_DATA_QUERY_LOG_ENABLED: "false"
+      INFLUXDB_HTTP_LOG_ENABLED: "false"
     volumes:
       - influxdb_data:/var/lib/influxdb2
       - ./influxdb/config:/etc/influxdb2
@@ -723,8 +723,8 @@ services:
   # Decentralized Market Crawler with Tor
   dm-crawler:
     build:
-      context: ./phase7/dm-crawler
-      dockerfile: Dockerfile
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.dm_crawler
     container_name: bev_dm_crawler
     restart: always
     depends_on:
@@ -747,7 +747,7 @@ services:
       USER_AGENTS_CONFIG: /app/config/user_agents.json
     volumes:
       - dm_crawler_data:/app/data
-      - ./phase7/dm-crawler/config:/app/config:ro
+      - ./src/alternative_market/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8001:8000"
@@ -817,7 +817,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -825,7 +825,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -893,8 +893,8 @@ services:
   # Cryptocurrency Transaction Analyzer
   crypto-intel:
     build:
-      context: ./phase7/crypto-intel
-      dockerfile: Dockerfile
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.crypto_analyzer
     container_name: bev_crypto_intel
     restart: always
     depends_on:
@@ -915,7 +915,7 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - crypto_intel_data:/app/data
-      - ./phase7/crypto-intel/config:/app/config:ro
+      - ./src/alternative_market/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8002:8000"
@@ -985,7 +985,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -993,7 +993,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -1061,8 +1061,8 @@ services:
   # Vendor Reputation Analyzer
   reputation-analyzer:
     build:
-      context: ./phase7/reputation-analyzer
-      dockerfile: Dockerfile
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.reputation_analyzer
     container_name: bev_reputation_analyzer
     restart: always
     depends_on:
@@ -1085,7 +1085,7 @@ services:
     volumes:
       - reputation_data:/app/data
       - ml_models:/app/models
-      - ./phase7/reputation-analyzer/config:/app/config:ro
+      - ./src/alternative_market/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8003:8000"
@@ -1155,7 +1155,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -1163,7 +1163,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -1231,8 +1231,8 @@ services:
   # Market Economics and Prediction Processor
   economics-processor:
     build:
-      context: ./phase7/economics-processor
-      dockerfile: Dockerfile
+      context: ./src/alternative_market
+      dockerfile: Dockerfile.economics_processor
     container_name: bev_economics_processor
     restart: always
     depends_on:
@@ -1256,7 +1256,7 @@ services:
     volumes:
       - economics_data:/app/data
       - ml_models:/app/models
-      - ./phase7/economics-processor/config:/app/config:ro
+      - ./src/alternative_market/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8004:8000"
@@ -1331,7 +1331,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -1339,7 +1339,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -1411,8 +1411,8 @@ services:
   # Tactical Intelligence Processor
   tactical-intel:
     build:
-      context: ./phase8/tactical-intel
-      dockerfile: Dockerfile
+      context: ./src/security
+      dockerfile: Dockerfile.tactical_intelligence
     container_name: bev_tactical_intel
     restart: always
     depends_on:
@@ -1434,7 +1434,7 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - tactical_intel_data:/app/data
-      - ./phase8/tactical-intel/config:/app/config:ro
+      - ./src/security/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8005:8000"
@@ -1504,7 +1504,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -1512,7 +1512,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -1580,8 +1580,8 @@ services:
   # Automated Threat Response
   defense-automation:
     build:
-      context: ./phase8/defense-automation
-      dockerfile: Dockerfile
+      context: ./src/security
+      dockerfile: Dockerfile.defense_automation
     container_name: bev_defense_automation
     restart: always
     depends_on:
@@ -1601,7 +1601,7 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - defense_automation_data:/app/data
-      - ./phase8/defense-automation/config:/app/config:ro
+      - ./src/security/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8006:8000"
@@ -1671,7 +1671,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -1679,7 +1679,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -1747,8 +1747,8 @@ services:
   # Operational Security Enforcement
   opsec-enforcer:
     build:
-      context: ./phase8/opsec-enforcer
-      dockerfile: Dockerfile
+      context: ./src/security
+      dockerfile: Dockerfile.opsec_enforcer
     container_name: bev_opsec_enforcer
     restart: always
     depends_on:
@@ -1764,13 +1764,13 @@ services:
       OPSEC_RULES_CONFIG: /app/config/opsec_rules.json
       PRIVACY_LEVEL: HIGH
       VPN_ROTATION_INTERVAL: 1800
-      METADATA_STRIPPING: true
+      METADATA_STRIPPING: "true"
       TRAFFIC_ANALYSIS_THRESHOLD: 0.9
       OPERATIONAL_COMPARTMENTS: ${OPERATIONAL_COMPARTMENTS}
       LOG_LEVEL: INFO
     volumes:
       - opsec_data:/app/data
-      - ./phase8/opsec-enforcer/config:/app/config:ro
+      - ./src/security/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8007:8000"
@@ -1840,7 +1840,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -1848,7 +1848,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -1916,8 +1916,8 @@ services:
   # Multi-Source Intelligence Correlation
   intel-fusion:
     build:
-      context: ./phase8/intel-fusion
-      dockerfile: Dockerfile
+      context: ./src/security
+      dockerfile: Dockerfile.intel_fusion
     container_name: bev_intel_fusion
     restart: always
     depends_on:
@@ -1943,7 +1943,7 @@ services:
     volumes:
       - intel_fusion_data:/app/data
       - ml_models:/app/models
-      - ./phase8/intel-fusion/config:/app/config:ro
+      - ./src/security/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8008:8000"
@@ -2018,7 +2018,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -2026,7 +2026,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -2098,8 +2098,8 @@ services:
   # Autonomous Operations Coordinator
   autonomous-coordinator:
     build:
-      context: ./phase9/autonomous-coordinator
-      dockerfile: Dockerfile
+      context: ./src/autonomous
+      dockerfile: Dockerfile.enhanced_autonomous_controller
     container_name: bev_autonomous_coordinator
     restart: always
     depends_on:
@@ -2124,7 +2124,7 @@ services:
     volumes:
       - autonomous_data:/app/data
       - ml_models:/app/models
-      - ./phase9/autonomous-coordinator/config:/app/config:ro
+      - ./src/autonomous/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8009:8000"
@@ -2199,7 +2199,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -2207,7 +2207,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -2329,19 +2329,19 @@ services:
       MONITORING_METRICS_INTERVAL: 60
       MONITORING_LOG_LEVEL: INFO
       MONITORING_PROMETHEUS_PORT: 9044
-      MONITORING_DETAILED_LOGGING: true
+      MONITORING_DETAILED_LOGGING: "true"
 
       # Feature flags
-      FEATURE_ML_PREDICTION_V2: false
-      FEATURE_ADAPTIVE_WARMING: true
-      FEATURE_COLLABORATIVE_FILTERING: false
-      FEATURE_REAL_TIME_OPTIMIZATION: true
-      FEATURE_ADVANCED_ANALYTICS: true
+      FEATURE_ML_PREDICTION_V2: "false"
+      FEATURE_ADAPTIVE_WARMING: "true"
+      FEATURE_COLLABORATIVE_FILTERING: "false"
+      FEATURE_REAL_TIME_OPTIMIZATION: "true"
+      FEATURE_ADVANCED_ANALYTICS: "true"
 
       # Security
-      SECURITY_RATE_LIMITING: true
+      SECURITY_RATE_LIMITING: "true"
       SECURITY_REQUESTS_PER_MINUTE: 1000
-      SECURITY_ENCRYPTION_IN_TRANSIT: true
+      SECURITY_ENCRYPTION_IN_TRANSIT: "true"
 
     volumes:
       # Application code and configuration
@@ -2399,8 +2399,8 @@ services:
   # Adaptive Learning System
   adaptive-learning:
     build:
-      context: ./phase9/adaptive-learning
-      dockerfile: Dockerfile
+      context: ./src/autonomous
+      dockerfile: Dockerfile.adaptive_learning
     container_name: bev_adaptive_learning
     restart: always
     depends_on:
@@ -2417,14 +2417,14 @@ services:
       MODEL_UPDATE_INTERVAL: 3600
       LEARNING_ALGORITHMS: reinforcement,supervised,unsupervised
       TRAINING_DATA_RETENTION: 30
-      MODEL_VERSIONING: true
-      AUTO_HYPERPARAMETER_TUNING: true
+      MODEL_VERSIONING: "true"
+      AUTO_HYPERPARAMETER_TUNING: "true"
       PERFORMANCE_THRESHOLD: 0.85
       LOG_LEVEL: INFO
     volumes:
       - adaptive_learning_data:/app/data
       - ml_models:/app/models
-      - ./phase9/adaptive-learning/config:/app/config:ro
+      - ./src/autonomous/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8010:8000"
@@ -2499,7 +2499,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -2507,7 +2507,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -2575,8 +2575,8 @@ services:
   # Dynamic Resource Manager
   resource-manager:
     build:
-      context: ./phase9/resource-manager
-      dockerfile: Dockerfile
+      context: ./src/autonomous
+      dockerfile: Dockerfile.resource_optimizer
     container_name: bev_resource_manager
     restart: always
     depends_on:
@@ -2597,11 +2597,11 @@ services:
       MEMORY_THRESHOLD: 0.85
       DISK_THRESHOLD: 0.9
       SCALING_POLICY: /app/config/scaling_policy.json
-      COST_OPTIMIZATION: true
+      COST_OPTIMIZATION: "true"
       LOG_LEVEL: INFO
     volumes:
       - resource_manager_data:/app/data
-      - ./phase9/resource-manager/config:/app/config:ro
+      - ./src/autonomous/config:/app/config:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - logs:/app/logs
     ports:
@@ -2672,7 +2672,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -2680,7 +2680,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -2748,8 +2748,8 @@ services:
   # Knowledge Evolution System
   knowledge-evolution:
     build:
-      context: ./phase9/knowledge-evolution
-      dockerfile: Dockerfile
+      context: ./src/autonomous
+      dockerfile: Dockerfile.knowledge_evolution
     container_name: bev_knowledge_evolution
     restart: always
     depends_on:
@@ -2767,14 +2767,14 @@ services:
       KNOWLEDGE_GRAPH_MODEL: /app/models/knowledge_graph.pkl
       EVOLUTION_ALGORITHMS: genetic,neural,gradient
       KNOWLEDGE_PRUNING_THRESHOLD: 0.3
-      CONCEPT_DRIFT_DETECTION: true
+      CONCEPT_DRIFT_DETECTION: "true"
       ONTOLOGY_UPDATE_INTERVAL: 86400
       SEMANTIC_SIMILARITY_THRESHOLD: 0.7
       LOG_LEVEL: INFO
     volumes:
       - knowledge_evolution_data:/app/data
       - ml_models:/app/models
-      - ./phase9/knowledge-evolution/config:/app/config:ro
+      - ./src/autonomous/config:/app/config:ro
       - logs:/app/logs
     ports:
       - "8012:8000"
@@ -2849,7 +2849,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -2857,7 +2857,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -2931,12 +2931,12 @@ services:
       QDRANT__SERVICE__HOST: 0.0.0.0
       QDRANT__SERVICE__HTTP_PORT: 6333
       QDRANT__SERVICE__GRPC_PORT: 6334
-      QDRANT__CLUSTER__ENABLED: true
+      QDRANT__CLUSTER__ENABLED: "true"
       QDRANT__CLUSTER__NODE_ID: 1
       QDRANT__CLUSTER__P2P__PORT: 6335
       QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS: 4
-      QDRANT__STORAGE__QUANTIZATION__ALWAYS_RAM: true
-      QDRANT__SERVICE__ENABLE_CORS: true
+      QDRANT__STORAGE__QUANTIZATION__ALWAYS_RAM: "true"
+      QDRANT__SERVICE__ENABLE_CORS: "true"
       QDRANT__LOG_LEVEL: INFO
     volumes:
       - qdrant_data:/qdrant/storage
@@ -2973,13 +2973,13 @@ services:
       QDRANT__SERVICE__HOST: 0.0.0.0
       QDRANT__SERVICE__HTTP_PORT: 6333
       QDRANT__SERVICE__GRPC_PORT: 6334
-      QDRANT__CLUSTER__ENABLED: true
+      QDRANT__CLUSTER__ENABLED: "true"
       QDRANT__CLUSTER__NODE_ID: 2
       QDRANT__CLUSTER__P2P__PORT: 6335
       QDRANT__CLUSTER__BOOTSTRAP: qdrant-primary:6335
       QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS: 4
-      QDRANT__STORAGE__QUANTIZATION__ALWAYS_RAM: true
-      QDRANT__SERVICE__ENABLE_CORS: true
+      QDRANT__STORAGE__QUANTIZATION__ALWAYS_RAM: "true"
+      QDRANT__SERVICE__ENABLE_CORS: "true"
       QDRANT__LOG_LEVEL: INFO
     volumes:
       - qdrant_data:/qdrant/storage
@@ -3114,10 +3114,10 @@ services:
 
       # Load balancing
       DEFAULT_STRATEGY: least_connections
-      ENABLE_LATENCY_OPTIMIZATION: true
+      ENABLE_LATENCY_OPTIMIZATION: "true"
 
       # Security and compliance
-      ENABLE_PII_REDACTION: true
+      ENABLE_PII_REDACTION: "true"
       COMPLIANCE_MODE: strict
 
       # Performance tuning
@@ -3130,7 +3130,7 @@ services:
       PROVIDER_API_KEYS: ${PROVIDER_API_KEYS}
 
       # Monitoring
-      METRICS_ENABLED: true
+      METRICS_ENABLED: "true"
       PROMETHEUS_PORT: 9090
 
       LOG_LEVEL: INFO
@@ -3190,7 +3190,7 @@ services:
       WORKER_COUNT: 50
       REQUEST_TIMEOUT: 30.0
       RETRY_ATTEMPTS: 3
-      ENABLE_CACHING: true
+      ENABLE_CACHING: "true"
       CACHE_TTL: 300
 
       # Connection pool settings
@@ -3198,7 +3198,7 @@ services:
       MAX_CONNECTIONS_PER_HOST: 50
       CONNECTION_TIMEOUT: 30.0
       IDLE_TIMEOUT: 300
-      ENABLE_PROXY_ROTATION: true
+      ENABLE_PROXY_ROTATION: "true"
 
       # Rate limiting configuration
       GLOBAL_LIMIT: 1000
@@ -3210,7 +3210,7 @@ services:
 
       # Queue management
       MAX_QUEUE_SIZE: 10000
-      ENABLE_BACKPRESSURE: true
+      ENABLE_BACKPRESSURE: "true"
       BACKPRESSURE_THRESHOLD: 1000
       BACKPRESSURE_STRATEGY: drop_low_priority
 
@@ -3219,7 +3219,7 @@ services:
       CIRCUIT_BREAKER_TIMEOUT: 60
 
       # Performance monitoring
-      METRICS_ENABLED: true
+      METRICS_ENABLED: "true"
       PROMETHEUS_PORT: 9092
       LOG_LEVEL: INFO
 
@@ -3322,7 +3322,7 @@ services:
       # Health monitoring
       HEALTH_CHECK_INTERVAL: 30.0
       HEALTH_CHECK_TIMEOUT: 10.0
-      STATE_PERSISTENCE_ENABLED: true
+      STATE_PERSISTENCE_ENABLED: "true"
 
       # Resource thresholds
       CPU_HIGH_THRESHOLD: 80.0
@@ -3330,7 +3330,7 @@ services:
       DISK_HIGH_THRESHOLD: 90.0
 
       # Kubernetes support (if available)
-      KUBERNETES_ENABLED: false
+      KUBERNETES_ENABLED: "false"
       KUBERNETES_NAMESPACE: bev-osint
 
     volumes:
@@ -3622,8 +3622,8 @@ services:
 
       # Monitoring
       LOG_LEVEL: INFO
-      METRICS_ENABLED: true
-      HEALTH_CHECK_ENABLED: true
+      METRICS_ENABLED: "true"
+      HEALTH_CHECK_ENABLED: "true"
 
     volumes:
       # Application code and configuration
@@ -3773,7 +3773,7 @@ services:
       REDIS_URL: redis://redis:6379/12
 
       # Safety configuration
-      PRODUCTION_MODE: false
+      PRODUCTION_MODE: "false"
       MAX_CONCURRENT_EXPERIMENTS: 3
       EMERGENCY_STOP_THRESHOLD: 0.8
 

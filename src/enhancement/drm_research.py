@@ -66,7 +66,7 @@ class DRMAnalyzer:
         
         # Extract license server
         license_patterns = [
-            b'https://.*\.widevine\.com/.*',
+            rb'https://.*\.widevine\.com/.*',
             b'https://.*license.*',
             b'X-AxDRM-Message'
         ]
@@ -202,7 +202,7 @@ class DRMAnalyzer:
                 analysis['steam_api_calls'].append(func.decode())
         
         # Try to find App ID
-        app_id_pattern = b'steam_appid\.txt'
+        app_id_pattern = rb'steam_appid\.txt'
         if app_id_pattern in content:
             analysis['app_id'] = 'Found in steam_appid.txt'
         
@@ -795,10 +795,8 @@ if __name__ == "__main__":
     
     # Analyze DRM
     # results = analyzer.comprehensive_analysis("protected_file.bin")
-    # print(json.dumps(results, indent=2))
     
     # Extract keys
     # keys = extractor.extract_from_binary("protected.exe")
-    # print(f"Found {len(keys)} potential keys")
     
     print("DRM Research Framework loaded - Educational purposes only!")

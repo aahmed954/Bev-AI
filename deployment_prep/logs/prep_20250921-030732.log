@@ -1,0 +1,95 @@
+[2025-09-21 03:07:32] [INFO] Initializing pre-deployment preparation environment
+[2025-09-21 03:07:32] [INFO] Preparation environment initialized
+[2025-09-21 03:07:32] [INFO] Working directory: /home/starlord/Projects/Bev/deployment_prep/prep_work_jnBsvR
+[2025-09-21 03:07:32] [INFO] Log file: /home/starlord/Projects/Bev/deployment_prep/logs/prep_20250921-030732.log
+[2025-09-21 03:07:32] [INFO] Starting pre-deployment preparation and validation
+[2025-09-21 03:07:32] [INFO] Auto-fix mode: false
+[2025-09-21 03:07:32] [INFO] Force mode: true
+[2025-09-21 03:07:32] [INFO] Loading validation modules
+[2025-09-21 03:07:32] [DEBUG] Loaded validation module: 01_infrastructure_readiness.sh
+[2025-09-21 03:07:32] [DEBUG] Loaded validation module: 02_conflict_detection.sh
+[2025-09-21 03:07:32] [DEBUG] Loaded validation module: 03_configuration_validation.sh
+[2025-09-21 03:07:32] [DEBUG] Loaded validation module: 04_dependency_validation.sh
+[2025-09-21 03:07:32] [DEBUG] Loaded validation module: 05_resource_allocation.sh
+[2025-09-21 03:07:32] [DEBUG] Loaded conflict resolution module: auto_container_resolution.sh
+[2025-09-21 03:07:32] [DEBUG] Loaded conflict resolution module: auto_port_resolution.sh
+[2025-09-21 03:07:32] [DEBUG] Loaded backup system
+[2025-09-21 03:07:32] [INFO] Creating comprehensive system backup
+[2025-09-21 03:07:32] [INFO] Creating backup directory structure: /var/lib/bev/backups/pre-deployment-20250921-030732
+[2025-09-21 03:07:32] [SUCCESS] Backup manifest created
+[2025-09-21 03:07:32] [INFO] Backing up Docker state
+[2025-09-21 03:07:32] [SUCCESS] Docker state backed up
+[2025-09-21 03:07:32] [INFO] Backing up configuration files
+[2025-09-21 03:07:32] [SUCCESS] Backed up config: docker-compose.complete.yml
+[2025-09-21 03:07:32] [SUCCESS] Configuration files backed up
+[2025-09-21 03:07:32] [INFO] Backing up database configurations and data
+[2025-09-21 03:07:32] [INFO] Creating PostgreSQL backup
+[2025-09-21 03:07:32] [SUCCESS] PostgreSQL backup completed
+[2025-09-21 03:07:32] [INFO] Neo4j not running - skipping database backup
+[2025-09-21 03:07:32] [INFO] Redis not running - skipping database backup
+[2025-09-21 03:07:32] [INFO] Backing up system state
+[2025-09-21 03:07:32] [SUCCESS] System state backed up
+[2025-09-21 03:07:32] [INFO] Creating rollback script
+[2025-09-21 03:07:32] [SUCCESS] Rollback script created: /var/lib/bev/backups/pre-deployment-20250921-030732/rollback.sh
+[2025-09-21 03:07:32] [INFO] Validating backup integrity
+[2025-09-21 03:07:32] [SUCCESS] Backup size: 1 MB
+[2025-09-21 03:07:32] [SUCCESS] Backup validation completed
+[2025-09-21 03:07:32] [SUCCESS] System backup created successfully: /var/lib/bev/backups/pre-deployment-20250921-030732
+[2025-09-21 03:07:32] [SUCCESS] System backup created successfully
+[2025-09-21 03:07:32] [GATE] Starting validation gate sequence (5 gates)
+[2025-09-21 03:07:32] [GATE] Starting Gate 1 - Infrastructure Readiness
+[2025-09-21 03:07:32] [INFO] Validating infrastructure readiness
+[2025-09-21 03:07:32] [INFO] Validating node connectivity
+[2025-09-21 03:07:32] [SUCCESS] Tailscale VPN is active
+[2025-09-21 03:07:32] [INFO] Validating hardware requirements
+[2025-09-21 03:07:32] [SUCCESS] Memory: 60GB (required: 16GB)
+[2025-09-21 03:07:32] [ERROR] Insufficient disk space: 95GB (required: 500GB)
+[2025-09-21 03:07:32] [SUCCESS] CPU cores: 32 (recommended: 4+)
+[2025-09-21 03:07:32] [INFO] Validating software requirements
+[2025-09-21 03:07:32] [SUCCESS] Docker version: 28.4.0 (required: 20.10+)
+[2025-09-21 03:07:32] [SUCCESS] Docker daemon is running
+[2025-09-21 03:07:33] [ERROR] Docker Compose version too old: 1.29.2 (required: 2.0+)
+[2025-09-21 03:07:33] [SUCCESS] Git is available
+[2025-09-21 03:07:33] [INFO] Validating network connectivity
+[2025-09-21 03:07:33] [SUCCESS] Internet connectivity available
+[2025-09-21 03:07:33] [SUCCESS] DNS resolution working
+[2025-09-21 03:07:33] [SUCCESS] Docker Hub is accessible
+[2025-09-21 03:07:33] [INFO] Validating GPU requirements
+[2025-09-21 03:07:33] [SUCCESS] NVIDIA GPU detected: NVIDIA GeForce RTX 4090, 24564
+[2025-09-21 03:07:33] [SUCCESS] CUDA version: 12.2
+[2025-09-21 03:07:34] [ERROR] Docker GPU support not working
+[2025-09-21 03:07:34] [ERROR] Gate 1 - Infrastructure Readiness - FAILED
+[2025-09-21 03:07:34] [WARN] Continuing with --force mode despite validation failure
+[2025-09-21 03:07:34] [GATE] Starting Gate 2 - Service Conflict Detection
+[2025-09-21 03:07:34] [INFO] Detecting service conflicts
+[2025-09-21 03:07:34] [INFO] Checking port availability
+[2025-09-21 03:07:34] [INFO] Checking container name conflicts
+[2025-09-21 03:07:34] [INFO] Checking volume conflicts
+[2025-09-21 03:07:34] [SUCCESS] No conflicting volumes found
+[2025-09-21 03:07:34] [INFO] Checking Docker network conflicts
+[2025-09-21 03:07:34] [SUCCESS] No conflicting networks found
+[2025-09-21 03:07:34] [INFO] Checking system process conflicts
+[2025-09-21 03:07:34] [WARN] PostgreSQL process running (PID: 1578717
+1578718
+1578719
+1578721
+1578722
+1578723)
+[2025-09-21 03:07:34] [WARN] Manual intervention required: stop PostgreSQL before deployment
+[2025-09-21 03:07:34] [SUCCESS] No conflicting Redis process found
+[2025-09-21 03:07:34] [SUCCESS] No conflicting Neo4j process found
+[2025-09-21 03:07:34] [SUCCESS] No conflicting Elasticsearch process found
+[2025-09-21 03:07:34] [SUCCESS] No conflicting Grafana process found
+[2025-09-21 03:07:34] [SUCCESS] No conflicting Prometheus process found
+[2025-09-21 03:07:34] [ERROR] Gate 2 - Service Conflict Detection - FAILED
+[2025-09-21 03:07:34] [WARN] Continuing with --force mode despite validation failure
+[2025-09-21 03:07:34] [GATE] Starting Gate 3 - Configuration Validation
+[2025-09-21 03:07:34] [INFO] Validating configuration and credentials
+[2025-09-21 03:07:34] [INFO] Validating environment variables
+[2025-09-21 03:07:34] [SUCCESS] .env file loaded
+[2025-09-21 03:07:34] [INFO] Checking required environment variables
+[2025-09-21 03:07:34] [SUCCESS] POSTGRES_PASSWORD is set
+[2025-09-21 03:07:34] [SUCCESS] NEO4J_PASSWORD is set
+[2025-09-21 03:07:34] [SUCCESS] REDIS_PASSWORD is set
+[2025-09-21 03:07:34] [ERROR] Pre-deployment preparation failed with exit code 1
+[2025-09-21 03:07:34] [INFO] System backup available for rollback: /var/lib/bev/backups/pre-deployment-20250921-030732

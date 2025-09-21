@@ -14,6 +14,6 @@ export default defineConfig({
         sourcemap: false
     },
     optimizeDeps: {
-        include: ['cytoscape', 'echarts', 'dompurify', '@modelcontextprotocol/sdk']
+        include: ['cytoscape', 'echarts', 'dompurify']
     }
 });

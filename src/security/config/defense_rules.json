@@ -1,0 +1,23 @@
+{
+  "defense_rules": [
+    {
+      "rule_id": "block_malicious_ips",
+      "condition": "threat_score > 0.8",
+      "action": "block_ip",
+      "duration": 3600,
+      "enabled": true
+    },
+    {
+      "rule_id": "rate_limit_suspicious",
+      "condition": "request_rate > 100",
+      "action": "rate_limit",
+      "parameters": {
+        "requests_per_minute": 10,
+        "duration": 300
+      },
+      "enabled": true
+    }
+  ],
+  "default_action": "log",
+  "escalation_threshold": 0.9
+}

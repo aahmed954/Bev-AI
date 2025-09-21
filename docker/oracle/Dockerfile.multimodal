@@ -1,0 +1,130 @@
+# ARM64-optimized Multimodal Processor Service
+FROM python:3.11-slim-bookworm
+
+# Platform and service labels
+LABEL platform="linux/arm64"
+LABEL service="multimodal-processor"
+LABEL maintainer="BEV OSINT Team"
+
+# ARM64 optimizations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV SERVICE_NAME="multimodal_processor"
+
+# Install ARM64-optimized system packages for multimodal processing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libffi-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    curl \
+    git \
+    ffmpeg \
+    libmagic1 \
+    file \
+    imagemagick \
+    libopencv-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libsndfile1 \
+    libportaudio2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with ARM64 optimization for multimodal processing
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+        requests \
+        redis \
+        aiohttp \
+        asyncio \
+        pydantic \
+        httpx \
+        numpy \
+        pandas \
+        scipy \
+        scikit-learn \
+        pillow \
+        opencv-python-headless \
+        scikit-image \
+        matplotlib \
+        seaborn \
+        nltk \
+        spacy \
+        transformers \
+        torch \
+        torchvision \
+        torchaudio \
+        sentence-transformers \
+        clip-by-openai \
+        whisper \
+        speech-recognition \
+        audio-processing \
+        video-analysis \
+        minio \
+        multimodal-ai
+
+# Copy source code
+COPY src/advanced/ ./advanced/
+COPY src/infrastructure/ ./infrastructure/
+
+# Create main multimodal processor entry point
+RUN echo '#!/usr/bin/env python3\n\
+import asyncio\n\
+import os\n\
+import sys\n\
+sys.path.append("/app")\n\
+from advanced.multimodal_processor import MultimodalProcessor\n\
+\n\
+async def main():\n\
+    # Get configuration from environment\n\
+    redis_host = os.environ.get("REDIS_HOST", "redis-arm")\n\
+    processor_id = os.environ.get("PROCESSOR_ID", "multimodal_1")\n\
+    minio_endpoint = os.environ.get("MINIO_ENDPOINT", "minio1:9000")\n\
+    litellm_endpoint = os.environ.get("LITELLM_ENDPOINT", "http://request-multiplexer:8080")\n\
+    \n\
+    # Create multimodal processor\n\
+    processor = MultimodalProcessor(\n\
+        redis_host=redis_host,\n\
+        processor_id=processor_id,\n\
+        minio_endpoint=minio_endpoint,\n\
+        litellm_endpoint=litellm_endpoint\n\
+    )\n\
+    \n\
+    print(f"Starting Multimodal Processor {processor_id}...")\n\
+    print(f"Connected to LiteLLM: {litellm_endpoint}")\n\
+    \n\
+    await processor.start_multimodal_processing()\n\
+\n\
+if __name__ == "__main__":\n\
+    asyncio.run(main())\n\
+' > /app/main.py && chmod +x /app/main.py
+
+# Download NLP models for multimodal processing
+RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('wordnet')" && \
+    python -c "import spacy; spacy.cli.download('en_core_web_sm')"
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Expose service port
+EXPOSE 8013
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8013/health || exit 1
+
+# Run multimodal processor
+CMD ["python", "main.py"]

@@ -87,3 +87,24 @@
     background-color: theme('colors.dark.border.default');
   }
 </style>
+
+<script lang="ts">
+  import { nodeConfiguration, getCurrentEnvironment } from '$lib/config/distributed';
+  import { onMount } from 'svelte';
+
+  onMount(() => {
+    // Inject distributed configuration into global scope
+    if (typeof window !== 'undefined') {
+      (window as any).__BEV_CONFIG__ = {
+        environment: getCurrentEnvironment(),
+        nodeConfiguration,
+        currentNode: window.location.hostname,
+        serviceHosts: Object.fromEntries(
+          Object.entries(nodeConfiguration).flatMap(([nodeName, config]) =>
+            config.services.map(service => [service, config.host])
+          )
+        )
+      };
+    }
+  });
+</script>

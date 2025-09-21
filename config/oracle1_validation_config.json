@@ -1,0 +1,172 @@
+{
+  "thresholds": {
+    "min_success_rate": 85.0,
+    "max_critical_issues": 0,
+    "max_failed_tests": 3,
+    "min_security_score": 75.0,
+    "max_response_time_ms": 1000,
+    "max_cpu_usage_percent": 80,
+    "max_memory_usage_mb": 2048,
+    "min_throughput_rps": 100
+  },
+  "deployment_levels": {
+    "production_ready": {
+      "min_score": 95,
+      "max_critical": 0,
+      "max_failed": 1,
+      "description": "Ready for production deployment on ARM cloud server"
+    },
+    "staging_ready": {
+      "min_score": 85,
+      "max_critical": 0,
+      "max_failed": 3,
+      "description": "Ready for staging environment testing"
+    },
+    "development_ready": {
+      "min_score": 75,
+      "max_critical": 1,
+      "max_failed": 8,
+      "description": "Ready for development environment deployment"
+    }
+  },
+  "quick_mode": {
+    "enabled": false,
+    "skip_phases": ["performance_benchmarks"],
+    "reduced_timeouts": true,
+    "timeout_multiplier": 0.5,
+    "description": "Quick validation mode for rapid testing"
+  },
+  "parallel_execution": {
+    "enabled": true,
+    "max_workers": 3,
+    "independent_phases": ["arm64_compatibility", "security_compliance"],
+    "dependent_phases": ["service_integration", "performance_benchmarks"],
+    "description": "Parallel execution configuration for faster validation"
+  },
+  "auto_fix": {
+    "enabled": false,
+    "safe_fixes_only": true,
+    "backup_before_fix": true,
+    "fixes": {
+      "file_permissions": true,
+      "package_installation": true,
+      "configuration_syntax": true,
+      "service_restart": false,
+      "network_configuration": false
+    },
+    "description": "Automatic fix configuration for common issues"
+  },
+  "arm64_compatibility": {
+    "base_images": [
+      "python:3.11-slim-bookworm",
+      "redis:7-alpine",
+      "nginx:alpine",
+      "influxdb:2.7-alpine",
+      "telegraf:1.28-alpine",
+      "prom/node-exporter:latest",
+      "prom/prometheus:latest",
+      "grafana/grafana:latest",
+      "prom/alertmanager:latest",
+      "hashicorp/vault:latest",
+      "minio/minio:latest",
+      "n8nio/n8n:latest",
+      "ghcr.io/berriai/litellm:main-latest"
+    ],
+    "critical_packages": [
+      "build-essential",
+      "curl",
+      "git",
+      "libopenblas-dev",
+      "liblapack-dev",
+      "pkg-config",
+      "python3-dev",
+      "libffi-dev",
+      "libssl-dev"
+    ],
+    "max_build_time_seconds": 300,
+    "max_image_size_mb": 2048
+  },
+  "performance_benchmarks": {
+    "concurrent_requests": 50,
+    "request_timeout_seconds": 5,
+    "min_success_rate_percent": 95,
+    "redis_operations_count": 100,
+    "storage_test_file_size_mb": 1,
+    "storage_test_iterations": 10,
+    "min_write_throughput_mbps": 20,
+    "min_read_throughput_mbps": 50
+  },
+  "service_integration": {
+    "startup_timeout_seconds": 120,
+    "health_check_timeout_seconds": 10,
+    "inter_service_timeout_seconds": 15,
+    "external_connectivity_timeout_seconds": 20,
+    "core_services": ["redis-arm", "nginx", "n8n"],
+    "monitoring_services": ["prometheus", "grafana", "alertmanager", "vault"],
+    "storage_services": ["minio1", "minio2", "minio3", "influxdb-primary", "influxdb-replica"]
+  },
+  "security_compliance": {
+    "required_vault_vars": ["VAULT_URL", "VAULT_TOKEN", "SECRETS_BACKEND"],
+    "vault_health_timeout_seconds": 10,
+    "weak_passwords": ["admin", "password", "123456", "admin123", "root"],
+    "high_risk_ports": ["22", "3389", "21", "23", "25", "53", "135", "139", "445"],
+    "min_security_score": 70.0,
+    "max_critical_security_issues": 0,
+    "required_auth_services": ["n8n", "grafana", "vault", "minio1"]
+  },
+  "network_configuration": {
+    "thanos_host": "100.122.12.54",
+    "thanos_ports": [5432, 7687, 6379, 9092, 8000],
+    "external_dns_hosts": ["8.8.8.8", "1.1.1.1"],
+    "required_networks": ["bev_oracle", "external_thanos"],
+    "connectivity_timeout_seconds": 5
+  },
+  "output_configuration": {
+    "save_detailed_logs": true,
+    "save_json_results": true,
+    "create_html_report": false,
+    "compress_old_results": true,
+    "max_result_files": 20,
+    "log_level": "INFO"
+  },
+  "notification": {
+    "enabled": false,
+    "email": {
+      "enabled": false,
+      "smtp_host": "",
+      "smtp_port": 587,
+      "username": "",
+      "password": "",
+      "to_addresses": [],
+      "subject_prefix": "[ORACLE1 Validation]"
+    },
+    "webhook": {
+      "enabled": false,
+      "url": "",
+      "headers": {},
+      "payload_template": {
+        "text": "ORACLE1 Validation completed with status: {status}",
+        "score": "{score}",
+        "deployment_ready": "{deployment_ready}"
+      }
+    }
+  },
+  "environment": {
+    "docker_compose_file": "docker-compose-oracle1-unified.yml",
+    "env_file": ".env.oracle1",
+    "project_root": "/home/starlord/Projects/Bev",
+    "output_directory": "validation_results",
+    "temp_directory": "/tmp/oracle1_validation",
+    "required_memory_gb": 24,
+    "required_disk_gb": 500,
+    "target_server": "100.96.197.84",
+    "architecture": "arm64"
+  },
+  "meta": {
+    "config_version": "1.0.0",
+    "created_date": "2024-09-21",
+    "description": "ORACLE1 ARM64 deployment validation configuration",
+    "author": "BEV OSINT Framework",
+    "last_updated": "2024-09-21"
+  }
+}

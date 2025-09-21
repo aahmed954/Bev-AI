@@ -26,11 +26,11 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-shell": "^2.0.0",
     "chart.js": "^4.5.0",
     "chartjs-adapter-date-fns": "^3.0.0",
+    "clsx": "^2.1.1",
     "cytoscape": "^3.28.0",
     "cytoscape-fcose": "^2.2.0",
     "date-fns": "^4.1.0",
@@ -41,6 +41,7 @@
     "marked": "^16.3.0",
     "socket.io-client": "^4.8.1",
     "socks-proxy-agent": "^8.0.0",
+    "tailwind-merge": "^3.3.1",
     "uuid": "^13.0.0",
     "ws": "^8.18.3"
   }

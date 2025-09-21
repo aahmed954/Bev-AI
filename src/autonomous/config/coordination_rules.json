@@ -1,0 +1,33 @@
+{
+  "coordination_rules": [
+    {
+      "rule_id": "resource_allocation",
+      "description": "Allocate resources based on priority",
+      "enabled": true,
+      "parameters": {
+        "cpu_threshold": 0.8,
+        "memory_threshold": 0.85,
+        "priority_weights": {
+          "high": 0.7,
+          "medium": 0.2,
+          "low": 0.1
+        }
+      }
+    },
+    {
+      "rule_id": "autonomous_scaling",
+      "description": "Auto-scale services based on load",
+      "enabled": true,
+      "parameters": {
+        "scale_up_threshold": 0.8,
+        "scale_down_threshold": 0.3,
+        "cooldown_period": 300
+      }
+    }
+  ],
+  "autonomous_level": 3,
+  "safety_constraints": {
+    "max_concurrent_operations": 50,
+    "operation_timeout": 3600
+  }
+}
